@@ -11,10 +11,15 @@ import SwiftData
 final class DependencyContainer {
     let taskRepository: TaskRepository
     let preferencesRepository: PreferencesRepository
+    let categoryRepository: CategoryRepository
 
     init(container: ModelContainer) {
         let context = ModelContext(container)
+
         self.taskRepository = SwiftDataTaskRepository(context: context)
         self.preferencesRepository = SwiftDataPreferencesRepository(context: context)
+        self.categoryRepository = SwiftDataCategoryRepository(context: context)
+
+        try? self.categoryRepository.ensureSystemCategories()
     }
 }

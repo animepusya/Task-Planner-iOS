@@ -192,7 +192,7 @@ final class TaskEditorViewModel: ObservableObject {
             repeatRule = existing.repeatRule
             repeatIntervalDays = existing.repeatIntervalDays ?? 2
             color = existing.color
-            categoryTitle = existing.categoryTitle ?? "Work"
+            categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
 
             // normalize even for old/broken data
             let clamped = time.clampEndDayDateIfNeeded(

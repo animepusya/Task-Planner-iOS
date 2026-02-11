@@ -19,7 +19,10 @@ struct TaskEditorView: View {
     @State private var showAlert = false
 
     private var availableCategoryTitles: [String] {
-        let list = categories.map { $0.title }
+        let list = categories
+            .filter { $0.id != CategorySystem.uncategorizedId }
+            .map { $0.title }
+
         return list.isEmpty ? fallbackCategories : list
     }
 

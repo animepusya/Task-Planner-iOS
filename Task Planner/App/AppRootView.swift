@@ -58,7 +58,8 @@ struct AppRootView: View {
                 SettingsView(
                     viewModel: SettingsViewModel(
                         preferencesRepository: container.preferencesRepository,
-                        taskRepository: container.taskRepository
+                        taskRepository: container.taskRepository,
+                        categoryRepository: container.categoryRepository
                     )
                 )
             }

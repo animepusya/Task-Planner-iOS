@@ -8,9 +8,6 @@
 import Foundation
 
 struct TaskEditorTimeCoordinator {
-    let calendar: Calendar
-    private let minDurationMinutes: Int = 15
-
     struct Result {
         var dayDate: Date
         var endDayDate: Date
@@ -19,17 +16,73 @@ struct TaskEditorTimeCoordinator {
         var message: String?
     }
 
-    func startOfDay(_ date: Date) -> Date { calendar.startOfDay(for: date) }
+    struct DurationResult {
+        let startTime: Date
+        let endTime: Date
+        let endDayDate: Date
+    }
 
-    // MARK: - Core helpers
+    private let calendar: Calendar
+    private let minDurationMinutes: Int = 15
 
+    init(calendar: Calendar) {
+        self.calendar = calendar
+    }
+
+    // MARK: - Basics
+
+    func startOfDay(_ date: Date) -> Date {
+        calendar.startOfDay(for: date)
+    }
+
+    /// Комбинируем day (startOfDay) + hour/minute из time
     func combine(day: Date, time: Date) -> Date {
         let dayStart = calendar.startOfDay(for: day)
         let comps = calendar.dateComponents([.hour, .minute], from: time)
-        return calendar.date(bySettingHour: comps.hour ?? 0, minute: comps.minute ?? 0, second: 0, of: dayStart) ?? dayStart
+        let hour = comps.hour ?? 0
+        let minute = comps.minute ?? 0
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
     }
 
-    // MARK: - Rules
+    // MARK: - Alignment
+
+    /// dayDate изменился: переносим startTime на новый dayDate, а endDayDate сохраняем оффсет дней
+    func syncTimesToSelectedDay(
+        newStartDay: Date,
+        startTime: Date,
+        endDayDate: Date,
+        endTime: Date
+    ) -> Result {
+        let newStart = calendar.startOfDay(for: newStartDay)
+
+        let oldStartDay = calendar.startOfDay(for: startTime)
+        let oldEndDay = calendar.startOfDay(for: endDayDate)
+        let offset = calendar.dateComponents([.day], from: oldStartDay, to: oldEndDay).day ?? 0
+        let safeOffset = max(0, offset)
+
+        let newEndDay = calendar.date(byAdding: .day, value: safeOffset, to: newStart) ?? newStart
+
+        let alignedStartTime = combine(day: newStart, time: startTime)
+        let alignedEndTime = combine(day: newEndDay, time: endTime)
+
+        return Result(
+            dayDate: newStart,
+            endDayDate: calendar.startOfDay(for: newEndDay),
+            startTime: alignedStartTime,
+            endTime: alignedEndTime,
+            message: nil
+        )
+    }
+
+    func alignStartTimeToSelectedDay(dayDate: Date, startTime: Date) -> Date {
+        combine(day: calendar.startOfDay(for: dayDate), time: startTime)
+    }
+
+    func alignEndTimeToEndDay(endDayDate: Date, endTime: Date) -> Date {
+        combine(day: calendar.startOfDay(for: endDayDate), time: endTime)
+    }
+
+    // MARK: - Hard rule: endDayDate >= dayDate
 
     func clampEndDayDateIfNeeded(
         dayDate: Date,
@@ -37,136 +90,117 @@ struct TaskEditorTimeCoordinator {
         startTime: Date,
         endTime: Date
     ) -> Result {
-        let startDay = startOfDay(dayDate)
-        let endDay = startOfDay(endDayDate)
-
-        let alignedStart = combine(day: startDay, time: startTime)
-        let alignedEnd = combine(day: endDay, time: endTime)
+        let startDay = calendar.startOfDay(for: dayDate)
+        let endDay = calendar.startOfDay(for: endDayDate)
 
         guard endDay < startDay else {
             return Result(
                 dayDate: startDay,
                 endDayDate: endDay,
-                startTime: alignedStart,
-                endTime: alignedEnd,
+                startTime: combine(day: startDay, time: startTime),
+                endTime: combine(day: endDay, time: endTime),
                 message: nil
             )
         }
 
-        // возвращаем endDayDate на startDay
+        // если endDay пытались поставить раньше startDay → возвращаем на startDay
         let fixedEndDay = startDay
-        let fixedEnd = combine(day: fixedEndDay, time: endTime)
-
         return Result(
             dayDate: startDay,
             endDayDate: fixedEndDay,
-            startTime: alignedStart, // ✅ НЕ dayDate, а startTime
-            endTime: fixedEnd,
+            startTime: combine(day: startDay, time: startTime),
+            endTime: combine(day: fixedEndDay, time: endTime),
             message: "End date can’t be earlier than start date."
         )
     }
 
-    /// При смене start day переносим startTime и endDayDate с сохранением смещения по дням.
-    func syncTimesToSelectedDay(newStartDay: Date, startTime: Date, endDayDate: Date, endTime: Date) -> Result {
-        let newStart = startOfDay(newStartDay)
+    // MARK: - Validation (next day rule)
 
-        let oldStartDay = startOfDay(startTime)
-        let oldEndDay = startOfDay(endDayDate)
-        let offsetDays = calendar.dateComponents([.day], from: oldStartDay, to: oldEndDay).day ?? 0
+    func validateAndFix(
+        dayDate: Date,
+        endDayDate: Date,
+        startTime: Date,
+        endTime: Date
+    ) -> Result {
+        let startDay = calendar.startOfDay(for: dayDate)
+        var endDay = calendar.startOfDay(for: endDayDate)
 
-        let newEndDay = calendar.date(byAdding: .day, value: max(0, offsetDays), to: newStart) ?? newStart
-
-        let alignedStart = combine(day: newStart, time: startTime)
-        let alignedEnd = combine(day: startOfDay(newEndDay), time: endTime)
-
-        return Result(
-            dayDate: newStart,
-            endDayDate: startOfDay(newEndDay),
-            startTime: alignedStart,
-            endTime: alignedEnd,
-            message: nil
-        )
-    }
-
-    func alignStartTimeToSelectedDay(dayDate: Date, startTime: Date) -> Date {
-        combine(day: startOfDay(dayDate), time: startTime)
-    }
-
-    func alignEndTimeToEndDay(endDayDate: Date, endTime: Date) -> Date {
-        combine(day: startOfDay(endDayDate), time: endTime)
-    }
-
-    // MARK: - Validation
-
-    func validateAndFix(dayDate: Date, endDayDate: Date, startTime: Date, endTime: Date) -> Result {
-        let startDay = startOfDay(dayDate)
-        let endDay = startOfDay(endDayDate)
-
-        let start = combine(day: startDay, time: startTime)
+        var start = combine(day: startDay, time: startTime)
         var end = combine(day: endDay, time: endTime)
 
-        // if same day and end < start => next day
+        // жёстко: endDay не может быть раньше startDay
+        if endDay < startDay {
+            endDay = startDay
+            end = combine(day: endDay, time: endTime)
+            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "End date can’t be earlier than start date.")
+        }
+
+        // правило "в тот же день end < start" → это следующий день
         if calendar.isDate(endDay, inSameDayAs: startDay), end < start {
             let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
-            let fixedEndDay = startOfDay(nextDay)
-            end = combine(day: fixedEndDay, time: endTime)
-
-            return Result(
-                dayDate: startDay,
-                endDayDate: fixedEndDay,
-                startTime: start,
-                endTime: end,
-                message: "Ends next day."
-            )
+            endDay = calendar.startOfDay(for: nextDay)
+            end = combine(day: endDay, time: endTime)
+            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "Ends next day.")
         }
 
-        // if same day and end == start => +min duration
+        // если end == start в тот же день → добавим минимум
         if calendar.isDate(endDay, inSameDayAs: startDay), end == start {
             end = calendar.date(byAdding: .minute, value: minDurationMinutes, to: start) ?? start
-            return Result(
-                dayDate: startDay,
-                endDayDate: startOfDay(end),
-                startTime: start,
-                endTime: end,
-                message: "Added \(minDurationMinutes) minutes."
-            )
+            endDay = calendar.startOfDay(for: end)
+            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "Added \(minDurationMinutes) minutes.")
         }
 
-        return Result(
-            dayDate: startDay,
-            endDayDate: endDay,
-            startTime: start,
-            endTime: end,
-            message: nil
-        )
+        return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: nil)
     }
 
     // MARK: - Duration
 
-    func applyDuration(minutes: Int, dayDate: Date, startTime: Date) -> (startTime: Date, endDayDate: Date, endTime: Date) {
-        let startDay = startOfDay(dayDate)
+    func applyDuration(minutes: Int, dayDate: Date, startTime: Date) -> DurationResult {
+        let startDay = calendar.startOfDay(for: dayDate)
+
+        // ✅ Ключевой момент: старт = день + выбранное время, НЕ startOfDay
         let start = combine(day: startDay, time: startTime)
         let end = calendar.date(byAdding: .minute, value: max(minDurationMinutes, minutes), to: start) ?? start
-        return (start, startOfDay(end), end)
+
+        return DurationResult(
+            startTime: start,
+            endTime: end,
+            endDayDate: calendar.startOfDay(for: end)
+        )
     }
 
     // MARK: - Save normalization
 
-    func normalizeForSave(dayDate: Date, endDayDate: Date, startTime: Date, endTime: Date) -> (start: Date, end: Date) {
-        let startDay = startOfDay(dayDate)
-        let endDay = startOfDay(endDayDate)
+    func normalizeForSave(
+        dayDate: Date,
+        endDayDate: Date,
+        startTime: Date,
+        endTime: Date
+    ) -> (start: Date, end: Date) {
+        let startDay = calendar.startOfDay(for: dayDate)
+        let endDay = calendar.startOfDay(for: endDayDate)
+
         let start = combine(day: startDay, time: startTime)
         let end = combine(day: endDay, time: endTime)
         return (start, end)
     }
 
-    func ensureNextDayIfSameDayEndBeforeOrEqualStart(dayDate: Date, start: Date, endDayDate: Date, end: Date) -> (start: Date, end: Date) {
-        let startDay = startOfDay(dayDate)
+    func ensureNextDayIfSameDayEndBeforeOrEqualStart(
+        dayDate: Date,
+        start: Date,
+        endDayDate: Date,
+        end: Date
+    ) -> (start: Date, end: Date) {
+        let startDay = calendar.startOfDay(for: dayDate)
+        let endDay = calendar.startOfDay(for: endDayDate)
 
-        if calendar.isDate(startDay, inSameDayAs: startOfDay(endDayDate)), end <= start {
-            let bumped = calendar.date(byAdding: .day, value: 1, to: end) ?? end
-            return (start, bumped)
+        // только это правило: если в тот же день end <= start → переносим на следующий день
+        if calendar.isDate(endDay, inSameDayAs: startDay), end <= start {
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
+            let fixedEnd = combine(day: nextDay, time: end)
+            return (start, fixedEnd)
         }
         return (start, end)
     }
 }
+

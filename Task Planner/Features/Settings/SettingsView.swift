@@ -25,6 +25,7 @@ struct SettingsView: View {
 
                 VStack(spacing: DS.Spacing.md) {
                     preferencesCard
+                    categoriesCard
                     dataCard
                 }
                 .padding(.horizontal, DS.Spacing.md)
@@ -34,9 +35,7 @@ struct SettingsView: View {
             .background(DS.ColorToken.appBackground)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        dismiss()
-                    } label: {
+                    Button { dismiss() } label: {
                         Image(systemName: "xmark")
                             .padding(10)
                             .background(.ultraThinMaterial, in: Circle())
@@ -49,11 +48,9 @@ struct SettingsView: View {
 
     private var preferencesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Preferences")
-                .font(.headline)
+            Text("Preferences").font(.headline)
             HStack {
-                Text("Week starts on Monday")
-                    .foregroundStyle(.secondary)
+                Text("Week starts on Monday").foregroundStyle(.secondary)
                 Spacer()
                 Toggle("", isOn: Binding(
                     get: { viewModel.weekStartsOnMonday },
@@ -67,10 +64,51 @@ struct SettingsView: View {
         .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
 
+    private var categoriesCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Categories").font(.headline)
+
+            HStack(spacing: 10) {
+                TextField("Add category…", text: $viewModel.newCategoryTitle)
+                    .textInputAutocapitalization(.words)
+                    .disableAutocorrection(true)
+
+                Button("Add") { viewModel.addCategory() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.purple)
+                    .disabled(viewModel.newCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            VStack(spacing: 8) {
+                ForEach(viewModel.categories) { category in
+                    HStack {
+                        Text(category.title)
+                            .foregroundStyle(.primary)
+                        Spacer()
+
+                        if viewModel.isDeletable(category) {
+                            Button(role: .destructive) {
+                                viewModel.deleteCategory(category)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                        } else {
+                            Image(systemName: "lock.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+        }
+        .padding()
+        .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+    }
+
     private var dataCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Data")
-                .font(.headline)
+            Text("Data").font(.headline)
             Button(role: .destructive) {
                 viewModel.clearAllTasks()
             } label: {

@@ -54,7 +54,7 @@ struct TaskCardView: View {
         if let notes = task.notes, !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return notes
         }
-        return task.categoryTitle ?? "Work"
+        return task.categoryTitle ?? CategorySystem.uncategorizedTitle
     }
 
     private var timeRangeText: String {
