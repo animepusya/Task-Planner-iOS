@@ -22,7 +22,7 @@ extension RepeatRule {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
         case .monthly: return "Monthly"
-        case .everyNDays: return "Every N days"
+        case .everyNDays: return "Select manually"
         }
     }
 }

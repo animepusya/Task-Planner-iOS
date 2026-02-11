@@ -14,16 +14,23 @@ final class TaskEditorViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let taskId: PersistentIdentifier?
 
+    private let time: TaskEditorTimeCoordinator
+    private let category: TaskEditorCategoryCoordinator
+
     // UI State
     @Published var isBusy: Bool = false
     @Published var alertTitle: String?
     @Published var alertMessage: String?
+
+    @Published var timeValidationMessage: String?
 
     // Form fields
     @Published var title: String = ""
     @Published var notes: String = ""
 
     @Published var dayDate: Date
+    @Published var endDayDate: Date
+
     @Published var startTime: Date
     @Published var endTime: Date
 
@@ -31,9 +38,7 @@ final class TaskEditorViewModel: ObservableObject {
     @Published var repeatIntervalDays: Int = 2
 
     @Published var color: TaskColor = .purple
-    @Published var categoryTitle: String = ""
-
-    private let calendar = Calendar.current
+    @Published var categoryTitle: String = "Work"
 
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
@@ -42,18 +47,123 @@ final class TaskEditorViewModel: ObservableObject {
         self.taskRepository = taskRepository
         self.taskId = taskId
 
-        let day = calendar.startOfDay(for: preselectedDay)
-        self.dayDate = day
+        self.time = TaskEditorTimeCoordinator(calendar: .current)
+        self.category = TaskEditorCategoryCoordinator()
 
-        // дефолтные времена — на выбранный день, без секунд
-        self.startTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
-        self.endTime = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day) ?? day
+        let startDay = Calendar.current.startOfDay(for: preselectedDay)
+        self.dayDate = startDay
+        self.endDayDate = startDay
+
+        self.startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: startDay) ?? startDay
+        self.endTime = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: startDay) ?? startDay
 
         if taskId != nil {
             Task { [weak self] in
                 await self?.loadExistingTask()
             }
+        } else {
+            // normalize at create
+            let result = time.validateAndFix(
+                dayDate: dayDate,
+                endDayDate: endDayDate,
+                startTime: startTime,
+                endTime: endTime
+            )
+            apply(result)
         }
+    }
+
+    // MARK: - View Hooks
+
+    func onAppear(availableCategories: [String]) {
+        ensureCategoryIsValid(available: availableCategories)
+
+        let synced = time.syncTimesToSelectedDay(
+            newStartDay: dayDate,
+            startTime: startTime,
+            endDayDate: endDayDate,
+            endTime: endTime
+        )
+        apply(synced)
+
+        let validated = time.validateAndFix(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(validated)
+    }
+
+    func onStartDayChanged() {
+        let synced = time.syncTimesToSelectedDay(
+            newStartDay: dayDate,
+            startTime: startTime,
+            endDayDate: endDayDate,
+            endTime: endTime
+        )
+        apply(synced)
+
+        let validated = time.validateAndFix(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(validated)
+    }
+
+    func onStartTimeChanged() {
+        startTime = time.alignStartTimeToSelectedDay(dayDate: dayDate, startTime: startTime)
+
+        let validated = time.validateAndFix(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(validated)
+    }
+
+    func onEndDayChanged(triggerFeedback: Bool) {
+        let clamped = time.clampEndDayDateIfNeeded(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(clamped)
+
+        endTime = time.alignEndTimeToEndDay(endDayDate: endDayDate, endTime: endTime)
+
+        let validated = time.validateAndFix(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(validated)
+    }
+
+    func onEndTimeChanged() {
+        endTime = time.alignEndTimeToEndDay(endDayDate: endDayDate, endTime: endTime)
+
+        let validated = time.validateAndFix(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(validated)
+    }
+
+    // MARK: - Category
+
+    func ensureCategoryIsValid(available: [String]) {
+        categoryTitle = category.ensureCategoryIsValid(
+            current: categoryTitle,
+            available: available
+        )
     }
 
     // MARK: - Loading
@@ -67,42 +177,89 @@ final class TaskEditorViewModel: ObservableObject {
         do {
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 alertTitle = "Task not found"
-                alertMessage = "This task no longer exists. You can close this screen or create a new task."
+                alertMessage = "This task no longer exists."
                 return
             }
 
             title = existing.title
             notes = existing.notes ?? ""
 
-            dayDate = calendar.startOfDay(for: existing.dayDate)
+            dayDate = time.startOfDay(existing.dayDate)
             startTime = existing.startTime
             endTime = existing.endTime
-            
+            endDayDate = time.startOfDay(existing.endTime)
+
             repeatRule = existing.repeatRule
-            repeatIntervalDays = existing.repeatIntervalDays ?? 2 // ✅ NEW
-
+            repeatIntervalDays = existing.repeatIntervalDays ?? 2
             color = existing.color
-            categoryTitle = existing.categoryTitle ?? ""
+            categoryTitle = existing.categoryTitle ?? "Work"
 
-            syncTimesToSelectedDay()
-            
+            // normalize even for old/broken data
+            let clamped = time.clampEndDayDateIfNeeded(
+                dayDate: dayDate,
+                endDayDate: endDayDate,
+                startTime: startTime,
+                endTime: endTime
+            )
+            apply(clamped)
+
+            let synced = time.syncTimesToSelectedDay(
+                newStartDay: dayDate,
+                startTime: startTime,
+                endDayDate: endDayDate,
+                endTime: endTime
+            )
+            apply(synced)
+
+            let validated = time.validateAndFix(
+                dayDate: dayDate,
+                endDayDate: endDayDate,
+                startTime: startTime,
+                endTime: endTime
+            )
+            apply(validated)
+
         } catch {
             alertTitle = "Failed to load"
             alertMessage = error.localizedDescription
         }
     }
 
-    // ✅ Если пользователь меняет дату — переносим время на новый день, сохраняя часы/минуты
-    func syncTimesToSelectedDay() {
-        let day = calendar.startOfDay(for: dayDate)
-        startTime = combine(day: day, time: startTime)
-        endTime = combine(day: day, time: endTime)
+    // MARK: - Time UX
+
+    func applyDuration(minutes: Int) {
+        let result = time.applyDuration(
+            minutes: minutes,
+            dayDate: dayDate,
+            startTime: startTime
+        )
+        // applyDuration возвращает endDayDate/endTime вычисленные от start
+        endDayDate = result.endDayDate
+        endTime = result.endTime
+        startTime = result.startTime
+        timeValidationMessage = nil
+
+        let clamped = time.clampEndDayDateIfNeeded(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(clamped)
+
     }
 
     // MARK: - Save
 
     func save() throws {
-        let day = calendar.startOfDay(for: dayDate)
+        // final normalize before save
+        let clamped = time.clampEndDayDateIfNeeded(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+        apply(clamped)
 
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
@@ -111,11 +268,22 @@ final class TaskEditorViewModel: ObservableObject {
         let normalizedNotes: String? = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         let trimmedCategory = categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedCategory: String? = trimmedCategory.isEmpty ? nil : trimmedCategory
+        let normalizedCategory = trimmedCategory.isEmpty ? "Work" : trimmedCategory
 
-        var start = combine(day: day, time: startTime)
-        var end = combine(day: day, time: endTime)
-        if end < start { end = start }
+        let normalizedTimes = time.normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+
+        // keep only this rule: if same-day and end <= start -> next day
+        let finalTimes = time.ensureNextDayIfSameDayEndBeforeOrEqualStart(
+            dayDate: dayDate,
+            start: normalizedTimes.start,
+            endDayDate: endDayDate,
+            end: normalizedTimes.end
+        )
 
         let intervalOrNil: Int? = (repeatRule == .everyNDays) ? max(1, repeatIntervalDays) : nil
 
@@ -126,9 +294,9 @@ final class TaskEditorViewModel: ObservableObject {
 
             existing.title = safeTitle
             existing.notes = normalizedNotes
-            existing.dayDate = day
-            existing.startTime = start
-            existing.endTime = end
+            existing.dayDate = time.startOfDay(dayDate)
+            existing.startTime = finalTimes.start
+            existing.endTime = finalTimes.end
 
             existing.repeatRule = repeatRule
             existing.repeatIntervalDays = intervalOrNil
@@ -142,38 +310,33 @@ final class TaskEditorViewModel: ObservableObject {
             let new = TaskEntity(
                 title: safeTitle,
                 notes: normalizedNotes,
-                dayDate: day,
-                startTime: start,
-                endTime: end,
+                dayDate: time.startOfDay(dayDate),
+                startTime: finalTimes.start,
+                endTime: finalTimes.end,
                 repeatRule: repeatRule,
                 repeatIntervalDays: intervalOrNil,
                 status: .todo,
                 color: color,
                 categoryTitle: normalizedCategory
             )
-            new.normalizeRepeatFields() // ✅ NEW
+            new.normalizeRepeatFields()
             try taskRepository.add(new)
         }
     }
 
-    // MARK: - Helpers
+    // MARK: - Apply helper
 
-    private func combine(day: Date, time: Date) -> Date {
-        let dayStart = calendar.startOfDay(for: day)
-        let comps = calendar.dateComponents([.hour, .minute], from: time)
-        let hour = comps.hour ?? 0
-        let minute = comps.minute ?? 0
-        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
+    private func apply(_ result: TaskEditorTimeCoordinator.Result) {
+        // apply clamping/sync/validation atomically
+        dayDate = result.dayDate
+        endDayDate = result.endDayDate
+        startTime = result.startTime
+        endTime = result.endTime
+        timeValidationMessage = result.message
     }
 
     enum EditorError: LocalizedError {
         case taskNotFound
-
-        var errorDescription: String? {
-            switch self {
-            case .taskNotFound:
-                return "The task was not found. It may have been deleted."
-            }
-        }
+        var errorDescription: String? { "The task was not found. It may have been deleted." }
     }
 }

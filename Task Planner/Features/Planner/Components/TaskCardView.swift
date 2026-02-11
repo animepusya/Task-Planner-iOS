@@ -69,6 +69,12 @@ struct TaskCardView: View {
         case .red:    return Color(red: 1.00, green: 0.88, blue: 0.88)
         case .yellow: return Color(red: 1.00, green: 0.96, blue: 0.84)
         case .green:  return Color(red: 0.86, green: 0.97, blue: 0.90)
+        case .orange: return Color(red: 1.00, green: 0.92, blue: 0.84)
+        case .teal:   return Color(red: 0.84, green: 0.97, blue: 0.97)
+        case .indigo: return Color(red: 0.88, green: 0.90, blue: 1.00)
+        case .mint:   return Color(red: 0.86, green: 0.99, blue: 0.92)
+        case .brown:  return Color(red: 0.96, green: 0.92, blue: 0.88)
         }
     }
+
 }
