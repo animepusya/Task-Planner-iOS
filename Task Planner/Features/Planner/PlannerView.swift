@@ -56,7 +56,9 @@ struct PlannerView: View {
             } else {
                 Section {
                     ForEach(tasksForSelectedDay) { task in
-                        TaskCardView(task: task)
+                        let isCompleted = task.isCompleted(on: viewModel.selectedDay)
+                        
+                        TaskCardView(task: task, isCompleted: isCompleted)
                             .padding(.horizontal, DS.Spacing.lg)
                             .padding(.vertical, 6)
                             .listRowInsets(.init())
@@ -66,18 +68,19 @@ struct PlannerView: View {
                                 viewModel.openEditTask(id: task.persistentModelID)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                
                                 Button {
-                                    viewModel.toggleDone(taskId: task.persistentModelID)
+                                    viewModel.toggleDone(taskId: task.persistentModelID, on: viewModel.selectedDay)
                                 } label: {
                                     Label(
-                                        task.status == .done ? "Undo" : "Done",
-                                        systemImage: task.status == .done
-                                            ? "arrow.uturn.backward.circle"
-                                            : "checkmark.circle.fill"
+                                        isCompleted ? "Undo" : "Done",
+                                        systemImage: isCompleted
+                                        ? "arrow.uturn.backward.circle"
+                                        : "checkmark.circle.fill"
                                     )
                                 }
                                 .tint(DS.ColorToken.purple)
-
+                                
                                 Button(role: .destructive) {
                                     viewModel.delete(taskId: task.persistentModelID)
                                 } label: {
@@ -182,7 +185,3 @@ struct PlannerView: View {
         viewModel.tasksForDay(viewModel.selectedDay, from: tasks)
     }
 }
-
-
-
-

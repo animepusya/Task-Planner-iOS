@@ -10,35 +10,34 @@ import SwiftData
 
 struct TaskCardView: View {
     let task: TaskEntity
+    let isCompleted: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .fill(task.status == .done ? DS.ColorToken.purple : Color.clear)
-                .overlay(
-                    Circle()
-                        .strokeBorder(DS.ColorToken.textSecondary.opacity(0.25), lineWidth: 2)
-                )
-                .frame(width: 18, height: 18)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text(task.title)
                     .font(.system(size: 15, weight: .semibold, design: .rounded))
                     .foregroundColor(DS.ColorToken.textPrimary)
+                    .strikethrough(isCompleted, color: DS.ColorToken.textSecondary.opacity(0.8))
+                    .opacity(isCompleted ? 0.55 : 1.0)
 
                 Text(subtitleText)
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .lineLimit(1)
+                    .opacity(isCompleted ? 0.55 : 1.0)
 
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(DS.ColorToken.textSecondary)
+                        .opacity(isCompleted ? 0.55 : 1.0)
 
                     Text(timeRangeText)
                         .font(DS.Typography.caption)
                         .foregroundColor(DS.ColorToken.textSecondary)
+                        .opacity(isCompleted ? 0.55 : 1.0)
                 }
             }
 
@@ -48,6 +47,7 @@ struct TaskCardView: View {
         .background(taskBackgroundColor(for: task.color))
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
+        .opacity(isCompleted ? 0.70 : 1.0) // ✅ “completed” ощущается как приглушённое
     }
 
     private var subtitleText: String {

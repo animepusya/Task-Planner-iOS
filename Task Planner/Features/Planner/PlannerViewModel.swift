@@ -55,14 +55,14 @@ final class PlannerViewModel: ObservableObject {
 
     // MARK: - Swipe actions
 
-    func toggleDone(taskId: PersistentIdentifier) {
+    func toggleDone(taskId: PersistentIdentifier, on day: Date) {
         do {
             guard let task = try taskRepository.fetch(by: taskId) else {
                 assertionFailure("toggleDone: task not found")
                 return
             }
-
-            task.status = (task.status == .done) ? .todo : .done
+            // ✅ Per-day completion (visual-only). Status НЕ трогаем.
+            task.toggleCompleted(on: day)
             try taskRepository.save()
         } catch {
             assertionFailure("toggleDone failed: \(error)")
@@ -130,8 +130,12 @@ extension PlannerViewModel {
         return tasks
             .filter { occurs($0, on: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
             .sorted {
-                TaskSorting.timeSortKey($0.startTime) <
-                TaskSorting.timeSortKey($1.startTime)
+                let lhsCompleted = $0.isCompleted(on: dayKey)
+                let rhsCompleted = $1.isCompleted(on: dayKey)
+                if lhsCompleted != rhsCompleted { return !lhsCompleted } // incomplete first
+
+                return TaskSorting.timeSortKey($0.startTime) <
+                       TaskSorting.timeSortKey($1.startTime)
             }
     }
 
@@ -141,13 +145,16 @@ extension PlannerViewModel {
     func indicatorColors(for date: Date, tasks: [TaskEntity]) -> [TaskColor] {
         let dayKey = Calendar.current.startOfDay(for: date)
 
-        let occurring = tasks
-            .filter { occurs($0, on: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
+        let occurringAndIncomplete = tasks
+            .filter { task in
+                occurs(task, on: dayKey, weekStartsOnMonday: weekStartsOnMonday)
+                && !task.isCompleted(on: dayKey)
+            }
             .sorted {
                 TaskSorting.timeSortKey($0.startTime) <
                 TaskSorting.timeSortKey($1.startTime)
             }
 
-        return Array(occurring.prefix(3).map { $0.color })
+        return Array(occurringAndIncomplete.prefix(3).map { $0.color })
     }
 }
