@@ -93,49 +93,16 @@ extension PlannerViewModel {
         return cal
     }
 
-    func occurs(
-        _ task: TaskEntity,
-        on date: Date,
-        weekStartsOnMonday: Bool
-    ) -> Bool {
-        let cal = calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        let targetDay = cal.startOfDay(for: date)
-        let baseDay = cal.startOfDay(for: task.dayDate)
-
-        // никогда не показываем до даты создания
-        guard targetDay >= baseDay else { return false }
-
-        switch task.repeatRule {
-        case .none:
-            return cal.isDate(targetDay, inSameDayAs: baseDay)
-
-        case .daily:
-            return true
-
-        case .weekly:
-            // same weekday
-            return cal.component(.weekday, from: targetDay) == cal.component(.weekday, from: baseDay)
-
-        case .monthly:
-            // same day-of-month; если в месяце нет такого дня, такого date просто не будет,
-            // значит автоматом "пропуск"
-            return cal.component(.day, from: targetDay) == cal.component(.day, from: baseDay)
-        }
-    }
-
     func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [TaskEntity] {
         let dayKey = Calendar.current.startOfDay(for: date)
 
         return tasks
-            .filter { occurs($0, on: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
+            .filter { TaskOccurrence.occurs($0, on: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
             .sorted {
                 let lhsCompleted = $0.isCompleted(on: dayKey)
                 let rhsCompleted = $1.isCompleted(on: dayKey)
-                if lhsCompleted != rhsCompleted { return !lhsCompleted } // incomplete first
-
-                return TaskSorting.timeSortKey($0.startTime) <
-                       TaskSorting.timeSortKey($1.startTime)
+                if lhsCompleted != rhsCompleted { return !lhsCompleted }
+                return TaskSorting.timeSortKey($0.startTime) < TaskSorting.timeSortKey($1.startTime)
             }
     }
 
@@ -147,12 +114,11 @@ extension PlannerViewModel {
 
         let occurringAndIncomplete = tasks
             .filter { task in
-                occurs(task, on: dayKey, weekStartsOnMonday: weekStartsOnMonday)
+                TaskOccurrence.occurs(task, on: dayKey, weekStartsOnMonday: weekStartsOnMonday)
                 && !task.isCompleted(on: dayKey)
             }
             .sorted {
-                TaskSorting.timeSortKey($0.startTime) <
-                TaskSorting.timeSortKey($1.startTime)
+                TaskSorting.timeSortKey($0.startTime) < TaskSorting.timeSortKey($1.startTime)
             }
 
         return Array(occurringAndIncomplete.prefix(3).map { $0.color })

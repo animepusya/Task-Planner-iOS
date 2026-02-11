@@ -80,7 +80,14 @@ struct TaskEditorView: View {
                 Section("Repeat") {
                     Picker("Repeat", selection: $viewModel.repeatRule) {
                         ForEach(RepeatRule.allCases, id: \.self) { r in
-                            Text(r.rawValue).tag(r)
+                            Text(r.displayName).tag(r)   // ✅ человеко-читаемые названия
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    if viewModel.repeatRule == .everyNDays {
+                        Stepper(value: $viewModel.repeatIntervalDays, in: 1...365) {
+                            Text("Every \(viewModel.repeatIntervalDays) days")
                         }
                     }
                 }

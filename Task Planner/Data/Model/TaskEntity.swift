@@ -20,6 +20,7 @@ final class TaskEntity {
     var endTime: Date
 
     var repeatRuleRaw: String
+    var repeatIntervalDays: Int?
     var statusRaw: String
     var colorRaw: String
 
@@ -38,6 +39,7 @@ final class TaskEntity {
         startTime: Date,
         endTime: Date,
         repeatRule: RepeatRule = .none,
+        repeatIntervalDays: Int? = nil,
         status: TaskStatus = .todo,
         color: TaskColor = .purple,
         categoryTitle: String? = nil
@@ -48,6 +50,7 @@ final class TaskEntity {
         self.startTime = startTime
         self.endTime = endTime
         self.repeatRuleRaw = repeatRule.rawValue
+        self.repeatIntervalDays = repeatIntervalDays
         self.statusRaw = status.rawValue
         self.colorRaw = color.rawValue
         self.categoryTitle = categoryTitle
@@ -124,5 +127,14 @@ extension TaskEntity {
         var set = completedDayKeys
         if set.contains(key) { set.remove(key) } else { set.insert(key) }
         completedDayKeys = set
+    }
+    
+    func normalizeRepeatFields() {
+        if repeatRule != .everyNDays {
+            repeatIntervalDays = nil
+        } else {
+            let v = repeatIntervalDays ?? 1
+            repeatIntervalDays = max(1, v)
+        }
     }
 }

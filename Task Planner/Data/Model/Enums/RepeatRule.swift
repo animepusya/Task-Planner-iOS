@@ -12,4 +12,17 @@ enum RepeatRule: String, CaseIterable, Codable {
     case daily
     case weekly
     case monthly
+    case everyNDays
+}
+
+extension RepeatRule {
+    var displayName: String {
+        switch self {
+        case .none: return "None"
+        case .daily: return "Daily"
+        case .weekly: return "Weekly"
+        case .monthly: return "Monthly"
+        case .everyNDays: return "Every N days"
+        }
+    }
 }

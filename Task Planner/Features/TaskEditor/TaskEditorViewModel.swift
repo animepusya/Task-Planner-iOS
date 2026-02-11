@@ -27,7 +27,9 @@ final class TaskEditorViewModel: ObservableObject {
     @Published var startTime: Date
     @Published var endTime: Date
 
-    @Published var repeatRule: RepeatRule = .daily
+    @Published var repeatRule: RepeatRule = .none
+    @Published var repeatIntervalDays: Int = 2
+
     @Published var color: TaskColor = .purple
     @Published var categoryTitle: String = ""
 
@@ -47,7 +49,6 @@ final class TaskEditorViewModel: ObservableObject {
         self.startTime = calendar.date(bySettingHour: 9, minute: 0, second: 0, of: day) ?? day
         self.endTime = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: day) ?? day
 
-        // ✅ Ключевой фикс: если редактирование — загружаем сразу
         if taskId != nil {
             Task { [weak self] in
                 await self?.loadExistingTask()
@@ -70,18 +71,21 @@ final class TaskEditorViewModel: ObservableObject {
                 return
             }
 
-            // ✅ Заполняем поля
             title = existing.title
             notes = existing.notes ?? ""
+
             dayDate = calendar.startOfDay(for: existing.dayDate)
             startTime = existing.startTime
             endTime = existing.endTime
+            
             repeatRule = existing.repeatRule
+            repeatIntervalDays = existing.repeatIntervalDays ?? 2 // ✅ NEW
+
             color = existing.color
             categoryTitle = existing.categoryTitle ?? ""
 
-            // ✅ На всякий: синхронизируем время с dayDate (если вдруг start/end лежали на другом дне)
             syncTimesToSelectedDay()
+            
         } catch {
             alertTitle = "Failed to load"
             alertMessage = error.localizedDescription
@@ -100,46 +104,54 @@ final class TaskEditorViewModel: ObservableObject {
     func save() throws {
         let day = calendar.startOfDay(for: dayDate)
 
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
+
+        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedNotes: String? = trimmedNotes.isEmpty ? nil : trimmedNotes
+
+        let trimmedCategory = categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedCategory: String? = trimmedCategory.isEmpty ? nil : trimmedCategory
+
         var start = combine(day: day, time: startTime)
         var end = combine(day: day, time: endTime)
-
         if end < start { end = start }
 
-        let normalizedCategory: String? = categoryTitle
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-        ? nil
-        : categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let intervalOrNil: Int? = (repeatRule == .everyNDays) ? max(1, repeatIntervalDays) : nil
 
         if let taskId {
-            // ✅ строго редактирование
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 throw EditorError.taskNotFound
             }
 
-            existing.title = title.isEmpty ? "Untitled" : title
-            existing.notes = notes.isEmpty ? nil : notes
+            existing.title = safeTitle
+            existing.notes = normalizedNotes
             existing.dayDate = day
             existing.startTime = start
             existing.endTime = end
+
             existing.repeatRule = repeatRule
+            existing.repeatIntervalDays = intervalOrNil
+            existing.normalizeRepeatFields()
+
             existing.color = color
             existing.categoryTitle = normalizedCategory
 
             try taskRepository.save()
         } else {
-            // ✅ создание
             let new = TaskEntity(
-                title: title.isEmpty ? "Untitled" : title,
-                notes: notes.isEmpty ? nil : notes,
+                title: safeTitle,
+                notes: normalizedNotes,
                 dayDate: day,
                 startTime: start,
                 endTime: end,
                 repeatRule: repeatRule,
+                repeatIntervalDays: intervalOrNil,
                 status: .todo,
                 color: color,
                 categoryTitle: normalizedCategory
             )
+            new.normalizeRepeatFields() // ✅ NEW
             try taskRepository.add(new)
         }
     }
@@ -165,6 +177,3 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 }
-
-
-

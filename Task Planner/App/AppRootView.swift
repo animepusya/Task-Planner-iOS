@@ -34,6 +34,7 @@ struct AppRootView: View {
             StatisticsView(
                 viewModel: StatisticsViewModel(
                     taskRepository: container.taskRepository,
+                    preferencesRepository: container.preferencesRepository,
                     onOpenSettings: { sheet = .settings }
                 )
             )

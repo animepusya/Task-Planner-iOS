@@ -12,6 +12,7 @@ import Combine
 @MainActor
 final class StatisticsViewModel: ObservableObject {
     private let taskRepository: TaskRepository
+    private let preferencesRepository: PreferencesRepository
     private let onOpenSettings: () -> Void
 
     // Input
@@ -27,11 +28,27 @@ final class StatisticsViewModel: ObservableObject {
     @Published private(set) var displayedTitle: String = Calendar.current.startOfDay(for: .now).monthTitle()
     @Published private(set) var totalMinutes: Int = 0
     @Published private(set) var categoryStats: [CategoryStat] = []
+    @Published private(set) var weekStartsOnMonday: Bool = true
 
-    init(taskRepository: TaskRepository, onOpenSettings: @escaping () -> Void) {
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        onOpenSettings: @escaping () -> Void
+    ) {
         self.taskRepository = taskRepository
+        self.preferencesRepository = preferencesRepository
         self.onOpenSettings = onOpenSettings
+        loadPreferences()
         refresh()
+    }
+
+    private func loadPreferences() {
+        do {
+            let prefs = try preferencesRepository.getOrCreate()
+            weekStartsOnMonday = prefs.weekStartsOnMonday
+        } catch {
+            weekStartsOnMonday = true
+        }
     }
 
     func openSettings() { onOpenSettings() }
@@ -80,7 +97,7 @@ final class StatisticsViewModel: ObservableObject {
         do {
             let allTasks = try taskRepository.fetchAll()
 
-            let cal = Calendar.current
+            let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
             let (start, end) = dateRange(using: cal)
 
             // Важно: для повторяющихся задач dayDate может быть ДО start,
@@ -100,7 +117,7 @@ final class StatisticsViewModel: ObservableObject {
 
             // Итерируем дни в окне и начисляем длительность за каждое виртуальное появление
             for day in enumerateDays(from: start, to: end, calendar: cal) {
-                for task in candidates where occurs(task, on: day, calendar: cal) {
+                for task in candidates where TaskOccurrence.occurs(task, on: day, weekStartsOnMonday: weekStartsOnMonday) {
                     let minutes = durationMinutes(task: task)
                     guard minutes > 0 else { continue }
 
@@ -134,34 +151,6 @@ final class StatisticsViewModel: ObservableObject {
         let deltaSeconds = task.endTime.timeIntervalSince(task.startTime)
         let minutes = Int((deltaSeconds / 60.0).rounded()) // ✅ округляем до минуты
         return Swift.max(0, minutes)
-    }
-
-    // MARK: - Repeat logic (same semantics as Planner MVP)
-
-    private func occurs(_ task: TaskEntity, on day: Date, calendar: Calendar) -> Bool {
-        let targetDay = calendar.startOfDay(for: day)
-        let baseDay = calendar.startOfDay(for: task.dayDate)
-
-        // никогда не показываем (и не считаем) раньше даты создания/базы
-        guard targetDay >= baseDay else { return false }
-
-        switch task.repeatRule {
-        case .none:
-            return calendar.isDate(targetDay, inSameDayAs: baseDay)
-
-        case .daily:
-            return true
-
-        case .weekly:
-            let baseWeekday = calendar.component(.weekday, from: baseDay)
-            let targetWeekday = calendar.component(.weekday, from: targetDay)
-            return baseWeekday == targetWeekday
-
-        case .monthly:
-            let baseDayOfMonth = calendar.component(.day, from: baseDay)
-            let targetDayOfMonth = calendar.component(.day, from: targetDay)
-            return baseDayOfMonth == targetDayOfMonth
-        }
     }
 
     private func enumerateDays(from start: Date, to end: Date, calendar: Calendar) -> [Date] {
