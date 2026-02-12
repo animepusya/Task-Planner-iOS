@@ -11,6 +11,9 @@ struct TaskEditorRepeatSection: View {
     @Binding var repeatRule: RepeatRule
     @Binding var repeatIntervalDays: Int
 
+    let isInvalid: Bool
+    let validationMessage: String?
+
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Menu {
@@ -53,7 +56,19 @@ struct TaskEditorRepeatSection: View {
                         .foregroundStyle(DS.ColorToken.textPrimary)
                 }
             }
+
+            if let validationMessage, isInvalid {
+                Text(validationMessage)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(.red)
+            }
         }
         .dsCard()
+        .shadow(
+            color: isInvalid ? Color.red.opacity(0.25) : .clear,
+            radius: isInvalid ? 12 : 0,
+            x: 0,
+            y: 8
+        )
     }
 }

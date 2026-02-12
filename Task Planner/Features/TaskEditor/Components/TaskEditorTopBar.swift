@@ -12,6 +12,7 @@ struct TaskEditorTopBar: View {
     let isBusy: Bool
     let onBack: () -> Void
     let onSave: () -> Void
+    let canSave: Bool
 
     var body: some View {
         HStack {
@@ -50,7 +51,8 @@ struct TaskEditorTopBar: View {
                 .cornerRadius(DS.Radius.pill)
             }
             .buttonStyle(.plain)
-            .disabled(isBusy)
+            .disabled(!canSave)
+            .opacity(canSave ? 1.0 : 0.45)
         }
         .padding(.horizontal, DS.Spacing.lg)
         .padding(.vertical, 10)

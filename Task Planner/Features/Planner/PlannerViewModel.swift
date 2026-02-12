@@ -94,15 +94,19 @@ extension PlannerViewModel {
     }
 
     func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [TaskEntity] {
-        let dayKey = Calendar.current.startOfDay(for: date)
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayKey = cal.startOfDay(for: date)
 
         return tasks
-            .filter { TaskOccurrence.occurs($0, on: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
+            .filter { TaskDayOverlap.affectsDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
             .sorted {
                 let lhsCompleted = $0.isCompleted(on: dayKey)
                 let rhsCompleted = $1.isCompleted(on: dayKey)
                 if lhsCompleted != rhsCompleted { return !lhsCompleted }
-                return TaskSorting.timeSortKey($0.startTime) < TaskSorting.timeSortKey($1.startTime)
+
+                let lhsStart = TaskDayOverlap.effectiveStartOnDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $0.startTime
+                let rhsStart = TaskDayOverlap.effectiveStartOnDay(task: $1, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $1.startTime
+                return lhsStart < rhsStart
             }
     }
 
@@ -110,15 +114,18 @@ extension PlannerViewModel {
 
     /// Возвращает цвета (до 3) для самых ранних задач дня + overflow (сколько задач сверх 3)
     func indicatorColors(for date: Date, tasks: [TaskEntity]) -> [TaskColor] {
-        let dayKey = Calendar.current.startOfDay(for: date)
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayKey = cal.startOfDay(for: date)
 
         let occurringAndIncomplete = tasks
             .filter { task in
-                TaskOccurrence.occurs(task, on: dayKey, weekStartsOnMonday: weekStartsOnMonday)
+                TaskDayOverlap.affectsDay(task: task, day: dayKey, weekStartsOnMonday: weekStartsOnMonday)
                 && !task.isCompleted(on: dayKey)
             }
             .sorted {
-                TaskSorting.timeSortKey($0.startTime) < TaskSorting.timeSortKey($1.startTime)
+                let lhsStart = TaskDayOverlap.effectiveStartOnDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $0.startTime
+                let rhsStart = TaskDayOverlap.effectiveStartOnDay(task: $1, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $1.startTime
+                return lhsStart < rhsStart
             }
 
         return Array(occurringAndIncomplete.prefix(3).map { $0.color })

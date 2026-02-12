@@ -100,14 +100,13 @@ final class StatisticsViewModel: ObservableObject {
             let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
             let (start, end) = dateRange(using: cal)
 
-            // Важно: для повторяющихся задач dayDate может быть ДО start,
-            // поэтому фильтруем так:
-            // - none: только если dayDate ∈ [start; end]
-            // - repeating: если dayDate <= end (может "проецироваться" в окно)
             let candidates = allTasks.filter { task in
                 if task.repeatRule == .none {
-                    return task.dayDate >= start && task.dayDate <= end
+                    // single task can still overlap window even if dayDate is in range,
+                    // but we keep it simple: dayDate <= end and endTime >= start
+                    return task.dayDate <= end && task.endTime >= start
                 } else {
+                    // repeating tasks can project into window
                     return task.dayDate <= end
                 }
             }
@@ -115,10 +114,9 @@ final class StatisticsViewModel: ObservableObject {
             var perCategory: [String: (minutes: Int, colorRaw: String)] = [:]
             var total = 0
 
-            // Итерируем дни в окне и начисляем длительность за каждое виртуальное появление
             for day in enumerateDays(from: start, to: end, calendar: cal) {
-                for task in candidates where TaskOccurrence.occurs(task, on: day, weekStartsOnMonday: weekStartsOnMonday) {
-                    let minutes = durationMinutes(task: task)
+                for task in candidates {
+                    let minutes = TaskDayOverlap.minutesOnDay(task: task, day: day, weekStartsOnMonday: weekStartsOnMonday)
                     guard minutes > 0 else { continue }
 
                     let name = normalizedCategoryTitle(task.categoryTitle)

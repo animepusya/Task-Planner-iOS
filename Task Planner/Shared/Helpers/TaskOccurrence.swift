@@ -15,7 +15,17 @@ enum TaskOccurrence {
         return cal
     }
 
-    static func occurs(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {
+    /// Combines day (startOfDay) + hour/minute from `time`
+    static func combine(day: Date, time: Date, calendar: Calendar) -> Date {
+        let dayStart = calendar.startOfDay(for: day)
+        let comps = calendar.dateComponents([.hour, .minute], from: time)
+        let hour = comps.hour ?? 0
+        let minute = comps.minute ?? 0
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
+    }
+
+    /// ✅ Old behavior, but renamed: determines whether an occurrence STARTS on this day.
+    static func occursStartOn(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {
         let cal = calendar(weekStartsOnMonday: weekStartsOnMonday)
 
         let targetDay = cal.startOfDay(for: date)
@@ -41,5 +51,10 @@ enum TaskOccurrence {
             let days = cal.dateComponents([.day], from: baseDay, to: targetDay).day ?? 0
             return days % n == 0
         }
+    }
+
+    /// ✅ New: does the task affect the day at all (range-aware)
+    static func occurs(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {
+        TaskDayOverlap.affectsDay(task: task, day: date, weekStartsOnMonday: weekStartsOnMonday)
     }
 }

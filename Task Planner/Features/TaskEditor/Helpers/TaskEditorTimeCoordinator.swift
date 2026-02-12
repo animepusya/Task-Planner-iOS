@@ -204,3 +204,62 @@ struct TaskEditorTimeCoordinator {
     }
 }
 
+extension TaskEditorTimeCoordinator {
+
+    /// Returns next occurrence start (Date) from `startDay` based on repeat rule.
+    /// `startDay` must be startOfDay.
+    func nextOccurrenceStartDay(
+        from startDay: Date,
+        repeatRule: RepeatRule,
+        repeatIntervalDays: Int
+    ) -> Date? {
+        let s = calendar.startOfDay(for: startDay)
+
+        switch repeatRule {
+        case .none:
+            return nil
+        case .daily:
+            return calendar.date(byAdding: .day, value: 1, to: s)
+        case .weekly:
+            return calendar.date(byAdding: .day, value: 7, to: s)
+        case .monthly:
+            return calendar.date(byAdding: .month, value: 1, to: s)
+        case .everyNDays:
+            return calendar.date(byAdding: .day, value: max(1, repeatIntervalDays), to: s)
+        }
+    }
+
+    func isRepeatConflict(
+        dayDate: Date,
+        endDayDate: Date,
+        startTime: Date,
+        endTime: Date,
+        repeatRule: RepeatRule,
+        repeatIntervalDays: Int
+    ) -> Bool {
+        guard repeatRule != .none else { return false }
+
+        let normalized = normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+
+        let start = normalized.start
+        let end = normalized.end
+        let duration = end.timeIntervalSince(start)
+        guard duration > 0 else { return false }
+
+        let startDay = calendar.startOfDay(for: dayDate)
+        guard let nextStartDay = nextOccurrenceStartDay(from: startDay, repeatRule: repeatRule, repeatIntervalDays: repeatIntervalDays) else {
+            return false
+        }
+
+        // next occurrence start is at same time-of-day as startTime
+        let nextStart = combine(day: nextStartDay, time: startTime)
+
+        // conflict: current occurrence ends AFTER next occurrence should start
+        return end > nextStart
+    }
+}

@@ -24,6 +24,9 @@ final class TaskEditorViewModel: ObservableObject {
 
     @Published var timeValidationMessage: String?
 
+    @Published var repeatValidationMessage: String?
+    @Published var isRepeatInvalid: Bool = false
+
     // Form fields
     @Published var title: String = ""
     @Published var notes: String = ""
@@ -34,8 +37,12 @@ final class TaskEditorViewModel: ObservableObject {
     @Published var startTime: Date
     @Published var endTime: Date
 
-    @Published var repeatRule: RepeatRule = .none
-    @Published var repeatIntervalDays: Int = 2
+    @Published var repeatRule: RepeatRule = .none {
+        didSet { validateRepeatConflict() }
+    }
+    @Published var repeatIntervalDays: Int = 2 {
+        didSet { validateRepeatConflict() }
+    }
 
     @Published var color: TaskColor = .purple
     @Published var categoryTitle: String = "Work"
@@ -43,6 +50,8 @@ final class TaskEditorViewModel: ObservableObject {
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
 
+    var canSave: Bool { !isBusy && !isRepeatInvalid }
+    
     init(taskRepository: TaskRepository, taskId: PersistentIdentifier?, preselectedDay: Date) {
         self.taskRepository = taskRepository
         self.taskId = taskId
@@ -62,14 +71,13 @@ final class TaskEditorViewModel: ObservableObject {
                 await self?.loadExistingTask()
             }
         } else {
-            // normalize at create
             let result = time.validateAndFix(
                 dayDate: dayDate,
                 endDayDate: endDayDate,
                 startTime: startTime,
                 endTime: endTime
             )
-            apply(result)
+            apply(result) // ✅ also validates repeat via apply()
         }
     }
 
@@ -147,7 +155,7 @@ final class TaskEditorViewModel: ObservableObject {
 
     func onEndTimeChanged() {
         endTime = time.alignEndTimeToEndDay(endDayDate: endDayDate, endTime: endTime)
-
+        
         let validated = time.validateAndFix(
             dayDate: dayDate,
             endDayDate: endDayDate,
@@ -160,10 +168,7 @@ final class TaskEditorViewModel: ObservableObject {
     // MARK: - Category
 
     func ensureCategoryIsValid(available: [String]) {
-        categoryTitle = category.ensureCategoryIsValid(
-            current: categoryTitle,
-            available: available
-        )
+        categoryTitle = category.ensureCategoryIsValid(current: categoryTitle, available: available)
     }
 
     // MARK: - Loading
@@ -194,7 +199,6 @@ final class TaskEditorViewModel: ObservableObject {
             color = existing.color
             categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
 
-            // normalize even for old/broken data
             let clamped = time.clampEndDayDateIfNeeded(
                 dayDate: dayDate,
                 endDayDate: endDayDate,
@@ -233,7 +237,7 @@ final class TaskEditorViewModel: ObservableObject {
             dayDate: dayDate,
             startTime: startTime
         )
-        // applyDuration возвращает endDayDate/endTime вычисленные от start
+        
         endDayDate = result.endDayDate
         endTime = result.endTime
         startTime = result.startTime
@@ -245,14 +249,12 @@ final class TaskEditorViewModel: ObservableObject {
             startTime: startTime,
             endTime: endTime
         )
-        apply(clamped)
-
+        apply(clamped) // ✅ repeat conflict validated inside apply()
     }
 
     // MARK: - Save
 
     func save() throws {
-        // final normalize before save
         let clamped = time.clampEndDayDateIfNeeded(
             dayDate: dayDate,
             endDayDate: endDayDate,
@@ -260,6 +262,10 @@ final class TaskEditorViewModel: ObservableObject {
             endTime: endTime
         )
         apply(clamped)
+        
+        if isRepeatInvalid && repeatRule != .none {
+            throw EditorError.repeatConflict
+        }
 
         let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
@@ -277,7 +283,6 @@ final class TaskEditorViewModel: ObservableObject {
             endTime: endTime
         )
 
-        // keep only this rule: if same-day and end <= start -> next day
         let finalTimes = time.ensureNextDayIfSameDayEndBeforeOrEqualStart(
             dayDate: dayDate,
             start: normalizedTimes.start,
@@ -327,16 +332,47 @@ final class TaskEditorViewModel: ObservableObject {
     // MARK: - Apply helper
 
     private func apply(_ result: TaskEditorTimeCoordinator.Result) {
-        // apply clamping/sync/validation atomically
         dayDate = result.dayDate
         endDayDate = result.endDayDate
         startTime = result.startTime
         endTime = result.endTime
         timeValidationMessage = result.message
+        
+        validateRepeatConflict()
     }
 
     enum EditorError: LocalizedError {
         case taskNotFound
-        var errorDescription: String? { "The task was not found. It may have been deleted." }
+        case repeatConflict
+        
+        var errorDescription: String? {
+            switch self {
+            case .taskNotFound:
+                return "The task was not found. It may have been deleted."
+            case .repeatConflict:
+                return "Repeat unavailable: task overlaps the next occurrence."
+            }
+        }
+    }
+    
+    // MARK: - Repeat Conflict
+    
+    private func validateRepeatConflict() {
+        let conflict = time.isRepeatConflict(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime,
+            repeatRule: repeatRule,
+            repeatIntervalDays: repeatIntervalDays
+        )
+        
+        if conflict {
+            isRepeatInvalid = true
+            repeatValidationMessage = "Repeat unavailable: task overlaps the next occurrence."
+        } else {
+            isRepeatInvalid = false
+            repeatValidationMessage = nil
+        }
     }
 }
