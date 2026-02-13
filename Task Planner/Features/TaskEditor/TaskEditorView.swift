@@ -18,6 +18,8 @@ struct TaskEditorView: View {
     private let fallbackCategories = ["Work", "Study", "Hobby"]
     @State private var showAlert = false
 
+    @FocusState private var focusedField: TaskEditorField?
+    
     private var availableCategoryTitles: [String] {
         let list = categories
             .filter { $0.id != CategorySystem.uncategorizedId }
@@ -29,6 +31,14 @@ struct TaskEditorView: View {
     var body: some View {
         root
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") {
+                        focusedField = nil
+                    }
+                }
+            }
             .alert(viewModel.alertTitle ?? "Error", isPresented: $showAlert) {
                 Button("Close", role: .cancel) { dismiss() }
             } message: {
@@ -62,8 +72,14 @@ struct TaskEditorView: View {
         TaskEditorTopBar(
             title: viewModel.navigationTitle,
             isBusy: viewModel.isBusy,
-            onBack: { dismiss() },
-            onSave: { save() },
+            onBack: {
+                focusedField = nil
+                dismiss()
+            },
+            onSave: {
+                focusedField = nil
+                save()
+            },
             canSave: viewModel.canSave
         )
     }
@@ -80,6 +96,7 @@ struct TaskEditorView: View {
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, 28)
         }
+        .scrollDismissesKeyboard(.interactively)
     }
 
     private var nameSection: some View {
@@ -88,7 +105,8 @@ struct TaskEditorView: View {
             categoryTitle: $viewModel.categoryTitle,
             notes: $viewModel.notes,
             availableCategories: availableCategoryTitles,
-            fixedCategoryChipWidth: 132
+            fixedCategoryChipWidth: 132,
+            focusedField: $focusedField
         )
     }
 
@@ -126,7 +144,6 @@ struct TaskEditorView: View {
         } catch let e as TaskEditorViewModel.EditorError {
             switch e {
             case .repeatConflict:
-                // ✅ no alert, keep user on screen; UI already shows inline error
                 return
             default:
                 viewModel.alertTitle = "Can't save"

@@ -15,11 +15,13 @@ struct TaskEditorNameSection: View {
     let availableCategories: [String]
     let fixedCategoryChipWidth: CGFloat
 
+    @FocusState.Binding var focusedField: TaskEditorField?
+
+    @State private var isNotesExpanded = false
+    
     private var hasNotes: Bool {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
-
-    @State private var isNotesExpanded = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -33,58 +35,23 @@ struct TaskEditorNameSection: View {
                     .font(DS.Typography.body)
                     .textInputAutocapitalization(.sentences)
                     .disableAutocorrection(false)
+                    .focused($focusedField, equals: .title)
 
                 categoryMenuChip
             }
             .padding(.vertical, 4)
 
-            // ✅ логика:
-            // - если описание уже есть -> всегда показываем editor (и нет Hide)
-            // - если пусто -> кнопка Add, можно открыть/закрыть
-            if hasNotes {
-                TaskEditorDescriptionEditor(notes: $notes, canHide: false, onHide: nil)
-                    .transition(.opacity)
-            } else {
-                if isNotesExpanded {
-                    TaskEditorDescriptionEditor(
-                        notes: $notes,
-                        canHide: true,
-                        onHide: {
-                            withAnimation(.snappy(duration: 0.20)) {
-                                isNotesExpanded = false
-                            }
-                        }
-                    )
-                    .transition(.opacity.combined(with: .move(edge: .top)))
-                } else {
-                    Button {
-                        withAnimation(.snappy(duration: 0.22)) {
-                            isNotesExpanded = true
-                        }
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(DS.ColorToken.purple)
-                            Text(hasNotes ? "Show description" : "Add description")
-                                .font(DS.Typography.caption)
-                                .foregroundStyle(DS.ColorToken.purple)
-                                .fixedSize(horizontal: true, vertical: false)
-                            Spacer(minLength: 0)
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            TaskEditorDescriptionEditor(
+                notes: $notes,
+                isExpanded: $isNotesExpanded,
+                focusedField: $focusedField
+            )
         }
         .dsCard()
         .onAppear {
-            // ✅ при редактировании: если notes уже есть, раскрываем без анимаций
             if hasNotes { isNotesExpanded = true }
         }
         .onChange(of: notes) { _, newValue in
-            // ✅ если пользователь начал печатать — фиксируем “всегда открыто”
             if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 isNotesExpanded = true
             }
@@ -115,7 +82,7 @@ struct TaskEditorNameSection: View {
             .foregroundStyle(DS.ColorToken.purple)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .frame(width: fixedCategoryChipWidth) // ✅ фикс прыгания/обрезаний
+            .frame(width: fixedCategoryChipWidth)
             .background(DS.ColorToken.purple.opacity(0.10))
             .cornerRadius(DS.Radius.pill)
         }

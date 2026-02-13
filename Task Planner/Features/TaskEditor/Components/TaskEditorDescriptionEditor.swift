@@ -9,8 +9,13 @@ import SwiftUI
 
 struct TaskEditorDescriptionEditor: View {
     @Binding var notes: String
-    let canHide: Bool
-    let onHide: (() -> Void)?
+    @Binding var isExpanded: Bool
+    
+    @FocusState.Binding var focusedField: TaskEditorField?
+
+    private var hasNotes: Bool {
+        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -18,37 +23,82 @@ struct TaskEditorDescriptionEditor: View {
                 .font(DS.Typography.caption)
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
-            ZStack(alignment: .topLeading) {
-                if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Text("Add a short description…")
-                        .font(DS.Typography.body)
-                        .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.8))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 14)
-                }
-
-                TextEditor(text: $notes)
-                    .font(DS.Typography.body)
-                    .frame(minHeight: 110)
-                    .padding(8)
-                    .background(Color.black.opacity(0.04))
-                    .cornerRadius(DS.Radius.sm)
-            }
-
-            if canHide, let onHide {
-                Button(action: onHide) {
-                    HStack {
-                        Text("Hide description")
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.ColorToken.textSecondary)
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer()
+            VStack(spacing: 8) {
+                TextField(
+                    "",
+                    text: $notes,
+                    axis: .vertical
+                )
+                .lineLimit(3...6)
+                .font(DS.Typography.body)
+                .focused($focusedField, equals: .description)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 12)
+                .background(Color.black.opacity(0.04))
+                .cornerRadius(DS.Radius.sm)
+                .overlay(alignment: .topLeading) {
+                    if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text("Add a short description…")
+                            .font(DS.Typography.body)
+                            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.8))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 14)
+                            .allowsHitTesting(false)
                     }
-                    .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.plain)
+                .opacity(shouldShowEditor ? 1 : 0)
+                .frame(height: shouldShowEditor ? nil : 0)
+                .clipped()
+                .allowsHitTesting(shouldShowEditor)
+
+                if !hasNotes {
+                    if isExpanded {
+                        Button {
+                            focusedField = nil
+                            withAnimation(.none) { isExpanded = false }
+                        } label: {
+                            HStack {
+                                Text("Hide description")
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(DS.ColorToken.textSecondary)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer()
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button {
+                            withAnimation(.none) { isExpanded = true }
+                            focusedField = .description
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "plus.circle.fill")
+                                    .foregroundStyle(DS.ColorToken.purple)
+                                Text("Add description")
+                                    .font(DS.Typography.caption)
+                                    .foregroundStyle(DS.ColorToken.purple)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer(minLength: 0)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
         }
-        .animation(nil, value: notes) // ✅ убираем “дерготню” во время набора
+        .animation(nil, value: notes)
+        .animation(nil, value: isExpanded)
+        .onChange(of: notes) { _, newValue in
+            if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                isExpanded = true
+            }
+        }
+    }
+
+    private var shouldShowEditor: Bool {
+        if hasNotes { return true }
+        return isExpanded
     }
 }
