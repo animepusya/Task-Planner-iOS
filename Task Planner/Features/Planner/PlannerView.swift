@@ -57,7 +57,7 @@ struct PlannerView: View {
                 Section {
                     ForEach(tasksForSelectedDay) { task in
                         let isCompleted = task.isCompleted(on: viewModel.selectedDay)
-                        
+
                         TaskCardView(task: task, isCompleted: isCompleted)
                             .padding(.horizontal, DS.Spacing.lg)
                             .padding(.vertical, 6)
@@ -68,7 +68,7 @@ struct PlannerView: View {
                                 viewModel.openEditTask(id: task.persistentModelID)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                
+
                                 Button {
                                     viewModel.toggleDone(taskId: task.persistentModelID, on: viewModel.selectedDay)
                                 } label: {
@@ -80,7 +80,7 @@ struct PlannerView: View {
                                     )
                                 }
                                 .tint(DS.ColorToken.purple)
-                                
+
                                 Button(role: .destructive) {
                                     viewModel.delete(taskId: task.persistentModelID)
                                 } label: {
@@ -95,7 +95,7 @@ struct PlannerView: View {
             }
         }
         .listStyle(.plain)
-        .scrollContentBackground(.hidden) // убирает белый фон List
+        .scrollContentBackground(.hidden)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .navigationBarHidden(true)
         .onAppear { viewModel.loadPreferences() }
@@ -125,8 +125,11 @@ struct PlannerView: View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             MonthSwitcherView(
                 title: viewModel.monthAnchor.monthTitle(),
+                monthAnchor: viewModel.monthAnchor,
                 onPrev: viewModel.goToPreviousMonth,
-                onNext: viewModel.goToNextMonth
+                onNext: viewModel.goToNextMonth,
+                onSelectMonthAnchor: viewModel.setMonthAnchor(_:),
+                onToday: viewModel.goToToday // ✅
             )
 
             WeekdaysRowView(

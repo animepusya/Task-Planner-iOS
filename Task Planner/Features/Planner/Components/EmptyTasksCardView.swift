@@ -10,10 +10,6 @@ import SwiftUI
 struct EmptyTasksCardView: View {
     var body: some View {
         HStack(spacing: 12) {
-            Circle()
-                .strokeBorder(DS.ColorToken.textSecondary.opacity(0.3), lineWidth: 2)
-                .frame(width: 18, height: 18)
-
             VStack(alignment: .leading, spacing: 4) {
                 Text("No tasks yet")
                     .font(.system(size: 15, weight: .semibold, design: .rounded))

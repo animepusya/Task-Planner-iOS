@@ -41,17 +41,24 @@ final class PlannerViewModel: ObservableObject {
         }
     }
 
-    func openCreateTask() {
-        onOpenTaskEditor(nil, selectedDay)
-    }
-
-    func openEditTask(id: PersistentIdentifier) {
-        onOpenTaskEditor(id, selectedDay)
-    }
+    func openCreateTask() { onOpenTaskEditor(nil, selectedDay) }
+    func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDay) }
 
     // Month switching
     func goToPreviousMonth() { monthAnchor = monthAnchor.addingMonths(-1) }
     func goToNextMonth() { monthAnchor = monthAnchor.addingMonths(1) }
+
+    func setMonthAnchor(_ date: Date) {
+        monthAnchor = Calendar.current.startOfMonth(for: date)
+    }
+
+    // ✅ Today: и месяц, и выбранный день
+    func goToToday() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        selectedDay = today
+        monthAnchor = cal.startOfMonth(for: today)
+    }
 
     // MARK: - Swipe actions
 
@@ -61,7 +68,6 @@ final class PlannerViewModel: ObservableObject {
                 assertionFailure("toggleDone: task not found")
                 return
             }
-            // ✅ Per-day completion (visual-only). Status НЕ трогаем.
             task.toggleCompleted(on: day)
             try taskRepository.save()
         } catch {
@@ -75,7 +81,6 @@ final class PlannerViewModel: ObservableObject {
                 assertionFailure("delete: task not found")
                 return
             }
-
             try taskRepository.delete(task)
         } catch {
             assertionFailure("delete failed: \(error)")
