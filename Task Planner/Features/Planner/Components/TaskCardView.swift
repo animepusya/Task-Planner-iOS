@@ -44,10 +44,10 @@ struct TaskCardView: View {
             Spacer(minLength: 0)
         }
         .padding(DS.Spacing.md)
-        .background(taskBackgroundColor(for: task.color))
+        .background(task.color.backgroundColor) // ✅ единая точка правды
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
-        .opacity(isCompleted ? 0.70 : 1.0) // ✅ “completed” ощущается как приглушённое
+        .opacity(isCompleted ? 0.70 : 1.0)
     }
 
     private var subtitleText: String {
@@ -60,21 +60,4 @@ struct TaskCardView: View {
     private var timeRangeText: String {
         "\(task.startTime.formatted(date: .omitted, time: .shortened)) – \(task.endTime.formatted(date: .omitted, time: .shortened))"
     }
-
-    private func taskBackgroundColor(for color: TaskColor) -> Color {
-        switch color {
-        case .blue:   return Color(red: 0.84, green: 0.92, blue: 1.00)
-        case .purple: return Color(red: 0.90, green: 0.86, blue: 1.00)
-        case .pink:   return Color(red: 1.00, green: 0.88, blue: 0.94)
-        case .red:    return Color(red: 1.00, green: 0.88, blue: 0.88)
-        case .yellow: return Color(red: 1.00, green: 0.96, blue: 0.84)
-        case .green:  return Color(red: 0.86, green: 0.97, blue: 0.90)
-        case .orange: return Color(red: 1.00, green: 0.92, blue: 0.84)
-        case .teal:   return Color(red: 0.84, green: 0.97, blue: 0.97)
-        case .indigo: return Color(red: 0.88, green: 0.90, blue: 1.00)
-        case .mint:   return Color(red: 0.86, green: 0.99, blue: 0.92)
-        case .brown:  return Color(red: 0.96, green: 0.92, blue: 0.88)
-        }
-    }
-
 }

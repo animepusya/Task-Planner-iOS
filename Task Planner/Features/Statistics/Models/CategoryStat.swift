@@ -19,5 +19,8 @@ struct CategoryStat: Identifiable, Hashable {
         self.minutes = minutes
         self.colorRaw = colorRaw
     }
-}
 
+    var taskColor: TaskColor? {
+        TaskColor(rawValue: colorRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+    }
+}

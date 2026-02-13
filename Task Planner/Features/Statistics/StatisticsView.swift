@@ -198,15 +198,7 @@ struct StatisticsView: View {
     }
 
     private func categoryColor(_ stat: CategoryStat) -> Color {
-        switch stat.colorRaw.lowercased() {
-        case "blue":   return Color(red: 0.32, green: 0.62, blue: 0.98)
-        case "purple": return DS.ColorToken.purple
-        case "pink":   return Color(red: 0.98, green: 0.45, blue: 0.72)
-        case "red":    return Color(red: 0.98, green: 0.35, blue: 0.35)
-        case "yellow": return Color(red: 0.98, green: 0.80, blue: 0.20)
-        case "green":  return Color(red: 0.20, green: 0.75, blue: 0.48)
-        default:       return DS.ColorToken.textSecondary
-        }
+        stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
 
     private func percentString(_ value: Double) -> String {
