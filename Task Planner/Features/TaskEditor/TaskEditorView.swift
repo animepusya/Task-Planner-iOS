@@ -16,10 +16,8 @@ struct TaskEditorView: View {
     private var categories: [CategoryEntity]
 
     private let fallbackCategories = ["Work", "Study", "Hobby"]
-    @State private var showAlert = false
-
     @FocusState private var focusedField: TaskEditorField?
-    
+
     private var availableCategoryTitles: [String] {
         let list = categories
             .filter { $0.id != CategorySystem.uncategorizedId }
@@ -34,29 +32,22 @@ struct TaskEditorView: View {
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Button("Done") {
-                        focusedField = nil
-                    }
+                    Button("Done") { focusedField = nil }
                 }
             }
-            .alert(viewModel.alertTitle ?? "Error", isPresented: $showAlert) {
-                Button("Close", role: .cancel) { dismiss() }
-            } message: {
-                Text(viewModel.alertMessage ?? "")
+            .alert(item: $viewModel.alert) { alert in
+                Alert(
+                    title: Text(alert.title),
+                    message: Text(alert.message),
+                    dismissButton: .cancel(Text("Close")) { dismiss() }
+                )
             }
-            .onChange(of: viewModel.alertTitle) { _, newValue in
-                showAlert = (newValue != nil)
-            }
-            .onAppear {
+            .task {
                 viewModel.onAppear(availableCategories: availableCategoryTitles)
             }
-            .onChange(of: categories) { _, _ in
+            .onChange(of: categories.count) { _, _ in
                 viewModel.ensureCategoryIsValid(available: availableCategoryTitles)
             }
-            .onChange(of: viewModel.dayDate) { _, _ in viewModel.onStartDayChanged() }
-            .onChange(of: viewModel.startTime) { _, _ in viewModel.onStartTimeChanged() }
-            .onChange(of: viewModel.endDayDate) { _, _ in viewModel.onEndDayChanged(triggerFeedback: true) }
-            .onChange(of: viewModel.endTime) { _, _ in viewModel.onEndTimeChanged() }
     }
 
     // MARK: - Subviews
@@ -89,7 +80,7 @@ struct TaskEditorView: View {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 nameSection
                 dateTimeSection
-                TaskEditorColorSection(color: $viewModel.color)
+                TaskEditorColorSection(color: viewModel.binding(\.color))
                 repeatSection
             }
             .padding(.horizontal, DS.Spacing.lg)
@@ -101,9 +92,9 @@ struct TaskEditorView: View {
 
     private var nameSection: some View {
         TaskEditorNameSection(
-            title: $viewModel.title,
-            categoryTitle: $viewModel.categoryTitle,
-            notes: $viewModel.notes,
+            title: viewModel.binding(\.title),
+            categoryTitle: viewModel.binding(\.categoryTitle),
+            notes: viewModel.binding(\.notes),
             availableCategories: availableCategoryTitles,
             fixedCategoryChipWidth: 132,
             focusedField: $focusedField
@@ -112,11 +103,11 @@ struct TaskEditorView: View {
 
     private var dateTimeSection: some View {
         TaskEditorDateTimeSection(
-            dayDate: $viewModel.dayDate,
-            endDayDate: $viewModel.endDayDate,
-            startTime: $viewModel.startTime,
-            endTime: $viewModel.endTime,
-            timeValidationMessage: viewModel.timeValidationMessage,
+            dayDate: viewModel.dayDateBinding,
+            endDayDate: viewModel.endDayDateBinding,
+            startTime: viewModel.startTimeBinding,
+            endTime: viewModel.endTimeBinding,
+            timeValidationMessage: viewModel.form.timeValidationMessage,
             onApplyDuration: { minutes in
                 viewModel.applyDuration(minutes: minutes)
             }
@@ -125,10 +116,10 @@ struct TaskEditorView: View {
 
     private var repeatSection: some View {
         TaskEditorRepeatSection(
-            repeatRule: $viewModel.repeatRule,
-            repeatIntervalDays: $viewModel.repeatIntervalDays,
-            isInvalid: viewModel.isRepeatInvalid,
-            validationMessage: viewModel.repeatValidationMessage
+            repeatRule: viewModel.repeatRuleBinding,
+            repeatIntervalDays: viewModel.repeatIntervalDaysBinding,
+            isInvalid: viewModel.form.isRepeatInvalid,
+            validationMessage: viewModel.form.repeatValidationMessage
         )
     }
 
@@ -146,14 +137,10 @@ struct TaskEditorView: View {
             case .repeatConflict:
                 return
             default:
-                viewModel.alertTitle = "Can't save"
-                viewModel.alertMessage = e.localizedDescription
-                showAlert = true
+                viewModel.alert = .init(title: "Can't save", message: e.localizedDescription)
             }
         } catch {
-            viewModel.alertTitle = "Can't save"
-            viewModel.alertMessage = error.localizedDescription
-            showAlert = true
+            viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
         }
     }
 }

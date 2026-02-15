@@ -7,172 +7,289 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 import Combine
 
 @MainActor
 final class TaskEditorViewModel: ObservableObject {
+
+    // MARK: Dependencies
     private let taskRepository: TaskRepository
     private let taskId: PersistentIdentifier?
-
     private let time: TaskEditorTimeCoordinator
     private let category: TaskEditorCategoryCoordinator
 
-    // UI State
+    // MARK: UI State
     @Published var isBusy: Bool = false
-    @Published var alertTitle: String?
-    @Published var alertMessage: String?
+    @Published var alert: TaskEditorAlert?
 
-    @Published var timeValidationMessage: String?
+    // ✅ Один publish на изменение формы (и стараемся не публиковать без нужды)
+    @Published private(set) var form: FormState
 
-    @Published var repeatValidationMessage: String?
-    @Published var isRepeatInvalid: Bool = false
-
-    // Form fields
-    @Published var title: String = ""
-    @Published var notes: String = ""
-
-    @Published var dayDate: Date
-    @Published var endDayDate: Date
-
-    @Published var startTime: Date
-    @Published var endTime: Date
-
-    @Published var repeatRule: RepeatRule = .none {
-        didSet { validateRepeatConflict() }
-    }
-    @Published var repeatIntervalDays: Int = 2 {
-        didSet { validateRepeatConflict() }
-    }
-
-    @Published var color: TaskColor = .purple
-    @Published var categoryTitle: String = "Work"
+    private var didBootstrap = false
 
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
+    var canSave: Bool { !isBusy && !form.isRepeatInvalid }
 
-    var canSave: Bool { !isBusy && !isRepeatInvalid }
-    
+    // MARK: Init
     init(taskRepository: TaskRepository, taskId: PersistentIdentifier?, preselectedDay: Date) {
         self.taskRepository = taskRepository
         self.taskId = taskId
-
         self.time = TaskEditorTimeCoordinator(calendar: .current)
         self.category = TaskEditorCategoryCoordinator()
 
         let startDay = Calendar.current.startOfDay(for: preselectedDay)
-        self.dayDate = startDay
-        self.endDayDate = startDay
+        let startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: startDay) ?? startDay
+        let endTime = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: startDay) ?? startDay
 
-        self.startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: startDay) ?? startDay
-        self.endTime = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: startDay) ?? startDay
+        self.form = FormState(
+            title: "",
+            notes: "",
+            dayDate: startDay,
+            endDayDate: startDay,
+            startTime: startTime,
+            endTime: endTime,
+            repeatRule: .none,
+            repeatIntervalDays: 2,
+            color: .purple,
+            categoryTitle: "Work",
+            timeValidationMessage: nil,
+            isRepeatInvalid: false,
+            repeatValidationMessage: nil
+        )
 
         if taskId != nil {
             Task { [weak self] in
                 await self?.loadExistingTask()
             }
         } else {
-            let result = time.validateAndFix(
-                dayDate: dayDate,
-                endDayDate: endDayDate,
-                startTime: startTime,
-                endTime: endTime
+            // Приводим в валидный вид один раз
+            let validated = time.validateAndFix(
+                dayDate: form.dayDate,
+                endDayDate: form.endDayDate,
+                startTime: form.startTime,
+                endTime: form.endTime
             )
-            apply(result) // ✅ also validates repeat via apply()
+            apply(validated)
         }
     }
 
-    // MARK: - View Hooks
+    // MARK: - Simple Binding helper (для НЕ-временных полей)
+    func binding<T>(_ keyPath: WritableKeyPath<FormState, T>) -> Binding<T> {
+        Binding(
+            get: { self.form[keyPath: keyPath] },
+            set: { newValue in
+                var copy = self.form
+                copy[keyPath: keyPath] = newValue
+                self.setFormIfChanged(copy)
+            }
+        )
+    }
 
+    // MARK: - Smart bindings (для полей, которые запускают пайплайны)
+    var dayDateBinding: Binding<Date> {
+        Binding(
+            get: { self.form.dayDate },
+            set: { [weak self] newValue in self?.setDayDate(newValue) }
+        )
+    }
+
+    var startTimeBinding: Binding<Date> {
+        Binding(
+            get: { self.form.startTime },
+            set: { [weak self] newValue in self?.setStartTime(newValue) }
+        )
+    }
+
+    var endDayDateBinding: Binding<Date> {
+        Binding(
+            get: { self.form.endDayDate },
+            set: { [weak self] newValue in self?.setEndDayDate(newValue) }
+        )
+    }
+
+    var endTimeBinding: Binding<Date> {
+        Binding(
+            get: { self.form.endTime },
+            set: { [weak self] newValue in self?.setEndTime(newValue) }
+        )
+    }
+
+    var repeatRuleBinding: Binding<RepeatRule> {
+        Binding(
+            get: { self.form.repeatRule },
+            set: { [weak self] newValue in self?.setRepeatRule(newValue) }
+        )
+    }
+
+    var repeatIntervalDaysBinding: Binding<Int> {
+        Binding(
+            get: { self.form.repeatIntervalDays },
+            set: { [weak self] newValue in self?.setRepeatIntervalDays(newValue) }
+        )
+    }
+
+    // MARK: - Bootstrap (idempotent)
     func onAppear(availableCategories: [String]) {
+        guard !didBootstrap else { return }
+        didBootstrap = true
+
         ensureCategoryIsValid(available: availableCategories)
 
         let synced = time.syncTimesToSelectedDay(
-            newStartDay: dayDate,
-            startTime: startTime,
-            endDayDate: endDayDate,
-            endTime: endTime
+            newStartDay: form.dayDate,
+            startTime: form.startTime,
+            endDayDate: form.endDayDate,
+            endTime: form.endTime
         )
-        apply(synced)
 
         let validated = time.validateAndFix(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: synced.dayDate,
+            endDayDate: synced.endDayDate,
+            startTime: synced.startTime,
+            endTime: synced.endTime
         )
+
         apply(validated)
     }
 
+    // MARK: - Setters
+    func setDayDate(_ newValue: Date) {
+        let newDay = time.startOfDay(newValue)
+        guard !Calendar.current.isDate(newDay, inSameDayAs: form.dayDate) else { return }
+
+        var copy = form
+        copy.dayDate = newDay
+        setFormIfChanged(copy)
+
+        onStartDayChanged()
+    }
+
+    func setStartTime(_ newValue: Date) {
+        guard newValue != form.startTime else { return }
+        var copy = form
+        copy.startTime = newValue
+        setFormIfChanged(copy)
+
+        onStartTimeChanged()
+    }
+
+    func setEndDayDate(_ newValue: Date) {
+        let newDay = time.startOfDay(newValue)
+        guard !Calendar.current.isDate(newDay, inSameDayAs: form.endDayDate) else { return }
+
+        var copy = form
+        copy.endDayDate = newDay
+        setFormIfChanged(copy)
+
+        onEndDayChanged(triggerFeedback: true)
+    }
+
+    func setEndTime(_ newValue: Date) {
+        guard newValue != form.endTime else { return }
+        var copy = form
+        copy.endTime = newValue
+        setFormIfChanged(copy)
+
+        onEndTimeChanged()
+    }
+
+    func setRepeatRule(_ newValue: RepeatRule) {
+        guard newValue != form.repeatRule else { return }
+        var copy = form
+        copy.repeatRule = newValue
+        setFormIfChanged(copy)
+
+        recalcRepeatConflictAndPublishIfNeeded()
+    }
+
+    func setRepeatIntervalDays(_ newValue: Int) {
+        let safe = max(1, newValue)
+        guard safe != form.repeatIntervalDays else { return }
+        var copy = form
+        copy.repeatIntervalDays = safe
+        setFormIfChanged(copy)
+
+        recalcRepeatConflictAndPublishIfNeeded()
+    }
+
+    // MARK: - Time pipeline (осталось прежним, но apply теперь 1 publish)
     func onStartDayChanged() {
         let synced = time.syncTimesToSelectedDay(
-            newStartDay: dayDate,
-            startTime: startTime,
-            endDayDate: endDayDate,
-            endTime: endTime
+            newStartDay: form.dayDate,
+            startTime: form.startTime,
+            endDayDate: form.endDayDate,
+            endTime: form.endTime
         )
-        apply(synced)
 
         let validated = time.validateAndFix(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: synced.dayDate,
+            endDayDate: synced.endDayDate,
+            startTime: synced.startTime,
+            endTime: synced.endTime
         )
+
         apply(validated)
     }
 
     func onStartTimeChanged() {
-        startTime = time.alignStartTimeToSelectedDay(dayDate: dayDate, startTime: startTime)
+        let alignedStart = time.alignStartTimeToSelectedDay(dayDate: form.dayDate, startTime: form.startTime)
 
         let validated = time.validateAndFix(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: alignedStart,
+            endTime: form.endTime
         )
+
         apply(validated)
     }
 
     func onEndDayChanged(triggerFeedback: Bool) {
         let clamped = time.clampEndDayDateIfNeeded(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime
         )
-        apply(clamped)
 
-        endTime = time.alignEndTimeToEndDay(endDayDate: endDayDate, endTime: endTime)
+        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: clamped.endDayDate, endTime: clamped.endTime)
 
         let validated = time.validateAndFix(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: clamped.dayDate,
+            endDayDate: clamped.endDayDate,
+            startTime: clamped.startTime,
+            endTime: alignedEnd
         )
+
         apply(validated)
     }
 
     func onEndTimeChanged() {
-        endTime = time.alignEndTimeToEndDay(endDayDate: endDayDate, endTime: endTime)
-        
+        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: form.endDayDate, endTime: form.endTime)
+
         let validated = time.validateAndFix(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: alignedEnd
         )
+
         apply(validated)
     }
 
     // MARK: - Category
-
     func ensureCategoryIsValid(available: [String]) {
-        categoryTitle = category.ensureCategoryIsValid(current: categoryTitle, available: available)
+        let fixed = category.ensureCategoryIsValid(current: form.categoryTitle, available: available)
+        guard fixed != form.categoryTitle else { return }
+
+        var copy = form
+        copy.categoryTitle = fixed
+        setFormIfChanged(copy)
     }
 
     // MARK: - Loading
-
     func loadExistingTask() async {
         guard let taskId else { return }
 
@@ -181,116 +298,95 @@ final class TaskEditorViewModel: ObservableObject {
 
         do {
             guard let existing = try taskRepository.fetch(by: taskId) else {
-                alertTitle = "Task not found"
-                alertMessage = "This task no longer exists."
+                alert = .init(title: "Task not found", message: "This task no longer exists.")
                 return
             }
 
-            title = existing.title
-            notes = existing.notes ?? ""
+            var next = form
+            next.title = existing.title
+            next.notes = existing.notes ?? ""
 
-            dayDate = time.startOfDay(existing.dayDate)
-            startTime = existing.startTime
-            endTime = existing.endTime
-            endDayDate = time.startOfDay(existing.endTime)
+            next.dayDate = time.startOfDay(existing.dayDate)
+            next.startTime = existing.startTime
+            next.endTime = existing.endTime
+            next.endDayDate = time.startOfDay(existing.endTime)
 
-            repeatRule = existing.repeatRule
-            repeatIntervalDays = existing.repeatIntervalDays ?? 2
-            color = existing.color
-            categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
+            next.repeatRule = existing.repeatRule
+            next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
+            next.color = existing.color
+            next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
 
-            let clamped = time.clampEndDayDateIfNeeded(
-                dayDate: dayDate,
-                endDayDate: endDayDate,
-                startTime: startTime,
-                endTime: endTime
-            )
-            apply(clamped)
-
-            let synced = time.syncTimesToSelectedDay(
-                newStartDay: dayDate,
-                startTime: startTime,
-                endDayDate: endDayDate,
-                endTime: endTime
-            )
-            apply(synced)
+            setFormIfChanged(next)
 
             let validated = time.validateAndFix(
-                dayDate: dayDate,
-                endDayDate: endDayDate,
-                startTime: startTime,
-                endTime: endTime
+                dayDate: form.dayDate,
+                endDayDate: form.endDayDate,
+                startTime: form.startTime,
+                endTime: form.endTime
             )
             apply(validated)
 
         } catch {
-            alertTitle = "Failed to load"
-            alertMessage = error.localizedDescription
+            alert = .init(title: "Failed to load", message: error.localizedDescription)
         }
     }
 
-    // MARK: - Time UX
-
+    // MARK: - Duration
     func applyDuration(minutes: Int) {
         let result = time.applyDuration(
             minutes: minutes,
-            dayDate: dayDate,
-            startTime: startTime
+            dayDate: form.dayDate,
+            startTime: form.startTime
         )
-        
-        endDayDate = result.endDayDate
-        endTime = result.endTime
-        startTime = result.startTime
-        timeValidationMessage = nil
 
-        let clamped = time.clampEndDayDateIfNeeded(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+        let validated = time.validateAndFix(
+            dayDate: form.dayDate,
+            endDayDate: result.endDayDate,
+            startTime: result.startTime,
+            endTime: result.endTime
         )
-        apply(clamped) // ✅ repeat conflict validated inside apply()
+
+        apply(validated)
     }
 
     // MARK: - Save
-
     func save() throws {
         let clamped = time.clampEndDayDateIfNeeded(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime
         )
         apply(clamped)
-        
-        if isRepeatInvalid && repeatRule != .none {
+
+        if form.isRepeatInvalid && form.repeatRule != .none {
             throw EditorError.repeatConflict
         }
 
-        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
 
-        let trimmedNotes = notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedNotes = form.notes.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedNotes: String? = trimmedNotes.isEmpty ? nil : trimmedNotes
 
-        let trimmedCategory = categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedCategory = trimmedCategory.isEmpty ? "Work" : trimmedCategory
 
         let normalizedTimes = time.normalizeForSave(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime
         )
 
         let finalTimes = time.ensureNextDayIfSameDayEndBeforeOrEqualStart(
-            dayDate: dayDate,
+            dayDate: form.dayDate,
             start: normalizedTimes.start,
-            endDayDate: endDayDate,
+            endDayDate: form.endDayDate,
             end: normalizedTimes.end
         )
 
-        let intervalOrNil: Int? = (repeatRule == .everyNDays) ? max(1, repeatIntervalDays) : nil
+        let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
         if let taskId {
             guard let existing = try taskRepository.fetch(by: taskId) else {
@@ -299,15 +395,15 @@ final class TaskEditorViewModel: ObservableObject {
 
             existing.title = safeTitle
             existing.notes = normalizedNotes
-            existing.dayDate = time.startOfDay(dayDate)
+            existing.dayDate = time.startOfDay(form.dayDate)
             existing.startTime = finalTimes.start
             existing.endTime = finalTimes.end
 
-            existing.repeatRule = repeatRule
+            existing.repeatRule = form.repeatRule
             existing.repeatIntervalDays = intervalOrNil
             existing.normalizeRepeatFields()
 
-            existing.color = color
+            existing.color = form.color
             existing.categoryTitle = normalizedCategory
 
             try taskRepository.save()
@@ -315,13 +411,13 @@ final class TaskEditorViewModel: ObservableObject {
             let new = TaskEntity(
                 title: safeTitle,
                 notes: normalizedNotes,
-                dayDate: time.startOfDay(dayDate),
+                dayDate: time.startOfDay(form.dayDate),
                 startTime: finalTimes.start,
                 endTime: finalTimes.end,
-                repeatRule: repeatRule,
+                repeatRule: form.repeatRule,
                 repeatIntervalDays: intervalOrNil,
                 status: .todo,
-                color: color,
+                color: form.color,
                 categoryTitle: normalizedCategory
             )
             new.normalizeRepeatFields()
@@ -329,22 +425,105 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Apply helper
-
+    // MARK: - Apply (ОДИН publish)
     private func apply(_ result: TaskEditorTimeCoordinator.Result) {
-        dayDate = result.dayDate
-        endDayDate = result.endDayDate
-        startTime = result.startTime
-        endTime = result.endTime
-        timeValidationMessage = result.message
-        
-        validateRepeatConflict()
+        var copy = form
+        copy.dayDate = result.dayDate
+        copy.endDayDate = result.endDayDate
+        copy.startTime = result.startTime
+        copy.endTime = result.endTime
+        copy.timeValidationMessage = result.message
+
+        // ✅ repeat conflict считаем сразу и пишем в тот же copy -> один publish
+        let (isInvalid, message) = computeRepeatConflict(
+            dayDate: copy.dayDate,
+            endDayDate: copy.endDayDate,
+            startTime: copy.startTime,
+            endTime: copy.endTime,
+            repeatRule: copy.repeatRule,
+            repeatIntervalDays: copy.repeatIntervalDays
+        )
+        copy.isRepeatInvalid = isInvalid
+        copy.repeatValidationMessage = message
+
+        setFormIfChanged(copy)
+    }
+
+    private func recalcRepeatConflictAndPublishIfNeeded() {
+        let (isInvalid, message) = computeRepeatConflict(
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime,
+            repeatRule: form.repeatRule,
+            repeatIntervalDays: form.repeatIntervalDays
+        )
+
+        guard isInvalid != form.isRepeatInvalid || message != form.repeatValidationMessage else { return }
+
+        var copy = form
+        copy.isRepeatInvalid = isInvalid
+        copy.repeatValidationMessage = message
+        setFormIfChanged(copy)
+    }
+
+    private func computeRepeatConflict(
+        dayDate: Date,
+        endDayDate: Date,
+        startTime: Date,
+        endTime: Date,
+        repeatRule: RepeatRule,
+        repeatIntervalDays: Int
+    ) -> (Bool, String?) {
+        guard repeatRule != .none else { return (false, nil) }
+
+        let conflict = time.isRepeatConflict(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime,
+            repeatRule: repeatRule,
+            repeatIntervalDays: repeatIntervalDays
+        )
+
+        if conflict {
+            return (true, "Repeat unavailable: task overlaps the next occurrence.")
+        } else {
+            return (false, nil)
+        }
+    }
+
+    private func setFormIfChanged(_ newValue: FormState) {
+        guard newValue != form else { return }
+        form = newValue
+    }
+
+    // MARK: - Types
+    struct FormState: Equatable {
+        var title: String
+        var notes: String
+
+        var dayDate: Date
+        var endDayDate: Date
+        var startTime: Date
+        var endTime: Date
+
+        var repeatRule: RepeatRule
+        var repeatIntervalDays: Int
+
+        var color: TaskColor
+        var categoryTitle: String
+
+        var timeValidationMessage: String?
+
+        var isRepeatInvalid: Bool
+        var repeatValidationMessage: String?
     }
 
     enum EditorError: LocalizedError {
         case taskNotFound
         case repeatConflict
-        
+
         var errorDescription: String? {
             switch self {
             case .taskNotFound:
@@ -354,25 +533,5 @@ final class TaskEditorViewModel: ObservableObject {
             }
         }
     }
-    
-    // MARK: - Repeat Conflict
-    
-    private func validateRepeatConflict() {
-        let conflict = time.isRepeatConflict(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime,
-            repeatRule: repeatRule,
-            repeatIntervalDays: repeatIntervalDays
-        )
-        
-        if conflict {
-            isRepeatInvalid = true
-            repeatValidationMessage = "Repeat unavailable: task overlaps the next occurrence."
-        } else {
-            isRepeatInvalid = false
-            repeatValidationMessage = nil
-        }
-    }
 }
+
