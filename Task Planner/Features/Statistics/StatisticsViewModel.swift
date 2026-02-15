@@ -24,10 +24,14 @@ final class StatisticsViewModel: ObservableObject {
         didSet { refresh() }
     }
 
+    // ✅ NEW: breakdown
+    @Published var breakdown: StatisticsBreakdown = .category
+
     // Output
     @Published private(set) var displayedTitle: String = Calendar.current.startOfDay(for: .now).monthTitle()
     @Published private(set) var totalMinutes: Int = 0
     @Published private(set) var categoryStats: [CategoryStat] = []
+    @Published private(set) var taskStats: [TaskStat] = [] // ✅ NEW
     @Published private(set) var weekStartsOnMonday: Bool = true
 
     init(
@@ -86,9 +90,19 @@ final class StatisticsViewModel: ObservableObject {
         computeStats()
     }
 
+    // Existing API (kept)
     func percent(for stat: CategoryStat) -> Double {
+        percent(forMinutes: stat.minutes)
+    }
+
+    // ✅ NEW
+    func percent(for stat: TaskStat) -> Double {
+        percent(forMinutes: stat.minutes)
+    }
+
+    private func percent(forMinutes minutes: Int) -> Double {
         guard totalMinutes > 0 else { return 0 }
-        return Double(stat.minutes) / Double(totalMinutes)
+        return Double(minutes) / Double(totalMinutes)
     }
 
     // MARK: - Computation (WITH repeats)
@@ -102,52 +116,93 @@ final class StatisticsViewModel: ObservableObject {
 
             let candidates = allTasks.filter { task in
                 if task.repeatRule == .none {
-                    // single task can still overlap window even if dayDate is in range,
-                    // but we keep it simple: dayDate <= end and endTime >= start
                     return task.dayDate <= end && task.endTime >= start
                 } else {
-                    // repeating tasks can project into window
                     return task.dayDate <= end
                 }
             }
 
             var perCategory: [String: (minutes: Int, colorRaw: String)] = [:]
+
+            // ✅ NEW: per-task aggregation
+            var perTask: [String: (title: String, minutes: Int, colorRaw: String)] = [:]
+
             var total = 0
 
             for day in enumerateDays(from: start, to: end, calendar: cal) {
                 for task in candidates {
-                    let minutes = TaskDayOverlap.minutesOnDay(task: task, day: day, weekStartsOnMonday: weekStartsOnMonday)
+                    let minutes = TaskDayOverlap.minutesOnDay(
+                        task: task,
+                        day: day,
+                        weekStartsOnMonday: weekStartsOnMonday
+                    )
                     guard minutes > 0 else { continue }
 
-                    let name = normalizedCategoryTitle(task.categoryTitle)
-                    let colorRaw = task.color.rawValue
-
                     total += minutes
-                    if var existing = perCategory[name] {
+
+                    // category bucket (existing)
+                    let categoryName = normalizedCategoryTitle(task.categoryTitle)
+                    let colorRaw = task.color.rawValue
+                    if var existing = perCategory[categoryName] {
                         existing.minutes += minutes
-                        perCategory[name] = existing
+                        perCategory[categoryName] = existing
                     } else {
-                        perCategory[name] = (minutes: minutes, colorRaw: colorRaw)
+                        perCategory[categoryName] = (minutes: minutes, colorRaw: colorRaw)
+                    }
+
+                    // task bucket (NEW)
+                    let taskID = String(describing: task.persistentModelID)
+                    let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let displayTitle = title.isEmpty ? "Untitled" : title
+
+                    if var existingTask = perTask[taskID] {
+                        existingTask.minutes += minutes
+                        perTask[taskID] = existingTask
+                    } else {
+                        perTask[taskID] = (title: displayTitle, minutes: minutes, colorRaw: colorRaw)
                     }
                 }
             }
 
             totalMinutes = total
+
             categoryStats = perCategory
                 .map { CategoryStat(name: $0.key, minutes: $0.value.minutes, colorRaw: $0.value.colorRaw) }
                 .sorted { $0.minutes > $1.minutes }
 
+            taskStats = makeTopTasks(from: perTask)
+
         } catch {
             totalMinutes = 0
             categoryStats = []
+            taskStats = []
             assertionFailure("Statistics compute failed: \(error)")
         }
     }
 
+    private func makeTopTasks(from perTask: [String: (title: String, minutes: Int, colorRaw: String)]) -> [TaskStat] {
+        let sorted = perTask
+            .map { TaskStat(id: $0.key, title: $0.value.title, minutes: $0.value.minutes, colorRaw: $0.value.colorRaw) }
+            .sorted { $0.minutes > $1.minutes }
+
+        let topLimit = 10
+        guard sorted.count > topLimit else { return sorted }
+
+        let top = Array(sorted.prefix(topLimit))
+        let rest = sorted.dropFirst(topLimit)
+        let otherMinutes = rest.reduce(0) { $0 + $1.minutes }
+
+        if otherMinutes <= 0 { return top }
+
+        // "Other" — отдельная строка, нейтральный цвет (в UI уйдёт в textSecondary)
+        let other = TaskStat(id: "other", title: "Other", minutes: otherMinutes, colorRaw: "")
+        return top + [other]
+    }
+
+    // (оставил как было — если не используется, можно удалить позже)
     private func durationMinutes(task: TaskEntity) -> Int {
-        // start/end НЕ optional
         let deltaSeconds = task.endTime.timeIntervalSince(task.startTime)
-        let minutes = Int((deltaSeconds / 60.0).rounded()) // ✅ округляем до минуты
+        let minutes = Int((deltaSeconds / 60.0).rounded())
         return Swift.max(0, minutes)
     }
 
@@ -219,4 +274,3 @@ final class StatisticsViewModel: ObservableObject {
         return trimmed.isEmpty ? "Work" : trimmed
     }
 }
-

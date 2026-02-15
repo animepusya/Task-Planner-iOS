@@ -14,11 +14,13 @@ struct StatisticsView: View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 header
-
                 rangePickerCard
-
                 periodSelectorCard
-                timeByCategoryCard
+
+                // ✅ NEW: breakdown picker card (segmented)
+                breakdownPickerCard
+
+                timeBreakdownCard
                 totalHoursCard
             }
             .padding(.horizontal, DS.Spacing.lg)
@@ -114,9 +116,21 @@ struct StatisticsView: View {
         }
     }
 
-    private var timeByCategoryCard: some View {
+    // ✅ NEW
+    private var breakdownPickerCard: some View {
+        Picker("", selection: $viewModel.breakdown) {
+            ForEach(StatisticsBreakdown.allCases) { b in
+                Text(b.title).tag(b)
+            }
+        }
+        .pickerStyle(.segmented)
+        .dsCard(padding: DS.Spacing.md)
+    }
+
+    // ✅ Replaces old timeByCategoryCard
+    private var timeBreakdownCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            Text("Time by Category")
+            Text(titleForBreakdown)
                 .font(DS.Typography.sectionTitle)
                 .foregroundColor(DS.ColorToken.textPrimary)
 
@@ -125,16 +139,16 @@ struct StatisticsView: View {
                     .frame(width: 140, height: 140)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    if viewModel.categoryStats.isEmpty {
+                    if activeCount == 0 {
                         Text("No data for this period yet.")
                             .font(DS.Typography.caption)
                             .foregroundColor(DS.ColorToken.textSecondary)
                     } else {
-                        ForEach(viewModel.categoryStats) { stat in
-                            CategoryLegendRow(
-                                name: stat.name,
-                                percentText: percentString(viewModel.percent(for: stat)),
-                                color: categoryColor(stat)
+                        ForEach(activeLegendRows) { row in
+                            LegendRow(
+                                name: row.name,
+                                percentText: percentString(row.percent),
+                                color: row.color
                             )
                         }
                     }
@@ -145,13 +159,7 @@ struct StatisticsView: View {
     }
 
     private var donut: some View {
-        let slices: [DonutChartSlice] = viewModel.categoryStats.map { stat in
-            DonutChartSlice(
-                id: stat.id,
-                fraction: viewModel.percent(for: stat),
-                color: categoryColor(stat)
-            )
-        }
+        let slices = activeDonutSlices()
 
         return ZStack {
             DonutChartView(slices: normalizedSlices(slices), lineWidth: 18)
@@ -162,6 +170,28 @@ struct StatisticsView: View {
                 Text("Total")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
+            }
+        }
+    }
+
+    private func activeDonutSlices() -> [DonutChartSlice] {
+        switch viewModel.breakdown {
+        case .category:
+            return viewModel.categoryStats.map { stat in
+                DonutChartSlice(
+                    id: stat.id,
+                    fraction: viewModel.percent(for: stat),
+                    color: categoryColor(stat)
+                )
+            }
+
+        case .task:
+            return viewModel.taskStats.map { stat in
+                DonutChartSlice(
+                    id: stat.id,
+                    fraction: viewModel.percent(for: stat),
+                    color: taskColor(stat)
+                )
             }
         }
     }
@@ -186,26 +216,26 @@ struct StatisticsView: View {
                     .foregroundColor(DS.ColorToken.purple)
             }
 
-            if viewModel.categoryStats.isEmpty {
+            if activeCount == 0 {
                 Text("Add some tasks to see totals.")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(spacing: 10) {
-                    ForEach(viewModel.categoryStats) { stat in
+                    ForEach(activeTotalRows) { row in
                         HStack {
                             Circle()
-                                .fill(categoryColor(stat))
+                                .fill(row.color)
                                 .frame(width: 10, height: 10)
 
-                            Text(stat.name)
+                            Text(row.name)
                                 .font(DS.Typography.body)
                                 .foregroundColor(DS.ColorToken.textPrimary)
 
                             Spacer()
 
-                            Text(stat.minutes.formattedHoursMinutes())
+                            Text(row.minutes.formattedHoursMinutes())
                                 .font(DS.Typography.body)
                                 .foregroundColor(DS.ColorToken.textSecondary)
                         }
@@ -216,16 +246,100 @@ struct StatisticsView: View {
         .dsCard()
     }
 
+    // MARK: - Active rows mapping (category/task)
+
+    private var titleForBreakdown: String {
+        switch viewModel.breakdown {
+        case .category: return "Time by Category"
+        case .task:     return "Time by Task"
+        }
+    }
+
+    private var activeCount: Int {
+        switch viewModel.breakdown {
+        case .category: return viewModel.categoryStats.count
+        case .task:     return viewModel.taskStats.count
+        }
+    }
+
+    private struct LegendRowModel: Identifiable {
+        let id: String
+        let name: String
+        let percent: Double
+        let color: Color
+    }
+
+    private struct TotalRowModel: Identifiable {
+        let id: String
+        let name: String
+        let minutes: Int
+        let color: Color
+    }
+
+    private var activeLegendRows: [LegendRowModel] {
+        switch viewModel.breakdown {
+        case .category:
+            return viewModel.categoryStats.map { stat in
+                LegendRowModel(
+                    id: stat.id,
+                    name: stat.name,
+                    percent: viewModel.percent(for: stat),
+                    color: categoryColor(stat)
+                )
+            }
+        case .task:
+            return viewModel.taskStats.map { stat in
+                LegendRowModel(
+                    id: stat.id,
+                    name: stat.title,
+                    percent: viewModel.percent(for: stat),
+                    color: taskColor(stat)
+                )
+            }
+        }
+    }
+
+    private var activeTotalRows: [TotalRowModel] {
+        switch viewModel.breakdown {
+        case .category:
+            return viewModel.categoryStats.map { stat in
+                TotalRowModel(
+                    id: stat.id,
+                    name: stat.name,
+                    minutes: stat.minutes,
+                    color: categoryColor(stat)
+                )
+            }
+        case .task:
+            return viewModel.taskStats.map { stat in
+                TotalRowModel(
+                    id: stat.id,
+                    name: stat.title,
+                    minutes: stat.minutes,
+                    color: taskColor(stat)
+                )
+            }
+        }
+    }
+
+    // MARK: - Colors
+
     private func categoryColor(_ stat: CategoryStat) -> Color {
         stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
+
+    private func taskColor(_ stat: TaskStat) -> Color {
+        stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
+    }
+
+    // MARK: - Formatting
 
     private func percentString(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
     }
 }
 
-private struct CategoryLegendRow: View {
+private struct LegendRow: View {
     let name: String
     let percentText: String
     let color: Color
@@ -236,7 +350,10 @@ private struct CategoryLegendRow: View {
             Text(name)
                 .font(DS.Typography.body)
                 .foregroundColor(DS.ColorToken.textPrimary)
+                .lineLimit(1)
+
             Spacer()
+            
             Text(percentText)
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundColor(DS.ColorToken.textSecondary)
