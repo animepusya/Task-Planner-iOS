@@ -129,7 +129,8 @@ struct PlannerView: View {
                 onPrev: viewModel.goToPreviousMonth,
                 onNext: viewModel.goToNextMonth,
                 onSelectMonthAnchor: viewModel.setMonthAnchor(_:),
-                onToday: viewModel.goToToday // ✅
+                onToday: viewModel.goToToday,
+                todayTitle: "Today"
             )
 
             WeekdaysRowView(

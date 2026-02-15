@@ -63,36 +63,55 @@ struct StatisticsView: View {
     }
 
     private var periodSelectorCard: some View {
-        HStack {
-            Button(action: viewModel.goToPrevious) {
-                Image(systemName: "chevron.left")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DS.ColorToken.textSecondary)
-                    .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.9))
-                    .clipShape(Circle())
+        Group {
+            if viewModel.range == .month {
+                MonthSwitcherView(
+                    title: viewModel.displayedTitle,
+                    monthAnchor: Calendar.current.startOfMonth(for: viewModel.anchorDate),
+                    onPrev: viewModel.goToPrevious,
+                    onNext: viewModel.goToNext,
+                    onSelectMonthAnchor: { newAnchor in
+                        viewModel.anchorDate = Calendar.current.startOfMonth(for: newAnchor)
+                    },
+                    onToday: {
+                        viewModel.anchorDate = Calendar.current.startOfMonth(for: .now)
+                    },
+                    todayTitle: "Current month"
+                )
+                .dsCard()
+            } else {
+                HStack {
+                    Button(action: viewModel.goToPrevious) {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(DS.ColorToken.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.9))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Text(viewModel.displayedTitle)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(DS.ColorToken.textPrimary)
+
+                    Spacer()
+
+                    Button(action: viewModel.goToNext) {
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(DS.ColorToken.textSecondary)
+                            .frame(width: 34, height: 34)
+                            .background(Color.white.opacity(0.9))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
+                .dsCard()
             }
-            .buttonStyle(.plain)
-
-            Spacer()
-
-            Text(viewModel.displayedTitle)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                .foregroundColor(DS.ColorToken.textPrimary)
-
-            Spacer()
-
-            Button(action: viewModel.goToNext) {
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(DS.ColorToken.textSecondary)
-                    .frame(width: 34, height: 34)
-                    .background(Color.white.opacity(0.9))
-                    .clipShape(Circle())
-            }
-            .buttonStyle(.plain)
         }
-        .dsCard()
     }
 
     private var timeByCategoryCard: some View {
