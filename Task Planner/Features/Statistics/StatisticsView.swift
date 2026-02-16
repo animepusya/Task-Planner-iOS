@@ -9,28 +9,35 @@ import SwiftUI
 
 struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
+    @State private var isRangeSheetPresented = false
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                 header
-                rangePickerCard
-                periodSelectorCard
-
-                // ✅ NEW: breakdown picker card (segmented)
-                breakdownPickerCard
-
-                timeBreakdownCard
-                totalHoursCard
+                periodCard
+                donutCard
+                totalCard
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, 24)
         }
-        .background(DS.ColorToken.appBackground.ignoresSafeArea())
+        .background(Color.clear.ignoresSafeArea()) // фон задаётся AppBackgroundView в AppRootView
         .navigationBarHidden(true)
         .onAppear { viewModel.refresh() }
+        .sheet(isPresented: $isRangeSheetPresented) {
+            StatisticsRangeSheet(
+                range: $viewModel.range,
+                anchorDate: $viewModel.anchorDate,
+                onPickMonthYear: { newAnchor in
+                    viewModel.anchorDate = Calendar.current.startOfMonth(for: newAnchor)
+                }
+            )
+        }
     }
+
+    // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center) {
@@ -54,122 +61,229 @@ struct StatisticsView: View {
         }
     }
 
-    private var rangePickerCard: some View {
-        Picker("", selection: $viewModel.range) {
-            ForEach(StatisticsRange.allCases) { r in
-                Text(r.title).tag(r)
-            }
-        }
-        .pickerStyle(.segmented)
-        .dsCard(padding: DS.Spacing.md)
-    }
+    // MARK: - Period card (like Figma)
 
-    private var periodSelectorCard: some View {
-        Group {
-            if viewModel.range == .month {
-                MonthSwitcherView(
-                    title: viewModel.displayedTitle,
-                    monthAnchor: Calendar.current.startOfMonth(for: viewModel.anchorDate),
-                    onPrev: viewModel.goToPrevious,
-                    onNext: viewModel.goToNext,
-                    onSelectMonthAnchor: { newAnchor in
-                        viewModel.anchorDate = Calendar.current.startOfMonth(for: newAnchor)
-                    },
-                    onToday: {
-                        viewModel.anchorDate = Calendar.current.startOfMonth(for: .now)
-                    },
-                    todayTitle: "Current month"
-                )
-                .dsCard()
-            } else {
-                HStack {
-                    Button(action: viewModel.goToPrevious) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(DS.ColorToken.textSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.9))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+    private var periodCard: some View {
+        HStack {
+            navCircle("chevron.left", action: viewModel.goToPrevious)
 
-                    Spacer()
+            Spacer()
+
+            Button {
+                isRangeSheetPresented = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(DS.ColorToken.purple)
 
                     Text(viewModel.displayedTitle)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(DS.ColorToken.textPrimary)
-
-                    Spacer()
-
-                    Button(action: viewModel.goToNext) {
-                        Image(systemName: "chevron.right")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(DS.ColorToken.textSecondary)
-                            .frame(width: 34, height: 34)
-                            .background(Color.white.opacity(0.9))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundStyle(DS.ColorToken.textPrimary)
                 }
-                .dsCard()
+                .padding(.vertical, 12)
+                .padding(.horizontal, 12)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Select period")
+
+            Spacer()
+
+            navCircle("chevron.right", action: viewModel.goToNext)
         }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.95))
+        .cornerRadius(DS.Radius.md)
+        .shadow(color: DS.Shadow.soft, radius: 14, x: 0, y: 10)
     }
 
-    // ✅ NEW
-    private var breakdownPickerCard: some View {
-        Picker("", selection: $viewModel.breakdown) {
-            ForEach(StatisticsBreakdown.allCases) { b in
-                Text(b.title).tag(b)
-            }
+    private func navCircle(_ systemName: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(DS.ColorToken.textSecondary)
+                .frame(width: 36, height: 36)
+                .background(Color.white.opacity(0.9))
+                .clipShape(Circle())
         }
-        .pickerStyle(.segmented)
-        .dsCard(padding: DS.Spacing.md)
+        .buttonStyle(.plain)
     }
 
-    // ✅ Replaces old timeByCategoryCard
-    private var timeBreakdownCard: some View {
+    // MARK: - Donut card
+
+    private var donutCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            Text(titleForBreakdown)
-                .font(DS.Typography.sectionTitle)
-                .foregroundColor(DS.ColorToken.textPrimary)
 
-            HStack(alignment: .center, spacing: DS.Spacing.lg) {
-                donut
-                    .frame(width: 140, height: 140)
+            // centered title like Figma + small switch button
+            HStack(alignment: .center) {
+                Spacer()
 
-                VStack(alignment: .leading, spacing: 10) {
-                    if activeCount == 0 {
-                        Text("No data for this period yet.")
-                            .font(DS.Typography.caption)
-                            .foregroundColor(DS.ColorToken.textSecondary)
-                    } else {
-                        ForEach(activeLegendRows) { row in
-                            LegendRow(
-                                name: row.name,
-                                percentText: percentString(row.percent),
-                                color: row.color
-                            )
-                        }
-                    }
-                }
+                Text(titleForBreakdown)
+                    .font(DS.Typography.sectionTitle)
+                    .foregroundColor(DS.ColorToken.textPrimary)
+
+                Spacer()
+
+                breakdownMiniButton
             }
+
+            ZStack {
+                donut
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 6)
+            .padding(.bottom, 2)
         }
-        .dsCard()
+        .dsCard(padding: DS.Spacing.lg)
+        .cornerRadius(DS.Radius.lg)
+    }
+
+    private var breakdownMiniButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                viewModel.breakdown = (viewModel.breakdown == .category) ? .task : .category
+            }
+        } label: {
+            Image(systemName: "arrow.left.arrow.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Color.white.opacity(0.9)))
+                .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Switch breakdown")
     }
 
     private var donut: some View {
         let slices = activeDonutSlices()
 
         return ZStack {
-            DonutChartView(slices: normalizedSlices(slices), lineWidth: 18)
-            VStack(spacing: 2) {
+            DonutChartView(slices: normalizedSlices(slices), lineWidth: 20)
+                .frame(width: 220, height: 220)
+
+            VStack(spacing: 4) {
                 Text(viewModel.totalMinutes.formattedHoursMinutes())
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundColor(DS.ColorToken.textPrimary)
+
                 Text("Total")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Total card (like Figma)
+
+    private var totalCard: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+
+            HStack(spacing: 14) {
+                Circle()
+                    .fill(DS.ColorToken.purple.opacity(0.12))
+                    .frame(width: 44, height: 44)
+                    .overlay(
+                        Image(systemName: "clock")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(DS.ColorToken.purple)
+                    )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Total Hours")
+                        .font(DS.Typography.subtitle)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+
+                    // если ты хочешь именно число вроде 124.5 — замени на отдельный formatter.
+                    Text(viewModel.totalMinutes.formattedHoursMinutes())
+                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                }
+
+                Spacer()
+            }
+
+            Divider().opacity(0.15)
+
+            if activeCount == 0 {
+                Text("Add some tasks to see totals.")
+                    .font(DS.Typography.caption)
+                    .foregroundColor(DS.ColorToken.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            } else {
+                VStack(spacing: 12) {
+                    ForEach(activeTotalRows) { row in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(row.color)
+                                .frame(width: 12, height: 12)
+
+                            Text(row.name)
+                                .font(DS.Typography.body)
+                                .foregroundColor(DS.ColorToken.textPrimary)
+                                .lineLimit(1)
+
+                            Spacer()
+
+                            Text("\(row.minutes.formattedHoursMinutes()) (\(percentString(row.percent)))")
+                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .foregroundStyle(DS.ColorToken.textPrimary)
+                        }
+                    }
+                }
+            }
+        }
+        .dsCard(padding: DS.Spacing.lg)
+        .cornerRadius(DS.Radius.lg)
+    }
+
+    // MARK: - Stats mapping (category/task)
+
+    private var titleForBreakdown: String {
+        switch viewModel.breakdown {
+        case .category: return "Time by Category"
+        case .task:     return "Time by Task"
+        }
+    }
+
+    private var activeCount: Int {
+        switch viewModel.breakdown {
+        case .category: return viewModel.categoryStats.count
+        case .task:     return viewModel.taskStats.count
+        }
+    }
+
+    private struct TotalRowModel: Identifiable {
+        let id: String
+        let name: String
+        let minutes: Int
+        let color: Color
+        let percent: Double
+    }
+
+    private var activeTotalRows: [TotalRowModel] {
+        switch viewModel.breakdown {
+        case .category:
+            return viewModel.categoryStats.map { stat in
+                TotalRowModel(
+                    id: stat.id,
+                    name: stat.name,
+                    minutes: stat.minutes,
+                    color: categoryColor(stat),
+                    percent: viewModel.percent(for: stat)
+                )
+            }
+        case .task:
+            return viewModel.taskStats.map { stat in
+                TotalRowModel(
+                    id: stat.id,
+                    name: stat.title,
+                    minutes: stat.minutes,
+                    color: taskColor(stat),
+                    percent: viewModel.percent(for: stat)
+                )
             }
         }
     }
@@ -184,7 +298,6 @@ struct StatisticsView: View {
                     color: categoryColor(stat)
                 )
             }
-
         case .task:
             return viewModel.taskStats.map { stat in
                 DonutChartSlice(
@@ -202,126 +315,6 @@ struct StatisticsView: View {
         return slices.map { DonutChartSlice(id: $0.id, fraction: $0.fraction / sum, color: $0.color) }
     }
 
-    private var totalHoursCard: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack {
-                Text("Total Hours")
-                    .font(DS.Typography.sectionTitle)
-                    .foregroundColor(DS.ColorToken.textPrimary)
-
-                Spacer()
-
-                Text(viewModel.totalMinutes.formattedHoursMinutes())
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundColor(DS.ColorToken.purple)
-            }
-
-            if activeCount == 0 {
-                Text("Add some tasks to see totals.")
-                    .font(DS.Typography.caption)
-                    .foregroundColor(DS.ColorToken.textSecondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                VStack(spacing: 10) {
-                    ForEach(activeTotalRows) { row in
-                        HStack {
-                            Circle()
-                                .fill(row.color)
-                                .frame(width: 10, height: 10)
-
-                            Text(row.name)
-                                .font(DS.Typography.body)
-                                .foregroundColor(DS.ColorToken.textPrimary)
-
-                            Spacer()
-
-                            Text(row.minutes.formattedHoursMinutes())
-                                .font(DS.Typography.body)
-                                .foregroundColor(DS.ColorToken.textSecondary)
-                        }
-                    }
-                }
-            }
-        }
-        .dsCard()
-    }
-
-    // MARK: - Active rows mapping (category/task)
-
-    private var titleForBreakdown: String {
-        switch viewModel.breakdown {
-        case .category: return "Time by Category"
-        case .task:     return "Time by Task"
-        }
-    }
-
-    private var activeCount: Int {
-        switch viewModel.breakdown {
-        case .category: return viewModel.categoryStats.count
-        case .task:     return viewModel.taskStats.count
-        }
-    }
-
-    private struct LegendRowModel: Identifiable {
-        let id: String
-        let name: String
-        let percent: Double
-        let color: Color
-    }
-
-    private struct TotalRowModel: Identifiable {
-        let id: String
-        let name: String
-        let minutes: Int
-        let color: Color
-    }
-
-    private var activeLegendRows: [LegendRowModel] {
-        switch viewModel.breakdown {
-        case .category:
-            return viewModel.categoryStats.map { stat in
-                LegendRowModel(
-                    id: stat.id,
-                    name: stat.name,
-                    percent: viewModel.percent(for: stat),
-                    color: categoryColor(stat)
-                )
-            }
-        case .task:
-            return viewModel.taskStats.map { stat in
-                LegendRowModel(
-                    id: stat.id,
-                    name: stat.title,
-                    percent: viewModel.percent(for: stat),
-                    color: taskColor(stat)
-                )
-            }
-        }
-    }
-
-    private var activeTotalRows: [TotalRowModel] {
-        switch viewModel.breakdown {
-        case .category:
-            return viewModel.categoryStats.map { stat in
-                TotalRowModel(
-                    id: stat.id,
-                    name: stat.name,
-                    minutes: stat.minutes,
-                    color: categoryColor(stat)
-                )
-            }
-        case .task:
-            return viewModel.taskStats.map { stat in
-                TotalRowModel(
-                    id: stat.id,
-                    name: stat.title,
-                    minutes: stat.minutes,
-                    color: taskColor(stat)
-                )
-            }
-        }
-    }
-
     // MARK: - Colors
 
     private func categoryColor(_ stat: CategoryStat) -> Color {
@@ -336,27 +329,5 @@ struct StatisticsView: View {
 
     private func percentString(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
-    }
-}
-
-private struct LegendRow: View {
-    let name: String
-    let percentText: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Circle().fill(color).frame(width: 10, height: 10)
-            Text(name)
-                .font(DS.Typography.body)
-                .foregroundColor(DS.ColorToken.textPrimary)
-                .lineLimit(1)
-
-            Spacer()
-            
-            Text(percentText)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
-                .foregroundColor(DS.ColorToken.textSecondary)
-        }
     }
 }

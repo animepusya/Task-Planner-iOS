@@ -14,9 +14,13 @@ struct AppRootView: View {
     @State private var selectedTab: AppTab = .planner
     @State private var sheet: SheetRoute?
 
+    init(container: DependencyContainer) {
+        self.container = container
+        UITabBar.appearance().isHidden = true
+    }
+
     var body: some View {
         TabView(selection: $selectedTab) {
-
             PlannerView(
                 viewModel: PlannerViewModel(
                     taskRepository: container.taskRepository,
@@ -26,9 +30,6 @@ struct AppRootView: View {
                     }
                 )
             )
-            .tabItem {
-                Label("February", systemImage: "calendar")
-            }
             .tag(AppTab.planner)
 
             StatisticsView(
@@ -38,11 +39,21 @@ struct AppRootView: View {
                     onOpenSettings: { sheet = .settings }
                 )
             )
-            .tabItem {
-                Label("Statistics", systemImage: "chart.bar")
-            }
             .tag(AppTab.statistics)
         }
+        .toolbar(.hidden, for: .tabBar)
+        .background(AppBackgroundView())
+        .safeAreaInset(edge: .bottom) {
+            CustomTabBar(
+                selected: selectedTab,
+                plannerTitle: Date.now.monthName(),
+                onSelectPlanner: { selectedTab = .planner },
+                onSelectStatistics: { selectedTab = .statistics }
+            )
+            .padding(.top, 8)
+            .background(Color.clear)
+        }
+
         .sheet(item: $sheet) { route in
             switch route {
             case .taskEditor(let taskId, let day):
@@ -66,5 +77,3 @@ struct AppRootView: View {
         }
     }
 }
-
-

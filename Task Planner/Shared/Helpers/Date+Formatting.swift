@@ -15,6 +15,13 @@ extension Date {
         f.dateFormat = "LLLL yyyy"
         return f.string(from: self)
     }
+    
+    func monthName(using calendar: Calendar = .current) -> String {
+        let f = DateFormatter()
+        f.calendar = calendar
+        f.dateFormat = "LLLL"
+        return f.string(from: self)
+    }
 
     func dayTitle(using calendar: Calendar = .current) -> String {
         let f = DateFormatter()

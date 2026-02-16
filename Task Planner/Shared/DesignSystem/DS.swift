@@ -57,6 +57,15 @@ enum DS {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+        
+        static let brandPink = LinearGradient(
+                colors: [
+                    Color(red: 0.98, green: 0.42, blue: 0.77), // яркий розовый
+                    Color(red: 0.55, green: 0.39, blue: 0.98)  // твой purple
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
     }
 
     enum Typography {
