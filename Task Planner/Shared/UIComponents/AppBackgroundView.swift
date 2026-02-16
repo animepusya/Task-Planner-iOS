@@ -8,18 +8,32 @@
 import SwiftUI
 
 struct AppBackgroundView: View {
+    let gradient: LinearGradient
+    let gradientOpacity: Double
+    let blurRadius: CGFloat
+
+    init(
+        gradient: LinearGradient = DS.GradientToken.splash,
+        gradientOpacity: Double = 0.28,
+        blurRadius: CGFloat = 18
+    ) {
+        self.gradient = gradient
+        self.gradientOpacity = gradientOpacity
+        self.blurRadius = blurRadius
+    }
+
     var body: some View {
         ZStack {
             DS.ColorToken.appBackground
 
-            DS.GradientToken.splash
-                .opacity(0.28)
-                .blur(radius: 18)
+            gradient
+                .opacity(gradientOpacity)
+                .blur(radius: blurRadius)
                 .ignoresSafeArea()
 
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.60),
+                    Color.white.opacity(0.55),
                     Color.clear
                 ],
                 startPoint: .top,

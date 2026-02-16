@@ -97,6 +97,7 @@ struct PlannerView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
+        .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
         .navigationBarHidden(true)
         .onAppear { viewModel.loadPreferences() }
     }
@@ -152,7 +153,9 @@ struct PlannerView: View {
                 }
             )
         }
-        .dsCard()
+        .dsCard {
+            DS.GradientToken.pinkPurpleCardBackground
+        }
     }
 
     // MARK: - Tasks Header

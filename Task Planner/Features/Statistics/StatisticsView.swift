@@ -10,20 +10,29 @@ import SwiftUI
 struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
-
+    
     var body: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                header
-                periodCard
-                donutCard
-                totalCard
+        ZStack {
+            AppBackgroundView(
+                    gradient: DS.GradientToken.pinkPurpleSoft,
+                    gradientOpacity: 0.55,
+                    blurRadius: 22
+                )
+            
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    header
+                    periodCard
+                    donutCard
+                    totalCard
+                }
+                .padding(.horizontal, DS.Spacing.lg)
+                .padding(.top, DS.Spacing.lg)
+                .padding(.bottom, 24)
             }
-            .padding(.horizontal, DS.Spacing.lg)
-            .padding(.top, DS.Spacing.lg)
-            .padding(.bottom, 24)
+            .background(Color.clear)
+            .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
         }
-        .background(Color.clear.ignoresSafeArea()) // фон задаётся AppBackgroundView в AppRootView
         .navigationBarHidden(true)
         .onAppear { viewModel.refresh() }
         .sheet(isPresented: $isRangeSheetPresented) {

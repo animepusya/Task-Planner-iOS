@@ -15,6 +15,11 @@ enum DS {
         static let lg: CGFloat = 22
         static let xl: CGFloat = 28
     }
+    
+    enum Layout {
+            static let tabBarHeight: CGFloat = 78
+            static let tabBarBottomPadding: CGFloat = 10
+        }
 
     enum Radius {
         static let sm: CGFloat = 12
@@ -57,15 +62,34 @@ enum DS {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
-        
+
         static let brandPink = LinearGradient(
-                colors: [
-                    Color(red: 0.98, green: 0.42, blue: 0.77), // яркий розовый
-                    Color(red: 0.55, green: 0.39, blue: 0.98)  // твой purple
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+            colors: [
+                Color(red: 0.98, green: 0.42, blue: 0.77),
+                ColorToken.purple
+            ],
+            startPoint: .leading,
+            endPoint: .trailing
+        )
+
+        static let pinkPurpleSoft = LinearGradient(
+            colors: [
+                ColorToken.lightPink,
+                ColorToken.lavender
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        @ViewBuilder
+        static var pinkPurpleCardBackground: some View {
+            ZStack {
+                pinkPurpleSoft
+                    .opacity(0.90)
+
+                Color.white.opacity(0.62)
+            }
+        }
     }
 
     enum Typography {
@@ -77,12 +101,3 @@ enum DS {
     }
 }
 
-extension View {
-    func dsCard(padding: CGFloat = DS.Spacing.md) -> some View {
-        self
-            .padding(padding)
-            .background(DS.ColorToken.cardBackground)
-            .cornerRadius(DS.Radius.md)
-            .shadow(color: DS.Shadow.soft, radius: 14, x: 0, y: 10)
-    }
-}
