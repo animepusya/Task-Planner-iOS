@@ -7,22 +7,30 @@
 
 import SwiftUI
 
+import SwiftUI
+
 struct SplashView: View {
     let onFinished: () -> Void
 
-    @State private var breathe = false
-    @State private var didScheduleFinish = false
+    // timing
+    private let totalDuration: TimeInterval = 1.15
+    private let mainAnim: TimeInterval = 0.85
+    private let fadeOut: TimeInterval = 0.22
+
+    @State private var appear = false
+    @State private var glow = false
+    @State private var fade = false
 
     var body: some View {
         ZStack {
-            // Фон должен совпадать с launch screen по палитре
+            // Full splash gradient (match LaunchScreen target)
             DS.GradientToken.splash
                 .ignoresSafeArea()
 
-            // Очень лёгкая “вышка” сверху — делает дороже
+            // subtle top "premium" veil
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.45),
+                    Color.white.opacity(0.30),
                     Color.clear
                 ],
                 startPoint: .top,
@@ -30,58 +38,76 @@ struct SplashView: View {
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 18) {
-                logoMark
-                titleBlock
+            VStack(spacing: 14) {
+                iconMark
+
+                VStack(spacing: 6) {
+                    Text("Task Planner")
+                        .font(.system(size: 30, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.96))
+
+                    Text("Plan your day beautifully")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.white.opacity(0.78))
+                }
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            .scaleEffect(appear ? 1.0 : 0.92)
+            .opacity(fade ? 0.0 : (appear ? 1.0 : 0.0))
         }
-        .allowsHitTesting(false) // splash не должен мешать системным жестам
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
-                breathe = true
-            }
-
-            guard !didScheduleFinish else { return }
-            didScheduleFinish = true
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) {
-                onFinished()
-            }
+            runAnimation()
         }
     }
 
-    // MARK: - Pieces
-
-    private var logoMark: some View {
+    private var iconMark: some View {
         ZStack {
-            // “Стеклянный” бейдж вместо грубого круга
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(Color.white.opacity(0.28))
+            Circle()
+                .fill(Color.white.opacity(0.20))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 28, style: .continuous)
-                        .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.35), lineWidth: 1)
                 )
-                .frame(width: 124, height: 124)
-                .shadow(color: Color.black.opacity(0.10), radius: 18, x: 0, y: 10)
+                .shadow(color: Color.white.opacity(glow ? 0.18 : 0.06), radius: glow ? 20 : 10, x: 0, y: 10)
+                .shadow(color: Color.black.opacity(0.10), radius: 22, x: 0, y: 16)
 
-            Image(systemName: "calendar.badge.checkmark")
-                .font(.system(size: 44, weight: .semibold, design: .rounded))
-                .foregroundStyle(DS.ColorToken.purpleDark.opacity(0.92))
+            Image(systemName: "calendar")
+                .font(.system(size: 38, weight: .semibold))
+                .foregroundStyle(Color.white.opacity(0.96))
         }
-        .scaleEffect(breathe ? 1.03 : 0.97)
-        .opacity(breathe ? 1.0 : 0.86)
+        .frame(width: 96, height: 96)
+        .overlay(
+            Circle()
+                .stroke(Color.white.opacity(glow ? 0.22 : 0.0), lineWidth: glow ? 6 : 0)
+                .blur(radius: 10)
+        )
+        .scaleEffect(appear ? 1.0 : 0.84)
     }
 
-    private var titleBlock: some View {
-        VStack(spacing: 6) {
-            Text("Task Planner")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundStyle(DS.ColorToken.textPrimary)
+    private func runAnimation() {
+        // Main entrance
+        withAnimation(.easeOut(duration: mainAnim)) {
+            appear = true
+        }
 
-            Text("Organize your day with ease")
-                .font(.system(size: 15, weight: .medium, design: .rounded))
-                .foregroundStyle(DS.ColorToken.textSecondary)
+        // Subtle breathing glow
+        withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
+            glow = true
+        }
+
+        // Fade out at the end
+        DispatchQueue.main.asyncAfter(deadline: .now() + (totalDuration - fadeOut)) {
+            withAnimation(.easeIn(duration: fadeOut)) {
+                fade = true
+            }
+        }
+
+        // Finish -> AppRootView
+        DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
+            onFinished()
         }
     }
+}
+
+#Preview {
+    SplashView(onFinished: {})
 }

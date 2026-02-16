@@ -125,7 +125,7 @@ struct TaskEditorTimeCoordinator {
         let startDay = calendar.startOfDay(for: dayDate)
         var endDay = calendar.startOfDay(for: endDayDate)
 
-        var start = combine(day: startDay, time: startTime)
+        let start = combine(day: startDay, time: startTime)
         var end = combine(day: endDay, time: endTime)
 
         // жёстко: endDay не может быть раньше startDay

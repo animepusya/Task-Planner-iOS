@@ -20,59 +20,61 @@ struct AppRootView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            PlannerView(
-                viewModel: PlannerViewModel(
-                    taskRepository: container.taskRepository,
-                    preferencesRepository: container.preferencesRepository,
-                    onOpenTaskEditor: { taskId, day in
-                        sheet = .taskEditor(taskId: taskId, preselectedDay: day)
-                    }
-                )
-            )
-            .tag(AppTab.planner)
+        ZStack {
+            AppBackgroundView(gradient: DS.GradientToken.splash)
 
-            StatisticsView(
-                viewModel: StatisticsViewModel(
-                    taskRepository: container.taskRepository,
-                    preferencesRepository: container.preferencesRepository,
-                    onOpenSettings: { sheet = .settings }
-                )
-            )
-            .tag(AppTab.statistics)
-        }
-        .toolbar(.hidden, for: .tabBar)
-        .background(AppBackgroundView())
-        .safeAreaInset(edge: .bottom) {
-            CustomTabBar(
-                selected: selectedTab,
-                plannerTitle: Date.now.monthName(),
-                onSelectPlanner: { selectedTab = .planner },
-                onSelectStatistics: { selectedTab = .statistics }
-            )
-            .padding(.top, 8)
-            .background(Color.clear)
-        }
-
-        .sheet(item: $sheet) { route in
-            switch route {
-            case .taskEditor(let taskId, let day):
-                TaskEditorView(
-                    viewModel: TaskEditorViewModel(
+            TabView(selection: $selectedTab) {
+                PlannerView(
+                    viewModel: PlannerViewModel(
                         taskRepository: container.taskRepository,
-                        taskId: taskId,
-                        preselectedDay: day
-                    )
-                )
-
-            case .settings:
-                SettingsView(
-                    viewModel: SettingsViewModel(
                         preferencesRepository: container.preferencesRepository,
-                        taskRepository: container.taskRepository,
-                        categoryRepository: container.categoryRepository
+                        onOpenTaskEditor: { taskId, day in
+                            sheet = .taskEditor(taskId: taskId, preselectedDay: day)
+                        }
                     )
                 )
+                .tag(AppTab.planner)
+
+                StatisticsView(
+                    viewModel: StatisticsViewModel(
+                        taskRepository: container.taskRepository,
+                        preferencesRepository: container.preferencesRepository,
+                        onOpenSettings: { sheet = .settings }
+                    )
+                )
+                .tag(AppTab.statistics)
+            }
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom) {
+                CustomTabBar(
+                    selected: selectedTab,
+                    plannerTitle: Date.now.monthName(),
+                    onSelectPlanner: { selectedTab = .planner },
+                    onSelectStatistics: { selectedTab = .statistics }
+                )
+                .padding(.top, 8)
+                .background(Color.clear)
+            }
+            .sheet(item: $sheet) { route in
+                switch route {
+                case .taskEditor(let taskId, let day):
+                    TaskEditorView(
+                        viewModel: TaskEditorViewModel(
+                            taskRepository: container.taskRepository,
+                            taskId: taskId,
+                            preselectedDay: day
+                        )
+                    )
+
+                case .settings:
+                    SettingsView(
+                        viewModel: SettingsViewModel(
+                            preferencesRepository: container.preferencesRepository,
+                            taskRepository: container.taskRepository,
+                            categoryRepository: container.categoryRepository
+                        )
+                    )
+                }
             }
         }
     }
