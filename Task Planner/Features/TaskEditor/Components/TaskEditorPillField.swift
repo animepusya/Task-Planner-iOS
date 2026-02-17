@@ -11,7 +11,23 @@ struct TaskEditorPillField<Trailing: View>: View {
     let title: String?
     let icon: String
     let trailingWidth: CGFloat
+    let showsIcon: Bool
+
     @ViewBuilder var trailing: () -> Trailing
+
+    init(
+        title: String?,
+        icon: String,
+        trailingWidth: CGFloat,
+        showsIcon: Bool = true,
+        @ViewBuilder trailing: @escaping () -> Trailing
+    ) {
+        self.title = title
+        self.icon = icon
+        self.trailingWidth = trailingWidth
+        self.showsIcon = showsIcon
+        self.trailing = trailing
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -21,13 +37,15 @@ struct TaskEditorPillField<Trailing: View>: View {
                     .foregroundStyle(DS.ColorToken.textSecondary)
             } else {
                 Color.clear
-                    .frame(height: 14) // высота caption
+                    .frame(height: 14)
             }
 
             HStack(spacing: 8) {
-                Image(systemName: icon)
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(DS.ColorToken.textSecondary)
+                if showsIcon {
+                    Image(systemName: icon)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                }
 
                 Spacer(minLength: 0)
 

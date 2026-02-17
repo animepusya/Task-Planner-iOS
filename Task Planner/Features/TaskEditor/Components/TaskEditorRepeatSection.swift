@@ -18,16 +18,19 @@ struct TaskEditorRepeatSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            header
+            HStack {
+                header
+                
+                Spacer()
 
-            // "Every N days" над строкой с pill + +/- (как ты описал)
-            if showsInterval {
-                Text("Every \(repeatIntervalDays) days")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.9)
-                    .padding(.top, 2)
+                if showsInterval {
+                    Text("Every \(repeatIntervalDays) days")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.9)
+                        .padding(.top, 2)
+                }
             }
 
             HStack(alignment: .center, spacing: DS.Spacing.sm) {
@@ -57,7 +60,6 @@ struct TaskEditorRepeatSection: View {
             x: 0,
             y: 8
         )
-        // никаких implicit animations / transitions
         .transaction { $0.animation = nil }
         .animation(nil, value: repeatRule)
         .animation(nil, value: isInvalid)
@@ -113,7 +115,7 @@ struct TaskEditorRepeatSection: View {
     }
 }
 
-// MARK: - Compact +/- control (looks like DS)
+// MARK: - Compact +/- control
 
 private struct RepeatIntervalControl: View {
     @Binding var value: Int

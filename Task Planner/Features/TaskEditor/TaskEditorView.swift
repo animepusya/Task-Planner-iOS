@@ -27,7 +27,45 @@ struct TaskEditorView: View {
     }
 
     var body: some View {
-        root
+        GeometryReader { proxy in
+            let pad = adaptiveHorizontalPadding(for: proxy.size.width)
+            let contentWidth = max(0, proxy.size.width - pad * 2)
+
+            let isCompact = proxy.size.width < 375
+
+            VStack(spacing: 0) {
+                TaskEditorTopBar(
+                    title: viewModel.navigationTitle,
+                    isBusy: viewModel.isBusy,
+                    onBack: {
+                        focusedField = nil
+                        dismiss()
+                    },
+                    onSave: {
+                        focusedField = nil
+                        save()
+                    },
+                    canSave: viewModel.canSave
+                )
+                .frame(width: contentWidth)
+                .padding(.horizontal, pad)
+                .padding(.vertical, 10)
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                        nameSection
+                        dateTimeSection(isCompact: isCompact)
+                        TaskEditorColorSection(color: viewModel.binding(\.color))
+                        repeatSection
+                    }
+                    .frame(width: contentWidth, alignment: .leading)
+                    .padding(.horizontal, pad)
+                    .padding(.top, DS.Spacing.lg)
+                    .padding(.bottom, 28)
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
             .toolbar {
                 ToolbarItemGroup(placement: .keyboard) {
@@ -48,47 +86,18 @@ struct TaskEditorView: View {
             .onChange(of: categories.count) { _, _ in
                 viewModel.ensureCategoryIsValid(available: availableCategoryTitles)
             }
-    }
-
-    // MARK: - Subviews
-
-    private var root: some View {
-        VStack(spacing: 0) {
-            topBar
-            content
         }
     }
 
-    private var topBar: some View {
-        TaskEditorTopBar(
-            title: viewModel.navigationTitle,
-            isBusy: viewModel.isBusy,
-            onBack: {
-                focusedField = nil
-                dismiss()
-            },
-            onSave: {
-                focusedField = nil
-                save()
-            },
-            canSave: viewModel.canSave
-        )
+    // MARK: - Layout
+
+    private func adaptiveHorizontalPadding(for width: CGFloat) -> CGFloat {
+        if width < 375 { return DS.Spacing.md }
+        if width < 430 { return DS.Spacing.lg }
+        return DS.Spacing.xl
     }
 
-    private var content: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                nameSection
-                dateTimeSection
-                TaskEditorColorSection(color: viewModel.binding(\.color))
-                repeatSection
-            }
-            .padding(.horizontal, DS.Spacing.lg)
-            .padding(.top, DS.Spacing.lg)
-            .padding(.bottom, 28)
-        }
-        .scrollDismissesKeyboard(.interactively)
-    }
+    // MARK: - Sections
 
     private var nameSection: some View {
         TaskEditorNameSection(
@@ -101,7 +110,7 @@ struct TaskEditorView: View {
         )
     }
 
-    private var dateTimeSection: some View {
+    private func dateTimeSection(isCompact: Bool) -> some View {
         TaskEditorDateTimeSection(
             dayDate: viewModel.dayDateBinding,
             endDayDate: viewModel.endDayDateBinding,
@@ -123,7 +132,7 @@ struct TaskEditorView: View {
         )
     }
 
-    // MARK: - Actions
+    // MARK: - Save
 
     private func save() {
         viewModel.isBusy = true

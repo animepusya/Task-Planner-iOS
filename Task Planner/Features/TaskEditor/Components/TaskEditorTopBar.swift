@@ -33,6 +33,8 @@ struct TaskEditorTopBar: View {
             Text(title)
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundStyle(DS.ColorToken.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.9)
 
             Spacer()
 
@@ -54,7 +56,5 @@ struct TaskEditorTopBar: View {
             .disabled(!canSave)
             .opacity(canSave ? 1.0 : 0.45)
         }
-        .padding(.horizontal, DS.Spacing.lg)
-        .padding(.vertical, 10)
     }
 }
