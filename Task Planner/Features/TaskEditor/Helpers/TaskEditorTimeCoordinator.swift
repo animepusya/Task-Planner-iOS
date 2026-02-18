@@ -35,7 +35,6 @@ struct TaskEditorTimeCoordinator {
         calendar.startOfDay(for: date)
     }
 
-    /// Комбинируем day (startOfDay) + hour/minute из time
     func combine(day: Date, time: Date) -> Date {
         let dayStart = calendar.startOfDay(for: day)
         let comps = calendar.dateComponents([.hour, .minute], from: time)
@@ -46,7 +45,6 @@ struct TaskEditorTimeCoordinator {
 
     // MARK: - Alignment
 
-    /// dayDate изменился: переносим startTime на новый dayDate, а endDayDate сохраняем оффсет дней
     func syncTimesToSelectedDay(
         newStartDay: Date,
         startTime: Date,
@@ -103,7 +101,6 @@ struct TaskEditorTimeCoordinator {
             )
         }
 
-        // если endDay пытались поставить раньше startDay → возвращаем на startDay
         let fixedEndDay = startDay
         return Result(
             dayDate: startDay,
@@ -128,14 +125,12 @@ struct TaskEditorTimeCoordinator {
         let start = combine(day: startDay, time: startTime)
         var end = combine(day: endDay, time: endTime)
 
-        // жёстко: endDay не может быть раньше startDay
         if endDay < startDay {
             endDay = startDay
             end = combine(day: endDay, time: endTime)
             return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "End date can’t be earlier than start date.")
         }
 
-        // правило "в тот же день end < start" → это следующий день
         if calendar.isDate(endDay, inSameDayAs: startDay), end < start {
             let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
             endDay = calendar.startOfDay(for: nextDay)
@@ -143,7 +138,6 @@ struct TaskEditorTimeCoordinator {
             return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "Ends next day.")
         }
 
-        // если end == start в тот же день → добавим минимум
         if calendar.isDate(endDay, inSameDayAs: startDay), end == start {
             end = calendar.date(byAdding: .minute, value: minDurationMinutes, to: start) ?? start
             endDay = calendar.startOfDay(for: end)
@@ -158,7 +152,6 @@ struct TaskEditorTimeCoordinator {
     func applyDuration(minutes: Int, dayDate: Date, startTime: Date) -> DurationResult {
         let startDay = calendar.startOfDay(for: dayDate)
 
-        // ✅ Ключевой момент: старт = день + выбранное время, НЕ startOfDay
         let start = combine(day: startDay, time: startTime)
         let end = calendar.date(byAdding: .minute, value: max(minDurationMinutes, minutes), to: start) ?? start
 
@@ -194,7 +187,6 @@ struct TaskEditorTimeCoordinator {
         let startDay = calendar.startOfDay(for: dayDate)
         let endDay = calendar.startOfDay(for: endDayDate)
 
-        // только это правило: если в тот же день end <= start → переносим на следующий день
         if calendar.isDate(endDay, inSameDayAs: startDay), end <= start {
             let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
             let fixedEnd = combine(day: nextDay, time: end)
@@ -206,12 +198,11 @@ struct TaskEditorTimeCoordinator {
 
 extension TaskEditorTimeCoordinator {
 
-    /// Returns next occurrence start (Date) from `startDay` based on repeat rule.
-    /// `startDay` must be startOfDay.
     func nextOccurrenceStartDay(
         from startDay: Date,
         repeatRule: RepeatRule,
-        repeatIntervalDays: Int
+        repeatIntervalDays: Int,
+        weekStartsOnMonday: Bool
     ) -> Date? {
         let s = calendar.startOfDay(for: startDay)
 
@@ -220,6 +211,13 @@ extension TaskEditorTimeCoordinator {
             return nil
         case .daily:
             return calendar.date(byAdding: .day, value: 1, to: s)
+        case .weekdays, .weekends:
+            return Workweek.nextMatchingStartDay(
+                after: s,
+                rule: repeatRule,
+                calendar: calendar,
+                weekStartsOnMonday: weekStartsOnMonday
+            )
         case .weekly:
             return calendar.date(byAdding: .day, value: 7, to: s)
         case .monthly:
@@ -235,7 +233,8 @@ extension TaskEditorTimeCoordinator {
         startTime: Date,
         endTime: Date,
         repeatRule: RepeatRule,
-        repeatIntervalDays: Int
+        repeatIntervalDays: Int,
+        weekStartsOnMonday: Bool
     ) -> Bool {
         guard repeatRule != .none else { return false }
 
@@ -245,21 +244,22 @@ extension TaskEditorTimeCoordinator {
             startTime: startTime,
             endTime: endTime
         )
-
         let start = normalized.start
         let end = normalized.end
         let duration = end.timeIntervalSince(start)
         guard duration > 0 else { return false }
 
         let startDay = calendar.startOfDay(for: dayDate)
-        guard let nextStartDay = nextOccurrenceStartDay(from: startDay, repeatRule: repeatRule, repeatIntervalDays: repeatIntervalDays) else {
-            return false
-        }
 
-        // next occurrence start is at same time-of-day as startTime
+        guard let nextStartDay = nextOccurrenceStartDay(
+            from: startDay,
+            repeatRule: repeatRule,
+            repeatIntervalDays: repeatIntervalDays,
+            weekStartsOnMonday: weekStartsOnMonday
+        ) else { return false }
+
         let nextStart = combine(day: nextStartDay, time: startTime)
 
-        // conflict: current occurrence ends AFTER next occurrence should start
         return end > nextStart
     }
 }

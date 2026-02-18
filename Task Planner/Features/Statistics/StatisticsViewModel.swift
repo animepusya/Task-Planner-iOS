@@ -15,7 +15,6 @@ final class StatisticsViewModel: ObservableObject {
     private let preferencesRepository: PreferencesRepository
     private let onOpenSettings: () -> Void
 
-    // Input
     @Published var range: StatisticsRange = .month {
         didSet { refresh() }
     }
@@ -24,14 +23,13 @@ final class StatisticsViewModel: ObservableObject {
         didSet { refresh() }
     }
 
-    // ✅ NEW: breakdown
     @Published var breakdown: StatisticsBreakdown = .category
 
     // Output
     @Published private(set) var displayedTitle: String = Calendar.current.startOfDay(for: .now).monthTitle()
     @Published private(set) var totalMinutes: Int = 0
     @Published private(set) var categoryStats: [CategoryStat] = []
-    @Published private(set) var taskStats: [TaskStat] = [] // ✅ NEW
+    @Published private(set) var taskStats: [TaskStat] = []
     @Published private(set) var weekStartsOnMonday: Bool = true
 
     init(
@@ -54,6 +52,12 @@ final class StatisticsViewModel: ObservableObject {
             weekStartsOnMonday = true
         }
     }
+    
+    func setWeekStartsOnMonday(_ value: Bool) {
+            guard value != weekStartsOnMonday else { return }
+            weekStartsOnMonday = value
+            refresh()
+        }
 
     func openSettings() { onOpenSettings() }
 
@@ -95,7 +99,6 @@ final class StatisticsViewModel: ObservableObject {
         percent(forMinutes: stat.minutes)
     }
 
-    // ✅ NEW
     func percent(for stat: TaskStat) -> Double {
         percent(forMinutes: stat.minutes)
     }
@@ -124,7 +127,6 @@ final class StatisticsViewModel: ObservableObject {
 
             var perCategory: [String: (minutes: Int, colorRaw: String)] = [:]
 
-            // ✅ NEW: per-task aggregation
             var perTask: [String: (title: String, minutes: Int, colorRaw: String)] = [:]
 
             var total = 0
@@ -140,7 +142,6 @@ final class StatisticsViewModel: ObservableObject {
 
                     total += minutes
 
-                    // category bucket (existing)
                     let categoryName = normalizedCategoryTitle(task.categoryTitle)
                     let colorRaw = task.color.rawValue
                     if var existing = perCategory[categoryName] {
@@ -150,7 +151,6 @@ final class StatisticsViewModel: ObservableObject {
                         perCategory[categoryName] = (minutes: minutes, colorRaw: colorRaw)
                     }
 
-                    // task bucket (NEW)
                     let taskID = String(describing: task.persistentModelID)
                     let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
                     let displayTitle = title.isEmpty ? "Untitled" : title
@@ -194,7 +194,6 @@ final class StatisticsViewModel: ObservableObject {
 
         if otherMinutes <= 0 { return top }
 
-        // "Other" — отдельная строка, нейтральный цвет (в UI уйдёт в textSecondary)
         let other = TaskStat(id: "other", title: "Other", minutes: otherMinutes, colorRaw: "")
         return top + [other]
     }

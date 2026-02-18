@@ -61,6 +61,7 @@ struct AppRootView: View {
                     TaskEditorView(
                         viewModel: TaskEditorViewModel(
                             taskRepository: container.taskRepository,
+                            preferencesRepository: container.preferencesRepository,
                             taskId: taskId,
                             preselectedDay: day
                         )

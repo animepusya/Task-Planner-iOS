@@ -6,11 +6,18 @@
 //
 
 import SwiftUI
+import SwiftData
 
 struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
     
+    @Query private var prefs: [AppPreferencesEntity]
+    
+    private var weekStartsOnMondayValue: Bool {
+        prefs.first?.weekStartsOnMonday ?? true
+    }
+
     var body: some View {
         ZStack {
             AppBackgroundView(
@@ -34,7 +41,13 @@ struct StatisticsView: View {
             .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
         }
         .navigationBarHidden(true)
-        .onAppear { viewModel.refresh() }
+        .onAppear {
+            viewModel.setWeekStartsOnMonday(weekStartsOnMondayValue)
+            viewModel.refresh()
+        }
+        .onChange(of: weekStartsOnMondayValue) { _, newValue in
+            viewModel.setWeekStartsOnMonday(newValue)
+        }
         .sheet(isPresented: $isRangeSheetPresented) {
             StatisticsRangeSheet(
                 range: $viewModel.range,

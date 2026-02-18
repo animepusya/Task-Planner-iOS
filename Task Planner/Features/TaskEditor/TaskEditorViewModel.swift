@@ -15,6 +15,7 @@ final class TaskEditorViewModel: ObservableObject {
 
     // MARK: Dependencies
     private let taskRepository: TaskRepository
+    private let preferencesRepository: PreferencesRepository
     private let taskId: PersistentIdentifier?
     private let time: TaskEditorTimeCoordinator
     private let category: TaskEditorCategoryCoordinator
@@ -23,18 +24,19 @@ final class TaskEditorViewModel: ObservableObject {
     @Published var isBusy: Bool = false
     @Published var alert: TaskEditorAlert?
 
-    // ✅ Один publish на изменение формы (и стараемся не публиковать без нужды)
     @Published private(set) var form: FormState
 
     private var didBootstrap = false
+    private var weekStartsOnMonday = true
 
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
     var canSave: Bool { !isBusy && !form.isRepeatInvalid }
 
     // MARK: Init
-    init(taskRepository: TaskRepository, taskId: PersistentIdentifier?, preselectedDay: Date) {
+    init(taskRepository: TaskRepository,preferencesRepository: PreferencesRepository, taskId: PersistentIdentifier?, preselectedDay: Date) {
         self.taskRepository = taskRepository
+        self.preferencesRepository = preferencesRepository
         self.taskId = taskId
         self.time = TaskEditorTimeCoordinator(calendar: .current)
         self.category = TaskEditorCategoryCoordinator()
@@ -75,7 +77,7 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Simple Binding helper (для НЕ-временных полей)
+    // MARK: - Simple Binding helper
     func binding<T>(_ keyPath: WritableKeyPath<FormState, T>) -> Binding<T> {
         Binding(
             get: { self.form[keyPath: keyPath] },
@@ -87,7 +89,7 @@ final class TaskEditorViewModel: ObservableObject {
         )
     }
 
-    // MARK: - Smart bindings (для полей, которые запускают пайплайны)
+    // MARK: - Smart bindings
     var dayDateBinding: Binding<Date> {
         Binding(
             get: { self.form.dayDate },
@@ -134,6 +136,13 @@ final class TaskEditorViewModel: ObservableObject {
     func onAppear(availableCategories: [String]) {
         guard !didBootstrap else { return }
         didBootstrap = true
+        
+        do {
+            let prefs = try preferencesRepository.getOrCreate()
+            weekStartsOnMonday = prefs.weekStartsOnMonday
+        } catch {
+            weekStartsOnMonday = true
+        }
 
         ensureCategoryIsValid(available: availableCategories)
 
@@ -214,7 +223,7 @@ final class TaskEditorViewModel: ObservableObject {
         recalcRepeatConflictAndPublishIfNeeded()
     }
 
-    // MARK: - Time pipeline (осталось прежним, но apply теперь 1 publish)
+    // MARK: - Time pipeline
     func onStartDayChanged() {
         let synced = time.syncTimesToSelectedDay(
             newStartDay: form.dayDate,
@@ -425,7 +434,7 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Apply (ОДИН publish)
+    // MARK: - Apply
     private func apply(_ result: TaskEditorTimeCoordinator.Result) {
         var copy = form
         copy.dayDate = result.dayDate
@@ -434,7 +443,6 @@ final class TaskEditorViewModel: ObservableObject {
         copy.endTime = result.endTime
         copy.timeValidationMessage = result.message
 
-        // ✅ repeat conflict считаем сразу и пишем в тот же copy -> один publish
         let (isInvalid, message) = computeRepeatConflict(
             dayDate: copy.dayDate,
             endDayDate: copy.endDayDate,
@@ -483,7 +491,8 @@ final class TaskEditorViewModel: ObservableObject {
             startTime: startTime,
             endTime: endTime,
             repeatRule: repeatRule,
-            repeatIntervalDays: repeatIntervalDays
+            repeatIntervalDays: repeatIntervalDays,
+            weekStartsOnMonday: weekStartsOnMonday
         )
 
         if conflict {
