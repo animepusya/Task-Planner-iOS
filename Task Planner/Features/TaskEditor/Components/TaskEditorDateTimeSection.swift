@@ -32,17 +32,12 @@ struct TaskEditorDateTimeSection: View {
             }
             .tint(DS.ColorToken.lavender)
             .onChange(of: isAllDay) { _, _ in
-                // важно: именно withAnimation надёжно триггерит анимацию изменений layout
                 withAnimation(anim) { }
             }
 
-            ViewThatFits(in: .horizontal) {
-                regularPickers
-                compactPickers
-            }
-            .animation(anim, value: isAllDay)
+            regularPickers
+                .animation(anim, value: isAllDay)
 
-            // Duration — можно “скрывать”, но для плавности лучше тоже не удалять полностью
             TaskEditorChipGroup(
                 title: "Duration",
                 chips: [
@@ -56,26 +51,24 @@ struct TaskEditorDateTimeSection: View {
                     .init(title: "12h") { onApplyDuration(720) }
                 ]
             )
-            .opacity(isAllDay ? 0 : 1)
-            .frame(height: isAllDay ? 0 : nil)
-            .clipped()
-            .allowsHitTesting(!isAllDay)
+            .modifier(VerticalCollapsible(isCollapsed: isAllDay, anim: anim))
 
-            if let msg = timeValidationMessage {
-                Text(msg)
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(.orange)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .opacity(isAllDay ? 0 : 1)
-                    .frame(height: isAllDay ? 0 : nil)
-                    .clipped()
+            Group {
+                if let msg = timeValidationMessage {
+                    Text(msg)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(.orange)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    EmptyView()
+                }
             }
+            .modifier(VerticalCollapsible(isCollapsed: isAllDay, anim: anim))
         }
         .dsCard()
         .animation(anim, value: isAllDay)
     }
 
-    // MARK: - Regular
 
     private var regularPickers: some View {
         VStack(spacing: DS.Spacing.md) {
@@ -102,60 +95,40 @@ struct TaskEditorDateTimeSection: View {
     }
 
     private func timePill(icon: String, selection: Binding<Date>) -> some View {
-        TaskEditorPillField(title: nil, icon: icon, trailingWidth: 90) {
+        TaskEditorPillField(title: nil, icon: icon, trailingWidth: 60) {
             DatePicker("", selection: selection, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)
-                .opacity(isAllDay ? 0 : 1)
-                .frame(width: isAllDay ? 0 : nil)   // схлопываем место
-                .clipped()
-                .allowsHitTesting(!isAllDay)
+
+                .disabled(isAllDay)
+                .opacity(isAllDay ? 0.45 : 1.0)
         }
-        .opacity(isAllDay ? 0 : 1)
-        .frame(width: isAllDay ? 0 : nil)
-        .clipped()
-        .allowsHitTesting(!isAllDay)
-    }
-
-    // MARK: - Compact
-
-    private var compactPickers: some View {
-        VStack(spacing: DS.Spacing.md) {
-            combinedRow(title: "Start", date: $dayDate, time: $startTime)
-            combinedRow(title: "End", date: $endDayDate, time: $endTime)
-        }
-    }
-
-    private func combinedRow(
-        title: String,
-        date: Binding<Date>,
-        time: Binding<Date>
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(DS.Typography.caption)
-                .foregroundStyle(DS.ColorToken.textSecondary)
-
-            HStack(spacing: DS.Spacing.sm) {
-                DatePicker("", selection: date, displayedComponents: .date)
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
-
-                // ВАЖНО: не удаляем DatePicker, а анимируем его
-                DatePicker("", selection: time, displayedComponents: .hourAndMinute)
-                    .labelsHidden()
-                    .datePickerStyle(.compact)
-                    .frame(width: isAllDay ? 0 : 40, alignment: .trailing)
-                    .opacity(isAllDay ? 0 : 1)
-                    .clipped()
-                    .allowsHitTesting(!isAllDay)
+        .disabled(isAllDay)
+        .opacity(isAllDay ? 0.85 : 1.0)
+        .overlay {
+            if isAllDay {
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(Color.white.opacity(0.35))
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
             }
-            .padding(10)
-            .background(Color.black.opacity(0.04))
-            .cornerRadius(DS.Radius.sm)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+}
+
+// MARK: - Helpers
+
+private struct VerticalCollapsible: ViewModifier {
+    let isCollapsed: Bool
+    let anim: Animation
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(isCollapsed ? 0 : 1)
+            .frame(height: isCollapsed ? 0 : nil)
+            .clipped()
+            .allowsHitTesting(!isCollapsed)
+            .accessibilityHidden(isCollapsed)
+            .animation(anim, value: isCollapsed)
     }
 }
