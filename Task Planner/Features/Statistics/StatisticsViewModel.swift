@@ -125,7 +125,7 @@ final class StatisticsViewModel: ObservableObject {
                 }
             }
 
-            var perCategory: [String: (minutes: Int, colorRaw: String)] = [:]
+            var perCategory: [String: (totalMinutes: Int, colorMinutes: [String: Int])] = [:]
 
             var perTask: [String: (title: String, minutes: Int, colorRaw: String)] = [:]
 
@@ -144,11 +144,16 @@ final class StatisticsViewModel: ObservableObject {
 
                     let categoryName = normalizedCategoryTitle(task.categoryTitle)
                     let colorRaw = task.color.rawValue
+
                     if var existing = perCategory[categoryName] {
-                        existing.minutes += minutes
+                        existing.totalMinutes += minutes
+                        existing.colorMinutes[colorRaw, default: 0] += minutes
                         perCategory[categoryName] = existing
                     } else {
-                        perCategory[categoryName] = (minutes: minutes, colorRaw: colorRaw)
+                        perCategory[categoryName] = (
+                            totalMinutes: minutes,
+                            colorMinutes: [colorRaw: minutes]
+                        )
                     }
 
                     let taskID = String(describing: task.persistentModelID)
@@ -167,7 +172,15 @@ final class StatisticsViewModel: ObservableObject {
             totalMinutes = total
 
             categoryStats = perCategory
-                .map { CategoryStat(name: $0.key, minutes: $0.value.minutes, colorRaw: $0.value.colorRaw) }
+                .map { (categoryName, payload) in
+                    let dominantColorRaw = payload.colorMinutes.max(by: { $0.value < $1.value })?.key ?? ""
+
+                    return CategoryStat(
+                        name: categoryName,
+                        minutes: payload.totalMinutes,
+                        colorRaw: dominantColorRaw
+                    )
+                }
                 .sorted { $0.minutes > $1.minutes }
 
             taskStats = makeTopTasks(from: perTask)
