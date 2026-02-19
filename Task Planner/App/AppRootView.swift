@@ -11,8 +11,11 @@ import SwiftData
 struct AppRootView: View {
     let container: DependencyContainer
 
+    @Environment(\.modelContext) private var modelContext
+
     @State private var selectedTab: AppTab = .planner
     @State private var sheet: SheetRoute?
+    @State private var didBootstrap = false
 
     init(container: DependencyContainer) {
         self.container = container
@@ -20,14 +23,18 @@ struct AppRootView: View {
     }
 
     var body: some View {
+        let taskRepo = container.makeTaskRepository(context: modelContext)
+        let prefsRepo = container.makePreferencesRepository(context: modelContext)
+        let categoryRepo = container.makeCategoryRepository(context: modelContext)
+
         ZStack {
             AppBackgroundView(gradient: DS.GradientToken.splash)
 
             TabView(selection: $selectedTab) {
                 PlannerView(
                     viewModel: PlannerViewModel(
-                        taskRepository: container.taskRepository,
-                        preferencesRepository: container.preferencesRepository,
+                        taskRepository: taskRepo,
+                        preferencesRepository: prefsRepo,
                         onOpenTaskEditor: { taskId, day in
                             sheet = .taskEditor(taskId: taskId, preselectedDay: day)
                         }
@@ -37,8 +44,8 @@ struct AppRootView: View {
 
                 StatisticsView(
                     viewModel: StatisticsViewModel(
-                        taskRepository: container.taskRepository,
-                        preferencesRepository: container.preferencesRepository,
+                        taskRepository: taskRepo,
+                        preferencesRepository: prefsRepo,
                         onOpenSettings: { sheet = .settings }
                     )
                 )
@@ -60,8 +67,8 @@ struct AppRootView: View {
                 case .taskEditor(let taskId, let day):
                     TaskEditorView(
                         viewModel: TaskEditorViewModel(
-                            taskRepository: container.taskRepository,
-                            preferencesRepository: container.preferencesRepository,
+                            taskRepository: taskRepo,
+                            preferencesRepository: prefsRepo,
                             taskId: taskId,
                             preselectedDay: day
                         )
@@ -70,13 +77,18 @@ struct AppRootView: View {
                 case .settings:
                     SettingsView(
                         viewModel: SettingsViewModel(
-                            preferencesRepository: container.preferencesRepository,
-                            taskRepository: container.taskRepository,
-                            categoryRepository: container.categoryRepository
+                            preferencesRepository: prefsRepo,
+                            taskRepository: taskRepo,
+                            categoryRepository: categoryRepo
                         )
                     )
                 }
             }
+        }
+        .task {
+            guard !didBootstrap else { return }
+            didBootstrap = true
+            container.ensureSystemCategories(using: modelContext)
         }
     }
 }

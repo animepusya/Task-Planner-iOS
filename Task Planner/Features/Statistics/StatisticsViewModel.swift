@@ -133,7 +133,7 @@ final class StatisticsViewModel: ObservableObject {
 
             for day in enumerateDays(from: start, to: end, calendar: cal) {
                 for task in candidates {
-                    let minutes = TaskDayOverlap.minutesOnDay(
+                    let minutes = TaskStatisticsMinutes.minutesOnDay(
                         task: task,
                         day: day,
                         weekStartsOnMonday: weekStartsOnMonday

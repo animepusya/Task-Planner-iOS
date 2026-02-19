@@ -13,11 +13,12 @@ final class TaskEntity {
     var title: String
     var notes: String?
 
-    // Храним день отдельно (для календаря/гридов) — нормализованный startOfDay
     var dayDate: Date
 
     var startTime: Date
     var endTime: Date
+
+    var isAllDay: Bool
 
     var repeatRuleRaw: String
     var repeatIntervalDays: Int?
@@ -27,9 +28,7 @@ final class TaskEntity {
     // Пока категория хранится строкой (быстрее старт). Позже можно сделать relationship на CategoryEntity.
     var categoryTitle: String?
 
-    // ✅ NEW: Per-day completion storage (визуально, не влияет на статистику)
-    // Храним JSON-массив строковых ключей дней: ["2026-02-10", "2026-02-11", ...]
-    // SwiftData отлично хранит String.
+    // Per-day completion storage (визуально, не влияет на статистику)
     var completedDayKeysRaw: String
 
     init(
@@ -38,6 +37,7 @@ final class TaskEntity {
         dayDate: Date,
         startTime: Date,
         endTime: Date,
+        isAllDay: Bool = false,
         repeatRule: RepeatRule = .none,
         repeatIntervalDays: Int? = nil,
         status: TaskStatus = .todo,
@@ -49,13 +49,13 @@ final class TaskEntity {
         self.dayDate = dayDate
         self.startTime = startTime
         self.endTime = endTime
+        self.isAllDay = isAllDay
         self.repeatRuleRaw = repeatRule.rawValue
         self.repeatIntervalDays = repeatIntervalDays
         self.statusRaw = status.rawValue
         self.colorRaw = color.rawValue
         self.categoryTitle = categoryTitle
 
-        // ✅ NEW
         self.completedDayKeysRaw = "[]"
     }
 
@@ -82,15 +82,13 @@ extension TaskEntity {
         let f = DateFormatter()
         f.calendar = Calendar(identifier: .gregorian)
         f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(secondsFromGMT: 0) // ключи стабильные
+        f.timeZone = TimeZone(secondsFromGMT: 0)
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    /// "yyyy-MM-dd" от startOfDay
     static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
         let start = calendar.startOfDay(for: date)
-        // Преобразуем к "UTC day key" чтобы не плясало от TZ при форматировании
         let utc = Date(timeIntervalSince1970: start.timeIntervalSince1970)
         return dayKeyFormatter.string(from: utc)
     }
@@ -102,7 +100,6 @@ extension TaskEntity {
                 let arr = try JSONDecoder().decode([String].self, from: data)
                 return Set(arr)
             } catch {
-                // Если вдруг сломалась строка — не падаем
                 return []
             }
         }

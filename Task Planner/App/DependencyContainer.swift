@@ -9,17 +9,26 @@ import SwiftData
 
 @MainActor
 final class DependencyContainer {
-    let taskRepository: TaskRepository
-    let preferencesRepository: PreferencesRepository
-    let categoryRepository: CategoryRepository
+    let modelContainer: ModelContainer
 
     init(container: ModelContainer) {
-        let context = ModelContext(container)
+        self.modelContainer = container
+    }
 
-        self.taskRepository = SwiftDataTaskRepository(context: context)
-        self.preferencesRepository = SwiftDataPreferencesRepository(context: context)
-        self.categoryRepository = SwiftDataCategoryRepository(context: context)
+    func makeTaskRepository(context: ModelContext) -> TaskRepository {
+        SwiftDataTaskRepository(context: context)
+    }
 
-        try? self.categoryRepository.ensureSystemCategories()
+    func makePreferencesRepository(context: ModelContext) -> PreferencesRepository {
+        SwiftDataPreferencesRepository(context: context)
+    }
+
+    func makeCategoryRepository(context: ModelContext) -> CategoryRepository {
+        SwiftDataCategoryRepository(context: context)
+    }
+
+    func ensureSystemCategories(using context: ModelContext) {
+        let repo = SwiftDataCategoryRepository(context: context)
+        try? repo.ensureSystemCategories()
     }
 }

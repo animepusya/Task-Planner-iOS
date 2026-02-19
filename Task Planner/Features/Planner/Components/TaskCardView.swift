@@ -58,6 +58,9 @@ struct TaskCardView: View {
     }
 
     private var timeRangeText: String {
-        "\(task.startTime.formatted(date: .omitted, time: .shortened)) – \(task.endTime.formatted(date: .omitted, time: .shortened))"
+        if task.isAllDay {
+            return "All day"
+        }
+        return "\(task.startTime.formatted(date: .omitted, time: .shortened)) – \(task.endTime.formatted(date: .omitted, time: .shortened))"
     }
 }

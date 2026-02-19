@@ -52,6 +52,7 @@ final class TaskEditorViewModel: ObservableObject {
             endDayDate: startDay,
             startTime: startTime,
             endTime: endTime,
+            isAllDay: false,
             repeatRule: .none,
             repeatIntervalDays: 2,
             color: .purple,
@@ -117,6 +118,13 @@ final class TaskEditorViewModel: ObservableObject {
             set: { [weak self] newValue in self?.setEndTime(newValue) }
         )
     }
+    
+    var isAllDayBinding: Binding<Bool> {
+            Binding(
+                get: { self.form.isAllDay },
+                set: { [weak self] newValue in self?.setIsAllDay(newValue) }
+            )
+        }
 
     var repeatRuleBinding: Binding<RepeatRule> {
         Binding(
@@ -203,6 +211,15 @@ final class TaskEditorViewModel: ObservableObject {
 
         onEndTimeChanged()
     }
+    
+    func setIsAllDay(_ newValue: Bool) {
+            guard newValue != form.isAllDay else { return }
+            var copy = form
+            copy.isAllDay = newValue
+            setFormIfChanged(copy)
+            // ВАЖНО: occurrence/repeat логика остаётся прежней, поэтому времена НЕ трогаем.
+            // Статистика будет исключать по isAllDay через helper.
+        }
 
     func setRepeatRule(_ newValue: RepeatRule) {
         guard newValue != form.repeatRule else { return }
@@ -319,6 +336,8 @@ final class TaskEditorViewModel: ObservableObject {
             next.startTime = existing.startTime
             next.endTime = existing.endTime
             next.endDayDate = time.startOfDay(existing.endTime)
+            
+            next.isAllDay = existing.isAllDay
 
             next.repeatRule = existing.repeatRule
             next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
@@ -407,6 +426,8 @@ final class TaskEditorViewModel: ObservableObject {
             existing.dayDate = time.startOfDay(form.dayDate)
             existing.startTime = finalTimes.start
             existing.endTime = finalTimes.end
+            
+            existing.isAllDay = form.isAllDay
 
             existing.repeatRule = form.repeatRule
             existing.repeatIntervalDays = intervalOrNil
@@ -423,6 +444,7 @@ final class TaskEditorViewModel: ObservableObject {
                 dayDate: time.startOfDay(form.dayDate),
                 startTime: finalTimes.start,
                 endTime: finalTimes.end,
+                isAllDay: form.isAllDay,
                 repeatRule: form.repeatRule,
                 repeatIntervalDays: intervalOrNil,
                 status: .todo,
@@ -516,6 +538,8 @@ final class TaskEditorViewModel: ObservableObject {
         var endDayDate: Date
         var startTime: Date
         var endTime: Date
+        
+        var isAllDay: Bool
 
         var repeatRule: RepeatRule
         var repeatIntervalDays: Int
