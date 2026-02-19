@@ -18,31 +18,14 @@ struct TaskEditorRepeatSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            HStack {
-                header
-                
-                Spacer()
+            Text("Repeat")
+                .font(DS.Typography.sectionTitle)
+                .foregroundStyle(DS.ColorToken.textPrimary)
 
-                if showsInterval {
-                    Text("Every \(repeatIntervalDays) days")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.ColorToken.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.9)
-                        .padding(.top, 2)
-                }
-            }
+            repeatPill
 
-            HStack(alignment: .center, spacing: DS.Spacing.sm) {
-                repeatPill
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                if showsInterval {
-                    RepeatIntervalControl(
-                        value: $repeatIntervalDays,
-                        range: 1...365
-                    )
-                }
+            if showsInterval {
+                intervalRow
             }
 
             if isInvalid, let validationMessage {
@@ -60,19 +43,27 @@ struct TaskEditorRepeatSection: View {
             x: 0,
             y: 8
         )
-        .transaction { $0.animation = nil }
-        .animation(nil, value: repeatRule)
-        .animation(nil, value: isInvalid)
-        .animation(nil, value: validationMessage)
     }
 
-    // MARK: - UI
+    // MARK: - Interval row
 
-    private var header: some View {
-        Text("Repeat")
-            .font(DS.Typography.sectionTitle)
-            .foregroundStyle(DS.ColorToken.textPrimary)
+    private var intervalRow: some View {
+        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+            Text("Every \(repeatIntervalDays) days")
+                .font(DS.Typography.body)                // больше не caption
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+                .layoutPriority(1)
+
+            Spacer(minLength: DS.Spacing.sm)
+
+            RepeatIntervalControl(value: $repeatIntervalDays, range: 1...365)
+        }
+        .padding(.top, 4)
     }
+
+    // MARK: - Repeat pill (Menu)
 
     private var repeatPill: some View {
         Menu {
@@ -92,14 +83,16 @@ struct TaskEditorRepeatSection: View {
                 Image(systemName: "repeat")
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.ColorToken.textSecondary)
+                    .frame(width: 18, alignment: .center)
 
                 Text(repeatRule.displayName)
                     .font(DS.Typography.body)
                     .foregroundStyle(DS.ColorToken.textPrimary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.9)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
 
-                Spacer(minLength: 0)
+                Spacer(minLength: 8)
 
                 Image(systemName: "chevron.down")
                     .font(.system(size: 13, weight: .semibold))
@@ -107,6 +100,7 @@ struct TaskEditorRepeatSection: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
+            .frame(minHeight: 44) // комфортный tap target + меньше “прыжков”
             .background(Color.black.opacity(0.04))
             .cornerRadius(DS.Radius.pill)
             .contentShape(Rectangle())
@@ -115,7 +109,7 @@ struct TaskEditorRepeatSection: View {
     }
 }
 
-// MARK: - Compact +/- control
+// MARK: - Premium +/- control (compact)
 
 private struct RepeatIntervalControl: View {
     @Binding var value: Int
@@ -123,7 +117,7 @@ private struct RepeatIntervalControl: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            circleButton(systemName: "minus") {
+            stepButton(systemName: "minus") {
                 value = max(range.lowerBound, value - 1)
             }
             .disabled(value <= range.lowerBound)
@@ -132,27 +126,31 @@ private struct RepeatIntervalControl: View {
                 .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .monospacedDigit()
-                .frame(minWidth: 28, alignment: .center)
+                .frame(minWidth: 30, alignment: .center)
 
-            circleButton(systemName: "plus") {
+            stepButton(systemName: "plus") {
                 value = min(range.upperBound, value + 1)
             }
             .disabled(value >= range.upperBound)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .frame(minHeight: 40)
         .background(Color.black.opacity(0.04))
         .cornerRadius(DS.Radius.pill)
     }
 
-    private func circleButton(systemName: String, action: @escaping () -> Void) -> some View {
+    private func stepButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 28, height: 28)
+                .frame(width: 30, height: 30)
                 .background(DS.ColorToken.cardBackground)
                 .clipShape(Circle())
+                .overlay(
+                    Circle().stroke(Color.black.opacity(0.06), lineWidth: 1)
+                )
                 .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
         }
         .buttonStyle(.plain)
