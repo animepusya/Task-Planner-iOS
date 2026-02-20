@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct PlannerView: View {
     @StateObject var viewModel: PlannerViewModel
@@ -14,6 +15,22 @@ struct PlannerView: View {
     @Query(sort: [SortDescriptor(\TaskEntity.dayDate, order: .forward),
                   SortDescriptor(\TaskEntity.startTime, order: .forward)])
     private var tasks: [TaskEntity]
+
+    // MARK: - Swipe month switch
+    @State private var didTriggerSwipe = false
+    private let swipeThreshold: CGFloat = 72
+    private let monthAnim: Animation = .easeInOut(duration: 0.2)
+
+    // MARK: - Month slide animation direction
+    private enum MonthNavDirection {
+        case next
+        case prev
+
+        var insertionEdge: Edge { self == .next ? .trailing : .leading }
+        var removalEdge: Edge { self == .next ? .leading : .trailing }
+    }
+
+    @State private var monthDirection: MonthNavDirection = .next
 
     var body: some View {
         List {
@@ -123,14 +140,29 @@ struct PlannerView: View {
     // MARK: - Calendar
 
     private var calendarCard: some View {
+        ZStack {
+            // Важно: меняем identity по monthAnchor, чтобы работал transition
+            calendarContent
+                .id(viewModel.monthAnchor)
+                .transition(monthSlideTransition)
+        }
+        .dsCard {
+            DS.GradientToken.pinkPurpleCardBackground
+        }
+        .contentShape(Rectangle())
+        .simultaneousGesture(monthSwipeGesture)
+        .animation(monthAnim, value: viewModel.monthAnchor)
+    }
+
+    private var calendarContent: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             MonthSwitcherView(
                 title: viewModel.monthAnchor.monthTitle(),
                 monthAnchor: viewModel.monthAnchor,
-                onPrev: viewModel.goToPreviousMonth,
-                onNext: viewModel.goToNextMonth,
-                onSelectMonthAnchor: viewModel.setMonthAnchor(_:),
-                onToday: viewModel.goToToday,
+                onPrev: handlePrevMonth,
+                onNext: handleNextMonth,
+                onSelectMonthAnchor: handleSelectMonthAnchor(_:),
+                onToday: handleToday,
                 todayTitle: "Today"
             )
 
@@ -153,8 +185,84 @@ struct PlannerView: View {
                 }
             )
         }
-        .dsCard {
-            DS.GradientToken.pinkPurpleCardBackground
+    }
+
+    private var monthSlideTransition: AnyTransition {
+        .asymmetric(
+            insertion: .move(edge: monthDirection.insertionEdge).combined(with: .opacity),
+            removal: .move(edge: monthDirection.removalEdge).combined(with: .opacity)
+        )
+    }
+
+    private var monthSwipeGesture: some Gesture {
+        DragGesture(minimumDistance: 18, coordinateSpace: .local)
+            .onChanged { value in
+                guard !didTriggerSwipe else { return }
+
+                let dx = value.translation.width
+                let dy = value.translation.height
+
+                // чтобы вертикальный скролл List не воспринимался как свайп месяца
+                guard abs(dx) > abs(dy) else { return }
+
+                if dx <= -swipeThreshold {
+                    triggerMonthChange(next: true)
+                } else if dx >= swipeThreshold {
+                    triggerMonthChange(next: false)
+                }
+            }
+            .onEnded { _ in
+                didTriggerSwipe = false
+            }
+    }
+
+    private func triggerMonthChange(next: Bool) {
+        didTriggerSwipe = true
+
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+
+        monthDirection = next ? .next : .prev
+        withAnimation(monthAnim) {
+            if next {
+                viewModel.goToNextMonth()
+            } else {
+                viewModel.goToPreviousMonth()
+            }
+        }
+    }
+
+    // MARK: - Month actions (buttons / picker / today)
+
+    private func handlePrevMonth() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        monthDirection = .prev
+        withAnimation(monthAnim) {
+            viewModel.goToPreviousMonth()
+        }
+    }
+
+    private func handleNextMonth() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        monthDirection = .next
+        withAnimation(monthAnim) {
+            viewModel.goToNextMonth()
+        }
+    }
+
+    private func handleSelectMonthAnchor(_ date: Date) {
+        // для выбора из пикера — мягкое появление без явного направления
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        monthDirection = .next
+        withAnimation(monthAnim) {
+            viewModel.setMonthAnchor(date)
+        }
+    }
+
+    private func handleToday() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        monthDirection = .next
+        withAnimation(monthAnim) {
+            viewModel.goToToday()
         }
     }
 
