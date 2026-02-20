@@ -11,6 +11,7 @@ import SwiftData
 struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
+    @State private var selectedSliceId: String? = nil
     
     @Query private var prefs: [AppPreferencesEntity]
     
@@ -180,19 +181,34 @@ struct StatisticsView: View {
 
     private var donut: some View {
         let slices = activeDonutSlices()
+        let normalized = normalizedSlices(slices)
+
+        // модель выбранной строки (категория/таск)
+        let selectedRow: TotalRowModel? = {
+            guard let id = selectedSliceId else { return nil }
+            return activeTotalRows.first(where: { $0.id == id })
+        }()
 
         return ZStack {
-            DonutChartView(slices: normalizedSlices(slices), lineWidth: 20)
-                .frame(width: 220, height: 220)
+            DonutChartView(
+                slices: normalized,
+                lineWidth: 30,          // широкий как на скрине
+                gapDegrees: 4,          // размер пробела (подкрути 6–10)
+                selectedSliceId: $selectedSliceId
+            )
+            .frame(width: 240, height: 240)
 
-            VStack(spacing: 4) {
-                Text(viewModel.totalMinutes.formattedHoursMinutes())
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundColor(DS.ColorToken.textPrimary)
-
-                Text("Total")
+            VStack(spacing: 6) {
+                // верхняя строка
+                Text(selectedRow?.name ?? "Total")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
+                    .lineLimit(1)
+
+                // нижняя строка (число)
+                Text((selectedRow?.minutes ?? viewModel.totalMinutes).formattedHoursMinutes())
+                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .foregroundColor(DS.ColorToken.textPrimary)
             }
         }
         .frame(maxWidth: .infinity)
