@@ -12,6 +12,8 @@ struct TaskCardView: View {
     let task: TaskEntity
     let isCompleted: Bool
 
+    private let surfaceOpacity: Double = 0.4
+
     var body: some View {
         HStack(spacing: 12) {
 
@@ -44,7 +46,7 @@ struct TaskCardView: View {
             Spacer(minLength: 0)
         }
         .padding(DS.Spacing.md)
-        .background(task.color.backgroundColor) // ✅ единая точка правды
+        .background(task.color.surface(opacity: surfaceOpacity))
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
         .opacity(isCompleted ? 0.70 : 1.0)

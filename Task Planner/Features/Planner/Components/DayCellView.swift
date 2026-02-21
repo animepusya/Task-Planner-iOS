@@ -37,7 +37,7 @@ struct DayCellView: View {
         HStack(spacing: 3) {
             ForEach(Array(indicatorColors.prefix(3).enumerated()), id: \.offset) { _, color in
                 Capsule(style: .continuous)
-                    .fill(color.uiColor.opacity(0.8))
+                    .fill(color.uiColor)
                     .frame(width: 7, height: 3)
             }
 

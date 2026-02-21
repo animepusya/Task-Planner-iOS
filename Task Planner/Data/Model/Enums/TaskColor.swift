@@ -21,7 +21,7 @@ enum TaskColor: String, CaseIterable, Codable, Hashable {
     case mint
     case brown
 
-    // Accent / primary color used across UI (donut, legend, indicators, picker, etc.)
+    /// Единственная точка правды: основной цвет (donut / индикаторы / акценты)
     var uiColor: Color {
         switch self {
         case .blue:   return Color(red: 0.32, green: 0.62, blue: 0.98)
@@ -38,20 +38,18 @@ enum TaskColor: String, CaseIterable, Codable, Hashable {
         }
     }
 
-    // Soft/pastel background for cards (keeps the same "family" as uiColor)
-    var backgroundColor: Color {
+    /// Цвет для поверхностей (карточки/плашки). ВАЖНО: оттенок не меняем — только opacity.
+    func surface(opacity: Double) -> Color {
+        uiColor.opacity(max(0, min(1, opacity)))
+    }
+
+    /// (Опционально) цвет текста/иконок поверх uiColor-сурфейса, если понадобится.
+    var labelColor: Color {
         switch self {
-        case .blue:   return Color(red: 0.84, green: 0.92, blue: 1.00)
-        case .purple: return Color(red: 0.90, green: 0.86, blue: 1.00)
-        case .pink:   return Color(red: 1.00, green: 0.88, blue: 0.94)
-        case .red:    return Color(red: 1.00, green: 0.88, blue: 0.88)
-        case .yellow: return Color(red: 1.00, green: 0.96, blue: 0.84)
-        case .green:  return Color(red: 0.86, green: 0.97, blue: 0.90)
-        case .orange: return Color(red: 1.00, green: 0.92, blue: 0.84)
-        case .teal:   return Color(red: 0.84, green: 0.97, blue: 0.97)
-        case .indigo: return Color(red: 0.88, green: 0.90, blue: 1.00)
-        case .mint:   return Color(red: 0.86, green: 0.99, blue: 0.92)
-        case .brown:  return Color(red: 0.96, green: 0.92, blue: 0.88)
+        case .yellow, .mint:
+            return .black.opacity(0.85)
+        default:
+            return .white
         }
     }
 }

@@ -21,6 +21,6 @@ struct CategoryStat: Identifiable, Hashable {
     }
 
     var taskColor: TaskColor? {
-        TaskColor(rawValue: colorRaw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
+        TaskColor(rawValue: colorRaw)
     }
 }
