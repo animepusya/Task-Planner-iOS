@@ -192,12 +192,12 @@ struct StatisticsView: View {
         return ZStack {
             DonutChartView(
                 slices: normalized,
-                lineWidth: 30,          // широкий как на скрине
-                gapDegrees: 4,          // размер пробела (подкрути 6–10)
+                innerRadiusRatio: 0.7,   // тонкость кольца
+                gapDegrees: 4,          // пробелы (в градусах)
+                cornerRadius: 6,          // мягкость плиток
                 selectedSliceId: $selectedSliceId
             )
-            .frame(width: 240, height: 240)
-
+            .frame(width: 260, height: 260)
             VStack(spacing: 6) {
                 // верхняя строка
                 Text(selectedRow?.name ?? "Total")
