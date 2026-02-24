@@ -28,7 +28,7 @@ enum TaskDayOverlap {
         let dayStart = cal.startOfDay(for: day)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
 
-        guard let occ = occurrenceOverlapping(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
+        guard let occ = occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
             return 0
         }
 
@@ -59,11 +59,45 @@ enum TaskDayOverlap {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let dayStart = cal.startOfDay(for: day)
 
-        guard let occ = occurrenceOverlapping(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
+        guard let occ = occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
             return nil
         }
 
         return max(occ.start, dayStart)
+    }
+
+    // MARK: - Public interval for day-segmentation (NEW)
+
+    static func occurrenceInterval(
+        task: TaskEntity,
+        dayStart: Date,
+        weekStartsOnMonday: Bool
+    ) -> OccurrenceInterval? {
+        occurrenceOverlapping(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday)
+    }
+
+    static func startsWithinDay(
+        task: TaskEntity,
+        dayStart: Date,
+        weekStartsOnMonday: Bool
+    ) -> Bool {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
+
+        guard let occ = occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else { return false }
+        return occ.start >= dayStart && occ.start < dayEnd
+    }
+
+    static func endsWithinDay(
+        task: TaskEntity,
+        dayStart: Date,
+        weekStartsOnMonday: Bool
+    ) -> Bool {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
+
+        guard let occ = occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else { return false }
+        return occ.end > dayStart && occ.end <= dayEnd
     }
 
     // MARK: - Core overlap

@@ -98,21 +98,27 @@ extension PlannerViewModel {
         return cal
     }
 
-    func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [TaskEntity] {
+    func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [DayOccurrence] {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let dayKey = cal.startOfDay(for: date)
-
-        return tasks
-            .filter { TaskDayOverlap.affectsDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) }
-            .sorted {
-                let lhsCompleted = $0.isCompleted(on: dayKey)
-                let rhsCompleted = $1.isCompleted(on: dayKey)
-                if lhsCompleted != rhsCompleted { return !lhsCompleted }
-
-                let lhsStart = TaskDayOverlap.effectiveStartOnDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $0.startTime
-                let rhsStart = TaskDayOverlap.effectiveStartOnDay(task: $1, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $1.startTime
-                return lhsStart < rhsStart
-            }
+        
+        let occs = TaskDaySegment.occurrences(
+            for: dayKey,
+            from: tasks,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+        
+        return occs.sorted {
+            let lhsCompleted = $0.task.isCompleted(on: dayKey)
+            let rhsCompleted = $1.task.isCompleted(on: dayKey)
+            if lhsCompleted != rhsCompleted { return !lhsCompleted }
+            
+            // sort by actual start inside this day
+            if $0.displayStart != $1.displayStart { return $0.displayStart < $1.displayStart }
+            
+            // tie-breaker: title
+            return $0.task.title.localizedCaseInsensitiveCompare($1.task.title) == .orderedAscending
+        }
     }
 
     // MARK: - Calendar indicators

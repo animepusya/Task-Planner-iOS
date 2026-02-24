@@ -72,22 +72,22 @@ struct PlannerView: View {
                 .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(tasksForSelectedDay) { task in
-                        let isCompleted = task.isCompleted(on: viewModel.selectedDay)
+                    ForEach(tasksForSelectedDay) { occ in
+                        let isCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
 
-                        TaskCardView(task: task, isCompleted: isCompleted)
+                        TaskCardView(occurrence: occ, isCompleted: isCompleted)
                             .padding(.horizontal, DS.Spacing.lg)
                             .padding(.vertical, 6)
                             .listRowInsets(.init())
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                             .onTapGesture {
-                                viewModel.openEditTask(id: task.persistentModelID)
+                                viewModel.openEditTask(id: occ.task.persistentModelID)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
 
                                 Button {
-                                    viewModel.toggleDone(taskId: task.persistentModelID, on: viewModel.selectedDay)
+                                    viewModel.toggleDone(taskId: occ.task.persistentModelID, on: viewModel.selectedDay)
                                 } label: {
                                     Label(
                                         isCompleted ? "Undo" : "Done",
@@ -99,7 +99,7 @@ struct PlannerView: View {
                                 .tint(DS.ColorToken.purple)
 
                                 Button(role: .destructive) {
-                                    viewModel.delete(taskId: task.persistentModelID)
+                                    viewModel.delete(taskId: occ.task.persistentModelID)
                                 } label: {
                                     Label("Delete", systemImage: "trash")
                                 }
@@ -296,7 +296,7 @@ struct PlannerView: View {
         }
     }
 
-    private var tasksForSelectedDay: [TaskEntity] {
+    private var tasksForSelectedDay: [DayOccurrence] {
         viewModel.tasksForDay(viewModel.selectedDay, from: tasks)
     }
 }
