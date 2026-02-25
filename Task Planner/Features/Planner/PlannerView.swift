@@ -63,7 +63,7 @@ struct PlannerView: View {
 
             if tasksForSelectedDay.isEmpty {
                 Section {
-                    EmptyTasksCardView()
+                    EmptyTasksCardView(onTap: viewModel.openCreateTask)
                         .padding(.horizontal, DS.Spacing.lg)
                         .padding(.bottom, DS.Spacing.lg)
                 }
