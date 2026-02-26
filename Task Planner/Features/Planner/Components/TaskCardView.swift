@@ -13,8 +13,6 @@ struct TaskCardView: View {
     let isVisuallyDone: Bool
 
     private var surfaceOpacity: Double { isVisuallyDone ? 0.16 : 0.40 }
-
-    // ✅ одна анимация для всех “серых” параметров
     private let doneAnim: Animation = .easeInOut(duration: 0.18)
 
     var body: some View {
@@ -65,15 +63,9 @@ struct TaskCardView: View {
         .overlay(doneOverlay)
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
-
-        // ✅ “уход в серый”
         .saturation(isVisuallyDone ? 0.35 : 1.0)
         .grayscale(isVisuallyDone ? 0.25 : 0.0)
-
-        // ✅ micro feedback (по желанию — можешь убрать)
         .scaleEffect(isVisuallyDone ? 0.995 : 1.0)
-
-        // ✅ главное: анимируем именно переключение isVisuallyDone
         .animation(doneAnim, value: isVisuallyDone)
     }
 

@@ -37,7 +37,7 @@ struct EmptyTasksCardView: View {
         .background(Color.white)
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
-        .contentShape(Rectangle()) // важное: тапы по всей площади
+        .contentShape(Rectangle())
     }
 }
 
