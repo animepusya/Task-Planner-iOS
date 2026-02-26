@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import UIKit
 
 struct PlannerView: View {
     @StateObject var viewModel: PlannerViewModel
@@ -72,38 +71,48 @@ struct PlannerView: View {
                 .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(tasksForSelectedDay) { occ in
-                        let isCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
-
-                        TaskCardView(occurrence: occ, isCompleted: isCompleted)
-                            .padding(.horizontal, DS.Spacing.lg)
-                            .padding(.vertical, 6)
-                            .listRowInsets(.init())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .onTapGesture {
-                                viewModel.openEditTask(id: occ.task.persistentModelID)
+                    ForEach(tasksForSelectedDay, id: \.task.persistentModelID) { occ in
+                        let modelCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
+                        let isVisuallyDone = viewModel.isVisuallyDone(
+                            taskId: occ.task.persistentModelID,
+                            modelCompleted: modelCompleted
+                        )
+                        
+                        TaskCardView(
+                            occurrence: occ,
+                            isVisuallyDone: isVisuallyDone
+                        )
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.vertical, 6)
+                        .listRowInsets(.init())
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .onTapGesture {
+                            viewModel.openEditTask(id: occ.task.persistentModelID)
+                        }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            
+                            Button {
+                                viewModel.toggleDoneTwoPhase(
+                                    taskId: occ.task.persistentModelID,
+                                    on: viewModel.selectedDay
+                                )
+                            } label: {
+                                Label(
+                                    modelCompleted ? "Undo" : "Done",
+                                    systemImage: modelCompleted
+                                    ? "arrow.uturn.backward.circle"
+                                    : "checkmark.circle.fill"
+                                )
                             }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-
-                                Button {
-                                    viewModel.toggleDone(taskId: occ.task.persistentModelID, on: viewModel.selectedDay)
-                                } label: {
-                                    Label(
-                                        isCompleted ? "Undo" : "Done",
-                                        systemImage: isCompleted
-                                        ? "arrow.uturn.backward.circle"
-                                        : "checkmark.circle.fill"
-                                    )
-                                }
-                                .tint(DS.ColorToken.purple)
-
-                                Button(role: .destructive) {
-                                    viewModel.delete(taskId: occ.task.persistentModelID)
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+                            .tint(DS.ColorToken.purple)
+                            
+                            Button(role: .destructive) {
+                                viewModel.delete(taskId: occ.task.persistentModelID)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
+                        }
                     }
                 }
                 .listRowInsets(.init())

@@ -10,46 +10,51 @@ import SwiftData
 
 struct TaskCardView: View {
     let occurrence: DayOccurrence
-    let isCompleted: Bool
+    let isVisuallyDone: Bool
 
-    private let surfaceOpacity: Double = 0.4
+    private var surfaceOpacity: Double { isVisuallyDone ? 0.16 : 0.40 }
+
+    // ✅ одна анимация для всех “серых” параметров
+    private let doneAnim: Animation = .easeInOut(duration: 0.18)
 
     var body: some View {
         HStack(spacing: 12) {
-
             VStack(alignment: .leading, spacing: 6) {
 
                 HStack(spacing: 8) {
                     Text(occurrence.task.title)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundColor(DS.ColorToken.textPrimary)
-                        .strikethrough(isCompleted, color: DS.ColorToken.textSecondary.opacity(0.8))
-                        .opacity(isCompleted ? 0.55 : 1.0)
+                        .foregroundStyle(isVisuallyDone ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
+                        .strikethrough(isVisuallyDone, color: DS.ColorToken.textSecondary.opacity(0.85))
 
                     if let badge = occurrence.badge {
-                        badgePill(text: badge.rawValue)
-                            .opacity(isCompleted ? 0.55 : 1.0)
+                        badgePill(text: badge.rawValue, isMuted: isVisuallyDone)
                     }
 
                     Spacer(minLength: 0)
+
+                    if isVisuallyDone {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
+                            // ✅ чуть мягче появление
+                            .transition(.scale(scale: 0.92).combined(with: .opacity))
+                    }
                 }
 
                 Text(subtitleText)
                     .font(DS.Typography.caption)
-                    .foregroundColor(DS.ColorToken.textSecondary)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
                     .lineLimit(1)
-                    .opacity(isCompleted ? 0.55 : 1.0)
 
                 HStack(spacing: 6) {
                     Image(systemName: "clock")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(DS.ColorToken.textSecondary)
-                        .opacity(isCompleted ? 0.55 : 1.0)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
 
                     Text(timeRangeText)
                         .font(DS.Typography.caption)
-                        .foregroundColor(DS.ColorToken.textSecondary)
-                        .opacity(isCompleted ? 0.55 : 1.0)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
                 }
             }
 
@@ -57,9 +62,27 @@ struct TaskCardView: View {
         }
         .padding(DS.Spacing.md)
         .background(occurrence.task.color.surface(opacity: surfaceOpacity))
+        .overlay(doneOverlay)
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
-        .opacity(isCompleted ? 0.70 : 1.0)
+
+        // ✅ “уход в серый”
+        .saturation(isVisuallyDone ? 0.35 : 1.0)
+        .grayscale(isVisuallyDone ? 0.25 : 0.0)
+
+        // ✅ micro feedback (по желанию — можешь убрать)
+        .scaleEffect(isVisuallyDone ? 0.995 : 1.0)
+
+        // ✅ главное: анимируем именно переключение isVisuallyDone
+        .animation(doneAnim, value: isVisuallyDone)
+    }
+
+    private var doneOverlay: some View {
+        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+            .stroke(
+                DS.ColorToken.textSecondary.opacity(isVisuallyDone ? 0.22 : 0.0),
+                lineWidth: 1
+            )
     }
 
     private var subtitleText: String {
@@ -76,7 +99,7 @@ struct TaskCardView: View {
         return "\(occurrence.displayStart.formatted(date: .omitted, time: .shortened)) – \(occurrence.displayEnd.formatted(date: .omitted, time: .shortened))"
     }
 
-    private func badgePill(text: String) -> some View {
+    private func badgePill(text: String, isMuted: Bool) -> some View {
         Text(text)
             .font(.system(size: 12, weight: .semibold, design: .rounded))
             .foregroundStyle(DS.ColorToken.textSecondary)
@@ -84,7 +107,7 @@ struct TaskCardView: View {
             .padding(.vertical, 4)
             .background(
                 Capsule()
-                    .fill(DS.ColorToken.textSecondary.opacity(0.14))
+                    .fill(DS.ColorToken.textSecondary.opacity(isMuted ? 0.10 : 0.14))
             )
     }
 }

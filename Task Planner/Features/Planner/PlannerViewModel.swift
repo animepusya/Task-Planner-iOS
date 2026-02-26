@@ -8,17 +8,25 @@
 import Foundation
 import SwiftData
 import Combine
+import SwiftUI
 
 @MainActor
 final class PlannerViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
-
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
 
     @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
     @Published var monthAnchor: Date = Calendar.current.startOfDay(for: .now)
     @Published var weekStartsOnMonday: Bool = true
+
+    @Published private(set) var visualDoneOverride: [PersistentIdentifier: Bool] = [:]
+    @Published private(set) var sortDoneOverride: [PersistentIdentifier: Bool] = [:]
+
+    private var pendingToggleTasks: [PersistentIdentifier: Task<Void, Never>] = [:]
+
+    private let donePhaseDelay: UInt64 = 800_000_000
+    private let moveAnim: Animation = .easeInOut(duration: 0.8)
 
     init(
         taskRepository: TaskRepository,
@@ -44,7 +52,6 @@ final class PlannerViewModel: ObservableObject {
     func openCreateTask() { onOpenTaskEditor(nil, selectedDay) }
     func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDay) }
 
-    // Month switching
     func goToPreviousMonth() { monthAnchor = monthAnchor.addingMonths(-1) }
     func goToNextMonth() { monthAnchor = monthAnchor.addingMonths(1) }
 
@@ -52,7 +59,6 @@ final class PlannerViewModel: ObservableObject {
         monthAnchor = Calendar.current.startOfMonth(for: date)
     }
 
-    // ✅ Today: и месяц, и выбранный день
     func goToToday() {
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
@@ -60,22 +66,67 @@ final class PlannerViewModel: ObservableObject {
         monthAnchor = cal.startOfMonth(for: today)
     }
 
-    // MARK: - Swipe actions
+    // MARK: - Visual helpers
 
-    func toggleDone(taskId: PersistentIdentifier, on day: Date) {
-        do {
-            guard let task = try taskRepository.fetch(by: taskId) else {
-                assertionFailure("toggleDone: task not found")
-                return
+    func isVisuallyDone(taskId: PersistentIdentifier, modelCompleted: Bool) -> Bool {
+        visualDoneOverride[taskId] ?? modelCompleted
+    }
+
+    private func isCompletedForSort(task: TaskEntity, taskId: PersistentIdentifier, dayKey: Date) -> Bool {
+        sortDoneOverride[taskId] ?? task.isCompleted(on: dayKey)
+    }
+
+    // MARK: - Two-phase Done/Undo
+
+    func toggleDoneTwoPhase(taskId: PersistentIdentifier, on day: Date) {
+        pendingToggleTasks[taskId]?.cancel()
+
+        let dayKey = Calendar.current.startOfDay(for: day)
+
+        let t = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                guard let taskEntity = try self.taskRepository.fetch(by: taskId) else {
+                    assertionFailure("toggleDoneTwoPhase: task not found")
+                    return
+                }
+
+                let currentlyCompleted = taskEntity.isCompleted(on: dayKey)
+                let targetCompleted = !currentlyCompleted
+
+                self.visualDoneOverride[taskId] = targetCompleted
+
+                try await Task.sleep(nanoseconds: self.donePhaseDelay)
+                guard !Task.isCancelled else { return }
+
+                withAnimation(self.moveAnim) {
+                    self.sortDoneOverride[taskId] = targetCompleted
+                }
+
+                // Реальная запись в модель
+                taskEntity.toggleCompleted(on: dayKey)
+                try self.taskRepository.save()
+
+                // cleanup: убираем overrides
+                self.visualDoneOverride[taskId] = nil
+                self.sortDoneOverride[taskId] = nil
+
+            } catch {
+                assertionFailure("toggleDoneTwoPhase failed: \(error)")
+                self.visualDoneOverride[taskId] = nil
+                self.sortDoneOverride[taskId] = nil
             }
-            task.toggleCompleted(on: day)
-            try taskRepository.save()
-        } catch {
-            assertionFailure("toggleDone failed: \(error)")
         }
+
+        pendingToggleTasks[taskId] = t
     }
 
     func delete(taskId: PersistentIdentifier) {
+        pendingToggleTasks[taskId]?.cancel()
+        visualDoneOverride[taskId] = nil
+        sortDoneOverride[taskId] = nil
+
         do {
             guard let task = try taskRepository.fetch(by: taskId) else {
                 assertionFailure("delete: task not found")
@@ -88,42 +139,36 @@ final class PlannerViewModel: ObservableObject {
     }
 }
 
-extension PlannerViewModel {
+// MARK: - Sorting / building day occurrences
 
-    // Calendar с учетом настройки начала недели (на occurs по weekday обычно не влияет,
-    // но держим единый источник истины)
-    private func calendar(weekStartsOnMonday: Bool) -> Calendar {
-        var cal = Calendar.current
-        cal.firstWeekday = weekStartsOnMonday ? 2 : 1
-        return cal
-    }
+extension PlannerViewModel {
 
     func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [DayOccurrence] {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let dayKey = cal.startOfDay(for: date)
-        
+
         let occs = TaskDaySegment.occurrences(
             for: dayKey,
             from: tasks,
             weekStartsOnMonday: weekStartsOnMonday
         )
-        
+
         return occs.sorted {
-            let lhsCompleted = $0.task.isCompleted(on: dayKey)
-            let rhsCompleted = $1.task.isCompleted(on: dayKey)
+            let lhsId = $0.task.persistentModelID
+            let rhsId = $1.task.persistentModelID
+
+            // сортировка опирается на sortDoneOverride, а не только на модель
+            let lhsCompleted = isCompletedForSort(task: $0.task, taskId: lhsId, dayKey: dayKey)
+            let rhsCompleted = isCompletedForSort(task: $1.task, taskId: rhsId, dayKey: dayKey)
+
             if lhsCompleted != rhsCompleted { return !lhsCompleted }
-            
-            // sort by actual start inside this day
+
             if $0.displayStart != $1.displayStart { return $0.displayStart < $1.displayStart }
-            
-            // tie-breaker: title
+
             return $0.task.title.localizedCaseInsensitiveCompare($1.task.title) == .orderedAscending
         }
     }
 
-    // MARK: - Calendar indicators
-
-    /// Возвращает цвета (до 3) для самых ранних задач дня + overflow (сколько задач сверх 3)
     func indicatorColors(for date: Date, tasks: [TaskEntity]) -> [TaskColor] {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let dayKey = cal.startOfDay(for: date)
