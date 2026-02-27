@@ -25,10 +25,10 @@ final class TaskEntity {
     var statusRaw: String
     var colorRaw: String
 
-    // Пока категория хранится строкой (быстрее старт). Позже можно сделать relationship на CategoryEntity.
     var categoryTitle: String?
 
-    // Per-day completion storage (визуально, не влияет на статистику)
+    var photoThumbData: Data?
+
     var completedDayKeysRaw: String
 
     init(
@@ -55,7 +55,7 @@ final class TaskEntity {
         self.statusRaw = status.rawValue
         self.colorRaw = color.rawValue
         self.categoryTitle = categoryTitle
-
+        self.photoThumbData = nil
         self.completedDayKeysRaw = "[]"
     }
 

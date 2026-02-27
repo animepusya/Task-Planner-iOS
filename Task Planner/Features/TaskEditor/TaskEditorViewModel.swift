@@ -57,6 +57,7 @@ final class TaskEditorViewModel: ObservableObject {
             repeatIntervalDays: 2,
             color: .purple,
             categoryTitle: "Work",
+            photoThumbData: nil,
             timeValidationMessage: nil,
             isRepeatInvalid: false,
             repeatValidationMessage: nil
@@ -343,6 +344,8 @@ final class TaskEditorViewModel: ObservableObject {
             next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
             next.color = existing.color
             next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
+            
+            next.photoThumbData = existing.photoThumbData
 
             setFormIfChanged(next)
 
@@ -435,6 +438,7 @@ final class TaskEditorViewModel: ObservableObject {
 
             existing.color = form.color
             existing.categoryTitle = normalizedCategory
+            existing.photoThumbData = form.photoThumbData
 
             try taskRepository.save()
         } else {
@@ -451,6 +455,7 @@ final class TaskEditorViewModel: ObservableObject {
                 color: form.color,
                 categoryTitle: normalizedCategory
             )
+            new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
             try taskRepository.add(new)
         }
@@ -547,6 +552,7 @@ final class TaskEditorViewModel: ObservableObject {
         var color: TaskColor
         var categoryTitle: String
 
+        var photoThumbData: Data?
         var timeValidationMessage: String?
 
         var isRepeatInvalid: Bool

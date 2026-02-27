@@ -15,48 +15,18 @@ struct TaskCardView: View {
     private var surfaceOpacity: Double { isVisuallyDone ? 0.16 : 0.40 }
     private let doneAnim: Animation = .easeInOut(duration: 0.18)
 
+    private let thumbSide: CGFloat = 52
+    private let thumbCornerRadius: CGFloat = DS.Radius.sm
+
     var body: some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-
-                HStack(spacing: 8) {
-                    Text(occurrence.task.title)
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(isVisuallyDone ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
-                        .strikethrough(isVisuallyDone, color: DS.ColorToken.textSecondary.opacity(0.85))
-
-                    if let badge = occurrence.badge {
-                        badgePill(text: badge.rawValue, isMuted: isVisuallyDone)
-                    }
-
-                    Spacer(minLength: 0)
-
-                    if isVisuallyDone {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
-                            // ✅ чуть мягче появление
-                            .transition(.scale(scale: 0.92).combined(with: .opacity))
-                    }
-                }
-
-                Text(subtitleText)
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-                    .lineLimit(1)
-
-                HStack(spacing: 6) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(DS.ColorToken.textSecondary)
-
-                    Text(timeRangeText)
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.ColorToken.textSecondary)
-                }
-            }
+            contentLeft
 
             Spacer(minLength: 0)
+
+            if let thumb = thumbImage {
+                thumbContainer(thumb)
+            }
         }
         .padding(DS.Spacing.md)
         .background(occurrence.task.color.surface(opacity: surfaceOpacity))
@@ -67,6 +37,69 @@ struct TaskCardView: View {
         .grayscale(isVisuallyDone ? 0.25 : 0.0)
         .scaleEffect(isVisuallyDone ? 0.995 : 1.0)
         .animation(doneAnim, value: isVisuallyDone)
+    }
+
+    private var contentLeft: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(occurrence.task.title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isVisuallyDone ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
+                    .strikethrough(isVisuallyDone, color: DS.ColorToken.textSecondary.opacity(0.85))
+
+                if let badge = occurrence.badge {
+                    badgePill(text: badge.rawValue, isMuted: isVisuallyDone)
+                }
+
+                Spacer(minLength: 0)
+
+                // ✅ removed checkmark (per your request)
+            }
+
+            Text(subtitleText)
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .lineLimit(1)
+
+            HStack(spacing: 6) {
+                Image(systemName: "clock")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+
+                Text(timeRangeText)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+            }
+        }
+    }
+
+    private var thumbImage: UIImage? {
+        guard let data = occurrence.task.photoThumbData else { return nil }
+        return UIImage(data: data)
+    }
+
+    /// ✅ Key point:
+    /// We DO NOT clip the Image.
+    /// We clip the *container* so edges are always perfect and premium.
+    private func thumbContainer(_ ui: UIImage) -> some View {
+        ZStack {
+            // a subtle surface under the image so it always looks clean
+            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+                .fill(Color.white.opacity(0.55))
+
+            Image(uiImage: ui)
+                .resizable()
+                .scaledToFill()
+                .frame(width: thumbSide, height: thumbSide)
+        }
+        .frame(width: thumbSide, height: thumbSide)
+        .clipShape(RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+        )
+        .padding(.leading, 2)
+        .accessibilityLabel("Task photo")
     }
 
     private var doneOverlay: some View {
