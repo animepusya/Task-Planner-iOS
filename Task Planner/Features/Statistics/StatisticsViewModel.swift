@@ -53,39 +53,40 @@ final class StatisticsViewModel: ObservableObject {
         }
     }
     
-    func setWeekStartsOnMonday(_ value: Bool) {
-            guard value != weekStartsOnMonday else { return }
-            weekStartsOnMonday = value
-            refresh()
-        }
+    func reloadPreferencesAndRefresh() {
+        loadPreferences()
+        refresh()
+    }
 
     func openSettings() { onOpenSettings() }
 
     // MARK: - Navigation
 
     func goToPrevious() {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         switch range {
         case .day:
-            anchorDate = Calendar.current.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
         case .week:
-            anchorDate = Calendar.current.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
         case .month:
             anchorDate = anchorDate.addingMonths(-1)
         case .year:
-            anchorDate = Calendar.current.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
         }
     }
 
     func goToNext() {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         switch range {
         case .day:
-            anchorDate = Calendar.current.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
         case .week:
-            anchorDate = Calendar.current.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
         case .month:
             anchorDate = anchorDate.addingMonths(1)
         case .year:
-            anchorDate = Calendar.current.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
         }
     }
 
@@ -260,22 +261,21 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func makeDisplayedTitle() -> String {
-        let cal = Calendar.current
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         switch range {
         case .day:
-            return anchorDate.dayTitle()
-
+            return anchorDate.dayTitle(using: cal)
         case .week:
             let (start, end) = dateRange(using: cal)
             let f = DateFormatter()
+            f.calendar = cal
             f.dateFormat = "d MMM"
             return "\(f.string(from: start)) – \(f.string(from: end))"
-
         case .month:
-            return anchorDate.monthTitle()
-
+            return anchorDate.monthTitle(using: cal)
         case .year:
             let f = DateFormatter()
+            f.calendar = cal
             f.dateFormat = "yyyy"
             return f.string(from: anchorDate)
         }

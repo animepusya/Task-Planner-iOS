@@ -26,6 +26,7 @@ struct AppRootView: View {
         let taskRepo = container.makeTaskRepository(context: modelContext)
         let prefsRepo = container.makePreferencesRepository(context: modelContext)
         let categoryRepo = container.makeCategoryRepository(context: modelContext)
+        let calendarSync = container.makeCalendarSyncService(context: modelContext)
 
         ZStack {
             AppBackgroundView(gradient: DS.GradientToken.splash)
@@ -35,6 +36,7 @@ struct AppRootView: View {
                     viewModel: PlannerViewModel(
                         taskRepository: taskRepo,
                         preferencesRepository: prefsRepo,
+                        calendarSync: calendarSync,
                         onOpenTaskEditor: { taskId, day in
                             sheet = .taskEditor(taskId: taskId, preselectedDay: day)
                         }
@@ -79,7 +81,8 @@ struct AppRootView: View {
                         viewModel: SettingsViewModel(
                             preferencesRepository: prefsRepo,
                             taskRepository: taskRepo,
-                            categoryRepository: categoryRepo
+                            categoryRepository: categoryRepo,
+                            calendarSync: calendarSync
                         )
                     )
                 }

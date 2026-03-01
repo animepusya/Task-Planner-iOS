@@ -59,6 +59,35 @@ struct PlannerView: View {
             .listRowInsets(.init())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
+            
+            if !viewModel.externalEvents.isEmpty {
+                Section {
+                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                        HStack {
+                            Text("Apple Calendar")
+                                .font(DS.Typography.sectionTitle)
+                                .foregroundColor(DS.ColorToken.textPrimary)
+                            Spacer()
+                            Button {
+                                viewModel.refreshExternalEvents()
+                            } label: {
+                                Image(systemName: "arrow.clockwise")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+
+                        ForEach(viewModel.externalEvents) { e in
+                            CalendarEventCardView(event: e)
+                        }
+                    }
+                    .padding(.horizontal, DS.Spacing.lg)
+                    .padding(.bottom, DS.Spacing.sm)
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
 
             if tasksForSelectedDay.isEmpty {
                 Section {
@@ -125,7 +154,10 @@ struct PlannerView: View {
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
         .navigationBarHidden(true)
-        .onAppear { viewModel.loadPreferences() }
+        .onAppear {
+            viewModel.loadPreferences()
+            viewModel.refreshExternalEvents()
+        }
     }
 
     // MARK: - Header

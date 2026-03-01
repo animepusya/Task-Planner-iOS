@@ -12,12 +12,6 @@ struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
     @State private var selectedSliceId: String? = nil
-    
-    @Query private var prefs: [AppPreferencesEntity]
-    
-    private var weekStartsOnMondayValue: Bool {
-        prefs.first?.weekStartsOnMonday ?? true
-    }
 
     var body: some View {
         ZStack {
@@ -43,11 +37,7 @@ struct StatisticsView: View {
         }
         .navigationBarHidden(true)
         .onAppear {
-            viewModel.setWeekStartsOnMonday(weekStartsOnMondayValue)
-            viewModel.refresh()
-        }
-        .onChange(of: weekStartsOnMondayValue) { _, newValue in
-            viewModel.setWeekStartsOnMonday(newValue)
+            viewModel.reloadPreferencesAndRefresh()
         }
         .sheet(isPresented: $isRangeSheetPresented) {
             StatisticsRangeSheet(

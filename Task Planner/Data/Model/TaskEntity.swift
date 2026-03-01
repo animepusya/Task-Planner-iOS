@@ -12,24 +12,18 @@ import SwiftData
 final class TaskEntity {
     var title: String
     var notes: String?
-
     var dayDate: Date
-
     var startTime: Date
     var endTime: Date
-
     var isAllDay: Bool
-
     var repeatRuleRaw: String
     var repeatIntervalDays: Int?
     var statusRaw: String
     var colorRaw: String
-
     var categoryTitle: String?
-
     var photoThumbData: Data?
-
     var completedDayKeysRaw: String
+    var appleEventIdentifier: String?
 
     init(
         title: String,
@@ -57,6 +51,7 @@ final class TaskEntity {
         self.categoryTitle = categoryTitle
         self.photoThumbData = nil
         self.completedDayKeysRaw = "[]"
+        self.appleEventIdentifier = nil
     }
 
     var repeatRule: RepeatRule {

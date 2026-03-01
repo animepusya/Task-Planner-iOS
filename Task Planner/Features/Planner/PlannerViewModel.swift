@@ -6,24 +6,37 @@
 //
 
 import Foundation
-import SwiftData
 import Combine
+import SwiftData
 import SwiftUI
 
 @MainActor
 final class PlannerViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
+    private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
 
-    @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
+    @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now) {
+        didSet {
+            externalEventsTask?.cancel()
+            externalEventsTask = Task { [weak self] in
+                guard let self else { return }
+                await self.loadExternalEventsForSelectedDay()
+            }
+        }
+    }
+    
     @Published var monthAnchor: Date = Calendar.current.startOfDay(for: .now)
     @Published var weekStartsOnMonday: Bool = true
 
+    @Published private(set) var externalEvents: [ExternalCalendarEvent] = []
+    @Published private(set) var isOverlayEnabled: Bool = false
     @Published private(set) var visualDoneOverride: [PersistentIdentifier: Bool] = [:]
     @Published private(set) var sortDoneOverride: [PersistentIdentifier: Bool] = [:]
 
     private var pendingToggleTasks: [PersistentIdentifier: Task<Void, Never>] = [:]
+    private var externalEventsTask: Task<Void, Never>?
 
     private let donePhaseDelay: UInt64 = 800_000_000
     private let moveAnim: Animation = .easeInOut(duration: 0.8)
@@ -31,21 +44,63 @@ final class PlannerViewModel: ObservableObject {
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
+        calendarSync: CalendarSyncService,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
+        self.calendarSync = calendarSync
         self.onOpenTaskEditor = onOpenTaskEditor
 
         loadPreferences()
+        Task { await loadExternalEventsForSelectedDay() }
     }
 
     func loadPreferences() {
         do {
             let prefs = try preferencesRepository.getOrCreate()
             weekStartsOnMonday = prefs.weekStartsOnMonday
+
+            let newOverlay = prefs.showAppleCalendarEventsInPlanner
+            if newOverlay != isOverlayEnabled {
+                isOverlayEnabled = newOverlay
+                if newOverlay {
+                    refreshExternalEvents()
+                } else {
+                    externalEvents = []
+                }
+            }
         } catch {
             weekStartsOnMonday = true
+            isOverlayEnabled = false
+            externalEvents = []
+        }
+    }
+
+    func refreshExternalEvents() {
+        Task { await loadExternalEventsForSelectedDay() }
+    }
+
+    private func loadExternalEventsForSelectedDay() async {
+        guard isOverlayEnabled else {
+            externalEvents = []
+            return
+        }
+
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: selectedDay)
+        let end = cal.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
+
+        do {
+            let events = try await calendarSync.fetchReadOnlyEvents(
+                start: start,
+                end: end,
+                excludeTaskPlannerCalendar: true
+            )
+            guard !Task.isCancelled else { return }
+            externalEvents = events
+        } catch {
+            externalEvents = []
         }
     }
 

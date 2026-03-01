@@ -11,8 +11,19 @@ import SwiftData
 @Model
 final class AppPreferencesEntity {
     var weekStartsOnMonday: Bool
+    var showTasksInAppleCalendar: Bool
+    var showAppleCalendarEventsInPlanner: Bool
+    var taskPlannerCalendarIdentifier: String?
 
-    init(weekStartsOnMonday: Bool = true) {
+    init(
+        weekStartsOnMonday: Bool = true,
+        showTasksInAppleCalendar: Bool = false,
+        showAppleCalendarEventsInPlanner: Bool = false,
+        taskPlannerCalendarIdentifier: String? = nil
+    ) {
         self.weekStartsOnMonday = weekStartsOnMonday
+        self.showTasksInAppleCalendar = showTasksInAppleCalendar
+        self.showAppleCalendarEventsInPlanner = showAppleCalendarEventsInPlanner
+        self.taskPlannerCalendarIdentifier = taskPlannerCalendarIdentifier
     }
 }
