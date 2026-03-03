@@ -17,26 +17,27 @@ final class PlannerViewModel: ObservableObject {
     private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
 
-    @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now) {
+    @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
+
+    @Published var monthAnchor: Date = Calendar.current.startOfDay(for: .now) {
         didSet {
-            externalEventsTask?.cancel()
-            externalEventsTask = Task { [weak self] in
+            externalMonthTask?.cancel()
+            externalMonthTask = Task { [weak self] in
                 guard let self else { return }
-                await self.loadExternalEventsForSelectedDay()
+                await self.loadExternalEventsForVisibleMonth()
             }
         }
     }
-    
-    @Published var monthAnchor: Date = Calendar.current.startOfDay(for: .now)
+
     @Published var weekStartsOnMonday: Bool = true
 
-    @Published private(set) var externalEvents: [ExternalCalendarEvent] = []
+    @Published private(set) var externalEventsByDay: [Date: [ExternalCalendarEvent]] = [:]
     @Published private(set) var isOverlayEnabled: Bool = false
     @Published private(set) var visualDoneOverride: [PersistentIdentifier: Bool] = [:]
     @Published private(set) var sortDoneOverride: [PersistentIdentifier: Bool] = [:]
 
     private var pendingToggleTasks: [PersistentIdentifier: Task<Void, Never>] = [:]
-    private var externalEventsTask: Task<Void, Never>?
+    private var externalMonthTask: Task<Void, Never>?
 
     private let donePhaseDelay: UInt64 = 800_000_000
     private let moveAnim: Animation = .easeInOut(duration: 0.8)
@@ -53,7 +54,7 @@ final class PlannerViewModel: ObservableObject {
         self.onOpenTaskEditor = onOpenTaskEditor
 
         loadPreferences()
-        Task { await loadExternalEventsForSelectedDay() }
+        Task { await loadExternalEventsForVisibleMonth() }
     }
 
     func loadPreferences() {
@@ -67,29 +68,33 @@ final class PlannerViewModel: ObservableObject {
                 if newOverlay {
                     refreshExternalEvents()
                 } else {
-                    externalEvents = []
+                    externalEventsByDay = [:]
                 }
             }
         } catch {
             weekStartsOnMonday = true
             isOverlayEnabled = false
-            externalEvents = []
+            externalEventsByDay = [:]
         }
     }
 
     func refreshExternalEvents() {
-        Task { await loadExternalEventsForSelectedDay() }
+        externalMonthTask?.cancel()
+        externalMonthTask = Task { [weak self] in
+            guard let self else { return }
+            await self.loadExternalEventsForVisibleMonth()
+        }
     }
 
-    private func loadExternalEventsForSelectedDay() async {
+    private func loadExternalEventsForVisibleMonth() async {
         guard isOverlayEnabled else {
-            externalEvents = []
+            externalEventsByDay = [:]
             return
         }
 
         let cal = Calendar.current
-        let start = cal.startOfDay(for: selectedDay)
-        let end = cal.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86400)
+        let start = cal.startOfMonth(for: monthAnchor)
+        let end = cal.date(byAdding: .month, value: 1, to: start) ?? start.addingTimeInterval(30 * 86400)
 
         do {
             let events = try await calendarSync.fetchReadOnlyEvents(
@@ -98,9 +103,22 @@ final class PlannerViewModel: ObservableObject {
                 excludeTaskPlannerCalendar: true
             )
             guard !Task.isCancelled else { return }
-            externalEvents = events
+
+            var grouped: [Date: [ExternalCalendarEvent]] = [:]
+            grouped.reserveCapacity(42)
+
+            for ev in events {
+                let dayKey = cal.startOfDay(for: ev.startDate)
+                grouped[dayKey, default: []].append(ev)
+            }
+
+            for k in grouped.keys {
+                grouped[k]?.sort { $0.startDate < $1.startDate }
+            }
+
+            externalEventsByDay = grouped
         } catch {
-            externalEvents = []
+            externalEventsByDay = [:]
         }
     }
 
@@ -121,8 +139,6 @@ final class PlannerViewModel: ObservableObject {
         monthAnchor = cal.startOfMonth(for: today)
     }
 
-    // MARK: - Visual helpers
-
     func isVisuallyDone(taskId: PersistentIdentifier, modelCompleted: Bool) -> Bool {
         visualDoneOverride[taskId] ?? modelCompleted
     }
@@ -130,8 +146,6 @@ final class PlannerViewModel: ObservableObject {
     private func isCompletedForSort(task: TaskEntity, taskId: PersistentIdentifier, dayKey: Date) -> Bool {
         sortDoneOverride[taskId] ?? task.isCompleted(on: dayKey)
     }
-
-    // MARK: - Two-phase Done/Undo
 
     func toggleDoneTwoPhase(taskId: PersistentIdentifier, on day: Date) {
         pendingToggleTasks[taskId]?.cancel()
@@ -159,11 +173,9 @@ final class PlannerViewModel: ObservableObject {
                     self.sortDoneOverride[taskId] = targetCompleted
                 }
 
-                // Реальная запись в модель
                 taskEntity.toggleCompleted(on: dayKey)
                 try self.taskRepository.save()
 
-                // cleanup: убираем overrides
                 self.visualDoneOverride[taskId] = nil
                 self.sortDoneOverride[taskId] = nil
 
@@ -194,9 +206,23 @@ final class PlannerViewModel: ObservableObject {
     }
 }
 
-// MARK: - Sorting / building day occurrences
+// MARK: - Unified day items + sorting (single source of truth)
 
 extension PlannerViewModel {
+
+    enum DayListItem: Identifiable, Hashable {
+        case task(DayOccurrence)
+        case imported(ExternalCalendarEvent)
+
+        var id: String {
+            switch self {
+            case .task(let occ):
+                return "task-\(occ.task.persistentModelID)"
+            case .imported(let ev):
+                return "ext-\(ev.id)"
+            }
+        }
+    }
 
     func tasksForDay(_ date: Date, from tasks: [TaskEntity]) -> [DayOccurrence] {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
@@ -212,72 +238,38 @@ extension PlannerViewModel {
             let lhsId = $0.task.persistentModelID
             let rhsId = $1.task.persistentModelID
 
-            // сортировка опирается на sortDoneOverride, а не только на модель
             let lhsCompleted = isCompletedForSort(task: $0.task, taskId: lhsId, dayKey: dayKey)
             let rhsCompleted = isCompletedForSort(task: $1.task, taskId: rhsId, dayKey: dayKey)
 
             if lhsCompleted != rhsCompleted { return !lhsCompleted }
-
             if $0.displayStart != $1.displayStart { return $0.displayStart < $1.displayStart }
 
             return $0.task.title.localizedCaseInsensitiveCompare($1.task.title) == .orderedAscending
         }
     }
 
-    func indicatorColors(for date: Date, tasks: [TaskEntity]) -> [TaskColor] {
+    func itemsForDay(_ day: Date, from tasks: [TaskEntity]) -> [DayListItem] {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-        let dayKey = cal.startOfDay(for: date)
+        let dayKey = cal.startOfDay(for: day)
 
-        let occurringAndIncomplete = tasks
-            .filter { task in
-                TaskDayOverlap.affectsDay(task: task, day: dayKey, weekStartsOnMonday: weekStartsOnMonday)
-                && !task.isCompleted(on: dayKey)
-            }
-            .sorted {
-                let lhsStart = TaskDayOverlap.effectiveStartOnDay(task: $0, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $0.startTime
-                let rhsStart = TaskDayOverlap.effectiveStartOnDay(task: $1, day: dayKey, weekStartsOnMonday: weekStartsOnMonday) ?? $1.startTime
-                return lhsStart < rhsStart
-            }
-
-        return Array(occurringAndIncomplete.prefix(3).map { $0.color })
-    }
-    
-    enum DayListItem: Identifiable, Hashable {
-        case task(DayOccurrence)
-        case imported(ExternalCalendarEvent)
-        
-        var id: String {
-            switch self {
-            case .task(let occ):
-                return "task-\(occ.task.persistentModelID)"
-            case .imported(let ev):
-                return "ext-\(ev.id)"
-            }
-        }
-    }
-    
-    func itemsForSelectedDay(from tasks: [TaskEntity]) -> [DayListItem] {
-        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-        let dayKey = cal.startOfDay(for: selectedDay)
-        
         let taskOccs = tasksForDay(dayKey, from: tasks)
-        let imported = externalEvents // уже загружены под selectedDay
-        
+        let imported = (isOverlayEnabled ? (externalEventsByDay[dayKey] ?? []) : [])
+
         var items: [DayListItem] = taskOccs.map { .task($0) } + imported.map { .imported($0) }
-        
+
         items.sort { a, b in
             let aCompleted: Bool
             let bCompleted: Bool
-            
+
             let aStart: Date
             let bStart: Date
-            
+
             let aTitle: String
             let bTitle: String
-            
+
             let aColorIndex: Int
             let bColorIndex: Int
-            
+
             switch a {
             case .task(let occ):
                 let id = occ.task.persistentModelID
@@ -291,7 +283,7 @@ extension PlannerViewModel {
                 aTitle = ev.title
                 aColorIndex = TaskColor.closest(to: ev.calendarColor).sortIndex
             }
-            
+
             switch b {
             case .task(let occ):
                 let id = occ.task.persistentModelID
@@ -305,13 +297,39 @@ extension PlannerViewModel {
                 bTitle = ev.title
                 bColorIndex = TaskColor.closest(to: ev.calendarColor).sortIndex
             }
-            
+
             if aCompleted != bCompleted { return !aCompleted }
             if aStart != bStart { return aStart < bStart }
             if aColorIndex != bColorIndex { return aColorIndex < bColorIndex }
             return aTitle.localizedCaseInsensitiveCompare(bTitle) == .orderedAscending
         }
-        
+
         return items
+    }
+
+    func itemsForSelectedDay(from tasks: [TaskEntity]) -> [DayListItem] {
+        itemsForDay(selectedDay, from: tasks)
+    }
+
+    func indicatorColors(for date: Date, tasks: [TaskEntity]) -> [TaskColor] {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayKey = cal.startOfDay(for: date)
+
+        let items = itemsForDay(dayKey, from: tasks)
+
+        let colors: [TaskColor] = items.compactMap { item in
+            switch item {
+            case .task(let occ):
+                let id = occ.task.persistentModelID
+                let completed = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
+                guard !completed else { return nil }
+                return occ.task.color
+
+            case .imported(let ev):
+                return TaskColor.closest(to: ev.calendarColor)
+            }
+        }
+
+        return Array(colors.prefix(3))
     }
 }

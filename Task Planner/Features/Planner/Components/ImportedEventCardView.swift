@@ -1,5 +1,5 @@
 //
-//  CalendarEventCardView.swift
+//  ImportedEventCardView.swift
 //  Task Planner
 //
 //  Created by Руслан Меланин on 01.03.2026.
