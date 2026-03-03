@@ -29,13 +29,4 @@ extension Date {
         f.dateFormat = "d MMM yyyy"
         return f.string(from: self)
     }
-    // используем в CalendarEventCardView
-       func timeTitle(using calendar: Calendar = .current) -> String {
-           let f = DateFormatter()
-           f.calendar = calendar
-           f.locale = Locale.current
-           f.timeStyle = .short
-           f.dateStyle = .none
-           return f.string(from: self)
-       }
 }

@@ -241,4 +241,77 @@ extension PlannerViewModel {
 
         return Array(occurringAndIncomplete.prefix(3).map { $0.color })
     }
+    
+    enum DayListItem: Identifiable, Hashable {
+        case task(DayOccurrence)
+        case imported(ExternalCalendarEvent)
+        
+        var id: String {
+            switch self {
+            case .task(let occ):
+                return "task-\(occ.task.persistentModelID)"
+            case .imported(let ev):
+                return "ext-\(ev.id)"
+            }
+        }
+    }
+    
+    func itemsForSelectedDay(from tasks: [TaskEntity]) -> [DayListItem] {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let dayKey = cal.startOfDay(for: selectedDay)
+        
+        let taskOccs = tasksForDay(dayKey, from: tasks)
+        let imported = externalEvents // уже загружены под selectedDay
+        
+        var items: [DayListItem] = taskOccs.map { .task($0) } + imported.map { .imported($0) }
+        
+        items.sort { a, b in
+            let aCompleted: Bool
+            let bCompleted: Bool
+            
+            let aStart: Date
+            let bStart: Date
+            
+            let aTitle: String
+            let bTitle: String
+            
+            let aColorIndex: Int
+            let bColorIndex: Int
+            
+            switch a {
+            case .task(let occ):
+                let id = occ.task.persistentModelID
+                aCompleted = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
+                aStart = occ.displayStart
+                aTitle = occ.task.title
+                aColorIndex = occ.task.color.sortIndex
+            case .imported(let ev):
+                aCompleted = false
+                aStart = ev.startDate
+                aTitle = ev.title
+                aColorIndex = TaskColor.closest(to: ev.calendarColor).sortIndex
+            }
+            
+            switch b {
+            case .task(let occ):
+                let id = occ.task.persistentModelID
+                bCompleted = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
+                bStart = occ.displayStart
+                bTitle = occ.task.title
+                bColorIndex = occ.task.color.sortIndex
+            case .imported(let ev):
+                bCompleted = false
+                bStart = ev.startDate
+                bTitle = ev.title
+                bColorIndex = TaskColor.closest(to: ev.calendarColor).sortIndex
+            }
+            
+            if aCompleted != bCompleted { return !aCompleted }
+            if aStart != bStart { return aStart < bStart }
+            if aColorIndex != bColorIndex { return aColorIndex < bColorIndex }
+            return aTitle.localizedCaseInsensitiveCompare(bTitle) == .orderedAscending
+        }
+        
+        return items
+    }
 }

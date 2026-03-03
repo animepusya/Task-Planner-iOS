@@ -60,36 +60,9 @@ struct PlannerView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
             
-            if !viewModel.externalEvents.isEmpty {
-                Section {
-                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                        HStack {
-                            Text("Apple Calendar")
-                                .font(DS.Typography.sectionTitle)
-                                .foregroundColor(DS.ColorToken.textPrimary)
-                            Spacer()
-                            Button {
-                                viewModel.refreshExternalEvents()
-                            } label: {
-                                Image(systemName: "arrow.clockwise")
-                                    .foregroundStyle(.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
+            let dayItems = viewModel.itemsForSelectedDay(from: tasks)
 
-                        ForEach(viewModel.externalEvents) { e in
-                            CalendarEventCardView(event: e)
-                        }
-                    }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.bottom, DS.Spacing.sm)
-                }
-                .listRowInsets(.init())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-            }
-
-            if tasksForSelectedDay.isEmpty {
+            if dayItems.isEmpty {
                 Section {
                     EmptyTasksCardView(onTap: viewModel.openCreateTask)
                         .padding(.horizontal, DS.Spacing.lg)
@@ -100,47 +73,55 @@ struct PlannerView: View {
                 .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(tasksForSelectedDay, id: \.task.persistentModelID) { occ in
-                        let modelCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
-                        let isVisuallyDone = viewModel.isVisuallyDone(
-                            taskId: occ.task.persistentModelID,
-                            modelCompleted: modelCompleted
-                        )
-                        
-                        TaskCardView(
-                            occurrence: occ,
-                            isVisuallyDone: isVisuallyDone
-                        )
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.vertical, 6)
-                        .listRowInsets(.init())
-                        .listRowBackground(Color.clear)
-                        .listRowSeparator(.hidden)
-                        .onTapGesture {
-                            viewModel.openEditTask(id: occ.task.persistentModelID)
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            
-                            Button {
-                                viewModel.toggleDoneTwoPhase(
-                                    taskId: occ.task.persistentModelID,
-                                    on: viewModel.selectedDay
-                                )
-                            } label: {
-                                Label(
-                                    modelCompleted ? "Undo" : "Done",
-                                    systemImage: modelCompleted
-                                    ? "arrow.uturn.backward.circle"
-                                    : "checkmark.circle.fill"
-                                )
-                            }
-                            .tint(DS.ColorToken.purple)
-                            
-                            Button(role: .destructive) {
-                                viewModel.delete(taskId: occ.task.persistentModelID)
-                            } label: {
-                                Label("Delete", systemImage: "trash")
-                            }
+                    ForEach(dayItems) { item in
+                        switch item {
+                        case .task(let occ):
+                            let modelCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
+                            let isVisuallyDone = viewModel.isVisuallyDone(
+                                taskId: occ.task.persistentModelID,
+                                modelCompleted: modelCompleted
+                            )
+
+                            TaskCardView(occurrence: occ, isVisuallyDone: isVisuallyDone)
+                                .padding(.horizontal, DS.Spacing.lg)
+                                .padding(.vertical, 6)
+                                .listRowInsets(.init())
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                                .onTapGesture {
+                                    viewModel.openEditTask(id: occ.task.persistentModelID)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+
+                                    Button {
+                                        viewModel.toggleDoneTwoPhase(
+                                            taskId: occ.task.persistentModelID,
+                                            on: viewModel.selectedDay
+                                        )
+                                    } label: {
+                                        Label(
+                                            modelCompleted ? "Undo" : "Done",
+                                            systemImage: modelCompleted
+                                            ? "arrow.uturn.backward.circle"
+                                            : "checkmark.circle.fill"
+                                        )
+                                    }
+                                    .tint(DS.ColorToken.purple)
+
+                                    Button(role: .destructive) {
+                                        viewModel.delete(taskId: occ.task.persistentModelID)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                }
+
+                        case .imported(let ev):
+                            ImportedEventCardView(event: ev)
+                                .padding(.horizontal, DS.Spacing.lg)
+                                .padding(.vertical, 6)
+                                .listRowInsets(.init())
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
                         }
                     }
                 }
