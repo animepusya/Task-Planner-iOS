@@ -29,12 +29,21 @@ final class TaskEditorViewModel: ObservableObject {
     private var didBootstrap = false
     private var weekStartsOnMonday = true
 
+    // defaults from preferences (used in UI + new tasks)
+    @Published private(set) var defaultAllDayTimeMinutes: Int = 9 * 60
+    @Published private(set) var defaultReminderOffsetMinutes: Int = 10
+
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
     var canSave: Bool { !isBusy && !form.isRepeatInvalid }
 
     // MARK: Init
-    init(taskRepository: TaskRepository,preferencesRepository: PreferencesRepository, taskId: PersistentIdentifier?, preselectedDay: Date) {
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        taskId: PersistentIdentifier?,
+        preselectedDay: Date
+    ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.taskId = taskId
@@ -58,6 +67,11 @@ final class TaskEditorViewModel: ObservableObject {
             color: .purple,
             categoryTitle: "Work",
             photoThumbData: nil,
+
+            reminderEnabled: false,
+            reminderOffsetMinutes: 10,
+            reminderAllDayTimeMinutes: nil,
+
             timeValidationMessage: nil,
             isRepeatInvalid: false,
             repeatValidationMessage: nil
@@ -68,7 +82,6 @@ final class TaskEditorViewModel: ObservableObject {
                 await self?.loadExistingTask()
             }
         } else {
-            // Приводим в валидный вид один раз
             let validated = time.validateAndFix(
                 dayDate: form.dayDate,
                 endDayDate: form.endDayDate,
@@ -93,64 +106,54 @@ final class TaskEditorViewModel: ObservableObject {
 
     // MARK: - Smart bindings
     var dayDateBinding: Binding<Date> {
-        Binding(
-            get: { self.form.dayDate },
-            set: { [weak self] newValue in self?.setDayDate(newValue) }
-        )
+        Binding(get: { self.form.dayDate }, set: { [weak self] in self?.setDayDate($0) })
     }
 
     var startTimeBinding: Binding<Date> {
-        Binding(
-            get: { self.form.startTime },
-            set: { [weak self] newValue in self?.setStartTime(newValue) }
-        )
+        Binding(get: { self.form.startTime }, set: { [weak self] in self?.setStartTime($0) })
     }
 
     var endDayDateBinding: Binding<Date> {
-        Binding(
-            get: { self.form.endDayDate },
-            set: { [weak self] newValue in self?.setEndDayDate(newValue) }
-        )
+        Binding(get: { self.form.endDayDate }, set: { [weak self] in self?.setEndDayDate($0) })
     }
 
     var endTimeBinding: Binding<Date> {
-        Binding(
-            get: { self.form.endTime },
-            set: { [weak self] newValue in self?.setEndTime(newValue) }
-        )
+        Binding(get: { self.form.endTime }, set: { [weak self] in self?.setEndTime($0) })
     }
-    
+
     var isAllDayBinding: Binding<Bool> {
-            Binding(
-                get: { self.form.isAllDay },
-                set: { [weak self] newValue in self?.setIsAllDay(newValue) }
-            )
-        }
+        Binding(get: { self.form.isAllDay }, set: { [weak self] in self?.setIsAllDay($0) })
+    }
 
     var repeatRuleBinding: Binding<RepeatRule> {
-        Binding(
-            get: { self.form.repeatRule },
-            set: { [weak self] newValue in self?.setRepeatRule(newValue) }
-        )
+        Binding(get: { self.form.repeatRule }, set: { [weak self] in self?.setRepeatRule($0) })
     }
 
     var repeatIntervalDaysBinding: Binding<Int> {
-        Binding(
-            get: { self.form.repeatIntervalDays },
-            set: { [weak self] newValue in self?.setRepeatIntervalDays(newValue) }
-        )
+        Binding(get: { self.form.repeatIntervalDays }, set: { [weak self] in self?.setRepeatIntervalDays($0) })
     }
 
     // MARK: - Bootstrap (idempotent)
     func onAppear(availableCategories: [String]) {
         guard !didBootstrap else { return }
         didBootstrap = true
-        
+
         do {
             let prefs = try preferencesRepository.getOrCreate()
             weekStartsOnMonday = prefs.weekStartsOnMonday
+            defaultAllDayTimeMinutes = prefs.defaultAllDayTimeMinutes
+            defaultReminderOffsetMinutes = prefs.defaultReminderOffsetMinutes
+
+            // For new tasks, init reminder defaults
+            if taskId == nil {
+                var copy = form
+                copy.reminderOffsetMinutes = prefs.defaultReminderOffsetMinutes
+                setFormIfChanged(copy)
+            }
         } catch {
             weekStartsOnMonday = true
+            defaultAllDayTimeMinutes = 9 * 60
+            defaultReminderOffsetMinutes = 10
         }
 
         ensureCategoryIsValid(available: availableCategories)
@@ -212,15 +215,14 @@ final class TaskEditorViewModel: ObservableObject {
 
         onEndTimeChanged()
     }
-    
+
     func setIsAllDay(_ newValue: Bool) {
-            guard newValue != form.isAllDay else { return }
-            var copy = form
-            copy.isAllDay = newValue
-            setFormIfChanged(copy)
-            // ВАЖНО: occurrence/repeat логика остаётся прежней, поэтому времена НЕ трогаем.
-            // Статистика будет исключать по isAllDay через helper.
-        }
+        guard newValue != form.isAllDay else { return }
+        var copy = form
+        copy.isAllDay = newValue
+        setFormIfChanged(copy)
+        // Времена не трогаем.
+    }
 
     func setRepeatRule(_ newValue: RepeatRule) {
         guard newValue != form.repeatRule else { return }
@@ -337,15 +339,20 @@ final class TaskEditorViewModel: ObservableObject {
             next.startTime = existing.startTime
             next.endTime = existing.endTime
             next.endDayDate = time.startOfDay(existing.endTime)
-            
+
             next.isAllDay = existing.isAllDay
 
             next.repeatRule = existing.repeatRule
             next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
             next.color = existing.color
             next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
-            
+
             next.photoThumbData = existing.photoThumbData
+
+            // Reminder
+            next.reminderEnabled = existing.reminderEnabled
+            next.reminderOffsetMinutes = existing.reminderOffsetMinutes
+            next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
 
             setFormIfChanged(next)
 
@@ -419,6 +426,11 @@ final class TaskEditorViewModel: ObservableObject {
 
         let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
+        // Reminder values
+        let reminderEnabled = form.reminderEnabled
+        let reminderOffset = max(0, form.reminderOffsetMinutes)
+        let reminderAllDayTime = form.reminderAllDayTimeMinutes // can be nil
+
         if let taskId {
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 throw EditorError.taskNotFound
@@ -429,7 +441,7 @@ final class TaskEditorViewModel: ObservableObject {
             existing.dayDate = time.startOfDay(form.dayDate)
             existing.startTime = finalTimes.start
             existing.endTime = finalTimes.end
-            
+
             existing.isAllDay = form.isAllDay
 
             existing.repeatRule = form.repeatRule
@@ -439,6 +451,11 @@ final class TaskEditorViewModel: ObservableObject {
             existing.color = form.color
             existing.categoryTitle = normalizedCategory
             existing.photoThumbData = form.photoThumbData
+
+            // Reminder
+            existing.reminderEnabled = reminderEnabled
+            existing.reminderOffsetMinutes = reminderOffset
+            existing.reminderAllDayTimeMinutes = reminderAllDayTime
 
             try taskRepository.save()
         } else {
@@ -453,7 +470,10 @@ final class TaskEditorViewModel: ObservableObject {
                 repeatIntervalDays: intervalOrNil,
                 status: .todo,
                 color: form.color,
-                categoryTitle: normalizedCategory
+                categoryTitle: normalizedCategory,
+                reminderEnabled: reminderEnabled,
+                reminderOffsetMinutes: reminderOffset,
+                reminderAllDayTimeMinutes: reminderAllDayTime
             )
             new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
@@ -543,7 +563,7 @@ final class TaskEditorViewModel: ObservableObject {
         var endDayDate: Date
         var startTime: Date
         var endTime: Date
-        
+
         var isAllDay: Bool
 
         var repeatRule: RepeatRule
@@ -553,6 +573,12 @@ final class TaskEditorViewModel: ObservableObject {
         var categoryTitle: String
 
         var photoThumbData: Data?
+
+        // Reminder
+        var reminderEnabled: Bool
+        var reminderOffsetMinutes: Int
+        var reminderAllDayTimeMinutes: Int?
+
         var timeValidationMessage: String?
 
         var isRepeatInvalid: Bool

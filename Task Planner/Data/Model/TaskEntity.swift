@@ -25,6 +25,10 @@ final class TaskEntity {
     var completedDayKeysRaw: String
     var appleEventIdentifier: String?
 
+    var reminderEnabled: Bool
+    var reminderOffsetMinutes: Int
+    var reminderAllDayTimeMinutes: Int?
+
     init(
         title: String,
         notes: String? = nil,
@@ -36,7 +40,10 @@ final class TaskEntity {
         repeatIntervalDays: Int? = nil,
         status: TaskStatus = .todo,
         color: TaskColor = .purple,
-        categoryTitle: String? = nil
+        categoryTitle: String? = nil,
+        reminderEnabled: Bool = false,
+        reminderOffsetMinutes: Int = 10,
+        reminderAllDayTimeMinutes: Int? = nil
     ) {
         self.title = title
         self.notes = notes
@@ -52,6 +59,9 @@ final class TaskEntity {
         self.photoThumbData = nil
         self.completedDayKeysRaw = "[]"
         self.appleEventIdentifier = nil
+        self.reminderEnabled = reminderEnabled
+        self.reminderOffsetMinutes = reminderOffsetMinutes
+        self.reminderAllDayTimeMinutes = reminderAllDayTimeMinutes
     }
 
     var repeatRule: RepeatRule {
@@ -120,7 +130,7 @@ extension TaskEntity {
         if set.contains(key) { set.remove(key) } else { set.insert(key) }
         completedDayKeys = set
     }
-    
+
     func normalizeRepeatFields() {
         if repeatRule != .everyNDays {
             repeatIntervalDays = nil

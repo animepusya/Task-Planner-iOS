@@ -28,6 +28,9 @@ struct AppRootView: View {
         let categoryRepo = container.makeCategoryRepository(context: modelContext)
         let calendarSync = container.makeCalendarSyncService(context: modelContext)
 
+        let notificationService = container.makeNotificationService()
+        let notificationSync = container.makeNotificationSyncService(context: modelContext)
+
         ZStack {
             AppBackgroundView(gradient: DS.GradientToken.splash)
 
@@ -39,6 +42,9 @@ struct AppRootView: View {
                         calendarSync: calendarSync,
                         onOpenTaskEditor: { taskId, day in
                             sheet = .taskEditor(taskId: taskId, preselectedDay: day)
+                        },
+                        onOpenNotifications: {
+                            sheet = .notifications
                         }
                     )
                 )
@@ -83,6 +89,19 @@ struct AppRootView: View {
                             taskRepository: taskRepo,
                             categoryRepository: categoryRepo,
                             calendarSync: calendarSync
+                        )
+                    )
+
+                case .notifications:
+                    NotificationsView(
+                        viewModel: NotificationsViewModel(
+                            taskRepository: taskRepo,
+                            preferencesRepository: prefsRepo,
+                            notificationService: notificationService,
+                            notificationSync: notificationSync,
+                            onOpenTaskEditor: { taskId, day in
+                                sheet = .taskEditor(taskId: taskId, preselectedDay: day)
+                            }
                         )
                     )
                 }

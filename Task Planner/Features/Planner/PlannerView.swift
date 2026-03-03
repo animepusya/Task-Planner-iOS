@@ -33,7 +33,6 @@ struct PlannerView: View {
 
     var body: some View {
         List {
-            // MARK: - Header + Calendar (как "статичный верх")
             Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     header
@@ -47,7 +46,6 @@ struct PlannerView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
-            // MARK: - Tasks
             Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     tasksHeader
@@ -59,7 +57,7 @@ struct PlannerView: View {
             .listRowInsets(.init())
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
-            
+
             let dayItems = viewModel.itemsForSelectedDay(from: tasks)
 
             if dayItems.isEmpty {
@@ -92,7 +90,6 @@ struct PlannerView: View {
                                     viewModel.openEditTask(id: occ.task.persistentModelID)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-
                                     Button {
                                         viewModel.toggleDoneTwoPhase(
                                             taskId: occ.task.persistentModelID,
@@ -156,6 +153,11 @@ struct PlannerView: View {
             }
 
             Spacer(minLength: 12)
+
+            IconCircleButton(systemName: "bell") {
+                viewModel.openNotifications()
+            }
+            .accessibilityLabel("Notifications")
         }
     }
 
@@ -163,7 +165,6 @@ struct PlannerView: View {
 
     private var calendarCard: some View {
         ZStack {
-            // Важно: меняем identity по monthAnchor, чтобы работал transition
             calendarContent
                 .id(viewModel.monthAnchor)
                 .transition(monthSlideTransition)
@@ -224,7 +225,6 @@ struct PlannerView: View {
                 let dx = value.translation.width
                 let dy = value.translation.height
 
-                // чтобы вертикальный скролл List не воспринимался как свайп месяца
                 guard abs(dx) > abs(dy) else { return }
 
                 if dx <= -swipeThreshold {
@@ -240,7 +240,6 @@ struct PlannerView: View {
 
     private func triggerMonthChange(next: Bool) {
         didTriggerSwipe = true
-
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
 
         monthDirection = next ? .next : .prev
@@ -253,39 +252,28 @@ struct PlannerView: View {
         }
     }
 
-    // MARK: - Month actions (buttons / picker / today)
-
     private func handlePrevMonth() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         monthDirection = .prev
-        withAnimation(monthAnim) {
-            viewModel.goToPreviousMonth()
-        }
+        withAnimation(monthAnim) { viewModel.goToPreviousMonth() }
     }
 
     private func handleNextMonth() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         monthDirection = .next
-        withAnimation(monthAnim) {
-            viewModel.goToNextMonth()
-        }
+        withAnimation(monthAnim) { viewModel.goToNextMonth() }
     }
 
     private func handleSelectMonthAnchor(_ date: Date) {
-        // для выбора из пикера — мягкое появление без явного направления
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         monthDirection = .next
-        withAnimation(monthAnim) {
-            viewModel.setMonthAnchor(date)
-        }
+        withAnimation(monthAnim) { viewModel.setMonthAnchor(date) }
     }
 
     private func handleToday() {
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
         monthDirection = .next
-        withAnimation(monthAnim) {
-            viewModel.goToToday()
-        }
+        withAnimation(monthAnim) { viewModel.goToToday() }
     }
 
     // MARK: - Tasks Header

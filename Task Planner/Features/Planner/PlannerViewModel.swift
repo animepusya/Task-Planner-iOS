@@ -16,6 +16,7 @@ final class PlannerViewModel: ObservableObject {
     private let preferencesRepository: PreferencesRepository
     private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
+    private let onOpenNotifications: () -> Void
 
     @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
 
@@ -46,12 +47,14 @@ final class PlannerViewModel: ObservableObject {
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
         calendarSync: CalendarSyncService,
-        onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
+        onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
+        onOpenNotifications: @escaping () -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.calendarSync = calendarSync
         self.onOpenTaskEditor = onOpenTaskEditor
+        self.onOpenNotifications = onOpenNotifications
 
         loadPreferences()
         Task { await loadExternalEventsForVisibleMonth() }
@@ -124,6 +127,7 @@ final class PlannerViewModel: ObservableObject {
 
     func openCreateTask() { onOpenTaskEditor(nil, selectedDay) }
     func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDay) }
+    func openNotifications() { onOpenNotifications() }
 
     func goToPreviousMonth() { monthAnchor = monthAnchor.addingMonths(-1) }
     func goToNextMonth() { monthAnchor = monthAnchor.addingMonths(1) }

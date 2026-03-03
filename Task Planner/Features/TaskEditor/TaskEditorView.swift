@@ -55,10 +55,18 @@ struct TaskEditorView: View {
                     VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                         nameSection
                         dateTimeSection(isCompact: isCompact)
+
+                        TaskEditorReminderSection(
+                            reminderEnabled: viewModel.binding(\.reminderEnabled),
+                            reminderOffsetMinutes: viewModel.binding(\.reminderOffsetMinutes),
+                            reminderAllDayTimeMinutes: viewModel.binding(\.reminderAllDayTimeMinutes),
+                            isAllDay: viewModel.form.isAllDay,
+                            defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes
+                        )
+
                         TaskEditorColorSection(color: viewModel.binding(\.color))
                         repeatSection
                         TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
-
                     }
                     .frame(width: contentWidth, alignment: .leading)
                     .padding(.horizontal, pad)
@@ -91,15 +99,11 @@ struct TaskEditorView: View {
         }
     }
 
-    // MARK: - Layout
-
     private func adaptiveHorizontalPadding(for width: CGFloat) -> CGFloat {
         if width < 375 { return DS.Spacing.md }
         if width < 430 { return DS.Spacing.lg }
         return DS.Spacing.xl
     }
-
-    // MARK: - Sections
 
     private var nameSection: some View {
         TaskEditorNameSection(
@@ -134,8 +138,6 @@ struct TaskEditorView: View {
             validationMessage: viewModel.form.repeatValidationMessage
         )
     }
-
-    // MARK: - Save
 
     private func save() {
         viewModel.isBusy = true
