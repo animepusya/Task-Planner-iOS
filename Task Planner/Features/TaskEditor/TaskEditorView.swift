@@ -12,8 +12,13 @@ struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject var viewModel: TaskEditorViewModel
 
+    let onOpenNotificationsCenter: () -> Void
+
     @Query(sort: \CategoryEntity.title, order: .forward)
     private var categories: [CategoryEntity]
+
+    @Query
+    private var preferences: [AppPreferencesEntity]
 
     private let fallbackCategories = ["Work", "Study", "Hobby"]
     @FocusState private var focusedField: TaskEditorField?
@@ -24,6 +29,10 @@ struct TaskEditorView: View {
             .map { $0.title }
 
         return list.isEmpty ? fallbackCategories : list
+    }
+
+    private var appNotificationsEnabled: Bool {
+        preferences.first?.notificationsEnabled ?? true
     }
 
     var body: some View {
@@ -57,11 +66,19 @@ struct TaskEditorView: View {
                         dateTimeSection(isCompact: isCompact)
 
                         TaskEditorReminderSection(
-                            reminderEnabled: viewModel.binding(\.reminderEnabled),
+                            reminderEnabled: viewModel.reminderEnabledBinding,
                             reminderOffsetMinutes: viewModel.binding(\.reminderOffsetMinutes),
                             reminderAllDayTimeMinutes: viewModel.binding(\.reminderAllDayTimeMinutes),
                             isAllDay: viewModel.form.isAllDay,
-                            defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes
+                            defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes,
+                            gate: viewModel.reminderGate,
+                            onOpenNotificationsCenter: {
+                                focusedField = nil
+                                onOpenNotificationsCenter()
+                            },
+                            onOpenSystemSettings: {
+                                viewModel.openSystemSettings()
+                            }
                         )
 
                         TaskEditorColorSection(color: viewModel.binding(\.color))
@@ -92,9 +109,13 @@ struct TaskEditorView: View {
             }
             .task {
                 viewModel.onAppear(availableCategories: availableCategoryTitles)
+                viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
             }
             .onChange(of: categories.count) { _, _ in
                 viewModel.ensureCategoryIsValid(available: availableCategoryTitles)
+            }
+            .onChange(of: appNotificationsEnabled) { _, newValue in
+                viewModel.onAppNotificationsEnabledChanged(newValue)
             }
         }
     }

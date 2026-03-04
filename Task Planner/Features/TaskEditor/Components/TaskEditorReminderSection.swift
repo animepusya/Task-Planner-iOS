@@ -15,6 +15,11 @@ struct TaskEditorReminderSection: View {
     let isAllDay: Bool
     let defaultAllDayTimeMinutes: Int
 
+    let gate: TaskEditorViewModel.ReminderGate?
+
+    let onOpenNotificationsCenter: (() -> Void)?
+    let onOpenSystemSettings: (() -> Void)?
+
     @State private var showOffsetSheet = false
     @State private var showAllDayTimeSheet = false
 
@@ -30,6 +35,11 @@ struct TaskEditorReminderSection: View {
                     .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .tint(DS.ColorToken.lavender)
+
+            if let gate {
+                gateInline(gate)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
 
             DSRowButton(
                 title: "Remind",
@@ -89,7 +99,52 @@ struct TaskEditorReminderSection: View {
             .presentationDetents([.medium])
             .presentationDragIndicator(.visible)
         }
+        .animation(.easeInOut(duration: 0.18), value: gate != nil)
     }
+
+    // MARK: - Inline gate UI
+
+    @ViewBuilder
+    private func gateInline(_ gate: TaskEditorViewModel.ReminderGate) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(gate.message)
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+
+            switch gate.action {
+            case .none:
+                EmptyView()
+
+            case .openNotificationsCenter:
+                if let onOpenNotificationsCenter {
+                    Button(action: onOpenNotificationsCenter) {
+                        Text("Open Notifications Center")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.ColorToken.purple)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    // Fallback hint if navigation isn’t wired yet.
+                    Text("Go to Notifications screen.")
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                }
+
+            case .openSystemSettings:
+                if let onOpenSystemSettings {
+                    Button(action: onOpenSystemSettings) {
+                        Text("Open Settings")
+                            .font(DS.Typography.caption)
+                            .foregroundStyle(DS.ColorToken.purple)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.top, 2)
+    }
+
+    // MARK: - Helpers
 
     private var offsetTitle: String {
         let preset = ReminderPreset.fromOffsetMinutes(reminderOffsetMinutes)

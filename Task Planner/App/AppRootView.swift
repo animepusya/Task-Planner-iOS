@@ -77,9 +77,13 @@ struct AppRootView: View {
                         viewModel: TaskEditorViewModel(
                             taskRepository: taskRepo,
                             preferencesRepository: prefsRepo,
+                            notificationService: notificationService,
                             taskId: taskId,
                             preselectedDay: day
-                        )
+                        ),
+                        onOpenNotificationsCenter: {
+                            sheet = .notifications
+                        }
                     )
 
                 case .settings:

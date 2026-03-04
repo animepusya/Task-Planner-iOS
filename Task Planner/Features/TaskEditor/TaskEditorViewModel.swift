@@ -16,6 +16,8 @@ final class TaskEditorViewModel: ObservableObject {
     // MARK: Dependencies
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
+    private let notificationService: NotificationService
+
     private let taskId: PersistentIdentifier?
     private let time: TaskEditorTimeCoordinator
     private let category: TaskEditorCategoryCoordinator
@@ -29,9 +31,10 @@ final class TaskEditorViewModel: ObservableObject {
     private var didBootstrap = false
     private var weekStartsOnMonday = true
 
-    // defaults from preferences (used in UI + new tasks)
     @Published private(set) var defaultAllDayTimeMinutes: Int = 9 * 60
     @Published private(set) var defaultReminderOffsetMinutes: Int = 10
+
+    @Published private(set) var reminderGate: ReminderGate?
 
     var isEditing: Bool { taskId != nil }
     var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
@@ -41,12 +44,15 @@ final class TaskEditorViewModel: ObservableObject {
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
+        notificationService: NotificationService,
         taskId: PersistentIdentifier?,
         preselectedDay: Date
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
+        self.notificationService = notificationService
         self.taskId = taskId
+
         self.time = TaskEditorTimeCoordinator(calendar: .current)
         self.category = TaskEditorCategoryCoordinator()
 
@@ -92,6 +98,46 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Reminder gate types
+
+    struct ReminderGate: Equatable {
+        enum Action: Equatable {
+            case none
+            case openNotificationsCenter
+            case openSystemSettings
+        }
+
+        let message: String
+        let action: Action
+    }
+
+    func openSystemSettings() {
+        notificationService.openSystemSettings()
+    }
+
+    func onAppNotificationsEnabledChanged(_ enabled: Bool) {
+        if enabled == false {
+            if form.reminderEnabled {
+                setReminderEnabledSilently(false)
+            }
+
+            reminderGate = ReminderGate(
+                message: "Enable notifications in the app to use reminders",
+                action: .openNotificationsCenter
+            )
+        } else {
+            if reminderGate?.action == .openNotificationsCenter {
+                reminderGate = nil
+            }
+        }
+    }
+
+    private func setReminderEnabledSilently(_ value: Bool) {
+        var copy = form
+        copy.reminderEnabled = value
+        setFormIfChanged(copy)
+    }
+
     // MARK: - Simple Binding helper
     func binding<T>(_ keyPath: WritableKeyPath<FormState, T>) -> Binding<T> {
         Binding(
@@ -105,6 +151,17 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     // MARK: - Smart bindings
+
+    var reminderEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { self.form.reminderEnabled },
+            set: { [weak self] newValue in
+                guard let self else { return }
+                Task { await self.setReminderEnabledAttempt(newValue) }
+            }
+        )
+    }
+
     var dayDateBinding: Binding<Date> {
         Binding(get: { self.form.dayDate }, set: { [weak self] in self?.setDayDate($0) })
     }
@@ -131,6 +188,64 @@ final class TaskEditorViewModel: ObservableObject {
 
     var repeatIntervalDaysBinding: Binding<Int> {
         Binding(get: { self.form.repeatIntervalDays }, set: { [weak self] in self?.setRepeatIntervalDays($0) })
+    }
+
+    // MARK: - Reminder toggle pipeline
+
+    private func setReminderEnabledAttempt(_ newValue: Bool) async {
+        if newValue == false {
+            reminderGate = nil
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        let prefs: AppPreferencesEntity
+        do {
+            prefs = try preferencesRepository.getOrCreate()
+        } catch {
+            reminderGate = ReminderGate(
+                message: "Enable notifications in the app to use reminders",
+                action: .openNotificationsCenter
+            )
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        guard prefs.notificationsEnabled else {
+            reminderGate = ReminderGate(
+                message: "Enable notifications in the app to use reminders",
+                action: .openNotificationsCenter
+            )
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        let status = await notificationService.getAuthorizationStatus()
+        switch status {
+        case .authorized:
+            reminderGate = nil
+            setReminderEnabledSilently(true)
+
+        case .notDetermined:
+            let granted = await notificationService.requestAuthorization()
+            if granted {
+                reminderGate = nil
+                setReminderEnabledSilently(true)
+            } else {
+                reminderGate = ReminderGate(
+                    message: "Allow notifications in Settings to use reminders",
+                    action: .openSystemSettings
+                )
+                setReminderEnabledSilently(false)
+            }
+
+        case .denied:
+            reminderGate = ReminderGate(
+                message: "Allow notifications in Settings to use reminders",
+                action: .openSystemSettings
+            )
+            setReminderEnabledSilently(false)
+        }
     }
 
     // MARK: - Bootstrap (idempotent)
@@ -355,6 +470,7 @@ final class TaskEditorViewModel: ObservableObject {
             next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
 
             setFormIfChanged(next)
+            reminderGate = nil
 
             let validated = time.validateAndFix(
                 dayDate: form.dayDate,
