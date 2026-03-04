@@ -16,6 +16,7 @@ enum NotificationAuthorizationStatus: Equatable {
 struct PendingReminder: Identifiable, Hashable {
     let id: String
     let taskId: String
+    let occurrenceKey: String
     let taskTitle: String
     let taskColor: TaskColor
     let fireDate: Date

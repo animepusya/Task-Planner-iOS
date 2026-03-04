@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -20,21 +21,33 @@ struct NotificationsView: View {
     @State private var allDayTempDate: Date = .now
 
     var body: some View {
-        VStack(spacing: 0) {
-            topBar
-
-            ScrollView(.vertical, showsIndicators: false) {
+        List {
+            // Top spacing wrapper (чтобы выглядело как твой экран, а не "settings list")
+            Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     heroCard
                     defaultsCard
-                    scheduledSection
                 }
                 .padding(.horizontal, DS.Spacing.lg)
                 .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, 28)
+                .padding(.bottom, DS.Spacing.lg)
             }
+            .listRowInsets(.init())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // Scheduled
+            scheduledSectionList
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
+        .navigationBarHidden(true)
+        .safeAreaInset(edge: .top) {
+            topBar
+                .padding(.top, 6)
+                .background(DS.ColorToken.appBackground.opacity(0.92))
+        }
         .onAppear { viewModel.onAppear() }
     }
 
@@ -232,41 +245,94 @@ struct NotificationsView: View {
         }
     }
 
-    // MARK: - Scheduled
+    // MARK: - Scheduled (List-like, swipe like PlannerView)
 
-    private var scheduledSection: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            Text("Scheduled")
-                .font(DS.Typography.sectionTitle)
-                .foregroundStyle(DS.ColorToken.textPrimary)
-
-            let reminders = viewModel.scheduledNext7Days(tasks: tasks)
-            if reminders.isEmpty {
-                Text(emptyScheduledText)
-                    .font(DS.Typography.body)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-                    .padding(.top, 4)
-            } else {
-                ForEach(reminders) { r in
-                    ScheduledReminderRow(reminder: r)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            if let task = tasks.first(where: { String(describing: $0.persistentModelID) == r.taskId }) {
-                                viewModel.openTask(taskId: task.persistentModelID, day: r.dayKey)
-                            }
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                if let task = tasks.first(where: { String(describing: $0.persistentModelID) == r.taskId }) {
-                                    viewModel.disableReminder(for: task.persistentModelID)
-                                }
-                            } label: {
-                                Label("Disable", systemImage: "bell.slash")
-                            }
-                        }
+    private var scheduledSectionList: some View {
+        Group {
+            // Header section
+            Section {
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    Text("Scheduled")
+                        .font(DS.Typography.sectionTitle)
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.top, DS.Spacing.sm)
+                        .padding(.bottom, DS.Spacing.xs)
                 }
             }
+            .listRowInsets(.init())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+
+            // Rows
+            let reminders = viewModel.scheduledNext7Days(tasks: tasks)
+
+            if reminders.isEmpty {
+                Section {
+                    Text(emptyScheduledText)
+                        .font(DS.Typography.body)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.bottom, DS.Spacing.lg)
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            } else {
+                Section {
+                    ForEach(reminders) { r in
+                        ScheduledReminderRow(reminder: r)
+                            .padding(.horizontal, DS.Spacing.lg)
+                            .padding(.vertical, DS.Spacing.xs)
+                            .listRowInsets(.init())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                if let task = tasks.first(where: { String(describing: $0.persistentModelID) == r.taskId }) {
+                                    viewModel.openTask(taskId: task.persistentModelID, day: r.dayKey)
+                                }
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                if let task = tasks.first(where: { String(describing: $0.persistentModelID) == r.taskId }) {
+
+                                    if r.isSuppressed {
+                                        Button {
+                                            lightHaptic()
+                                            viewModel.enableReminderForThisDay(
+                                                taskId: task.persistentModelID,
+                                                occurrenceKey: r.occurrenceKey,
+                                                occurrenceDay: r.dayKey
+                                            )
+                                        } label: {
+                                            Label("Enable", systemImage: "arrow.uturn.backward.circle")
+                                        }
+                                        .tint(DS.ColorToken.lavender)
+                                    } else {
+                                        Button {
+                                            lightHaptic()
+                                            viewModel.disableReminderForThisDay(
+                                                taskId: task.persistentModelID,
+                                                occurrenceKey: r.occurrenceKey
+                                            )
+                                        } label: {
+                                            Label("Disable", systemImage: "bell.slash")
+                                        }
+                                        .tint(DS.ColorToken.purple)
+                                    }
+                                }
+                            }
+                    }
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
         }
+    }
+
+    private func lightHaptic() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     private var emptyScheduledText: String {
@@ -283,3 +349,4 @@ struct NotificationsView: View {
         }
     }
 }
+

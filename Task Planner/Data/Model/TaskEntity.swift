@@ -28,6 +28,7 @@ final class TaskEntity {
     var reminderEnabled: Bool
     var reminderOffsetMinutes: Int
     var reminderAllDayTimeMinutes: Int?
+    var suppressedReminderKeysRaw: String?
 
     init(
         title: String,
@@ -62,6 +63,7 @@ final class TaskEntity {
         self.reminderEnabled = reminderEnabled
         self.reminderOffsetMinutes = reminderOffsetMinutes
         self.reminderAllDayTimeMinutes = reminderAllDayTimeMinutes
+        self.suppressedReminderKeysRaw = nil
     }
 
     var repeatRule: RepeatRule {
@@ -138,5 +140,50 @@ extension TaskEntity {
             let v = repeatIntervalDays ?? 1
             repeatIntervalDays = max(1, v)
         }
+    }
+}
+
+// MARK: - Reminder suppression (per-occurrence)
+extension TaskEntity {
+
+    var suppressedReminderKeys: Set<String> {
+        get {
+            guard
+                let raw = suppressedReminderKeysRaw,
+                let data = raw.data(using: .utf8)
+            else { return [] }
+
+            do {
+                let arr = try JSONDecoder().decode([String].self, from: data)
+                return Set(arr)
+            } catch {
+                return []
+            }
+        }
+        set {
+            let arr = Array(newValue).sorted()
+            do {
+                let data = try JSONEncoder().encode(arr)
+                suppressedReminderKeysRaw = String(data: data, encoding: .utf8) ?? "[]"
+            } catch {
+                suppressedReminderKeysRaw = "[]"
+            }
+        }
+    }
+
+    func isReminderSuppressed(for key: String) -> Bool {
+        suppressedReminderKeys.contains(key)
+    }
+
+    func suppressReminder(for key: String) {
+        var set = suppressedReminderKeys
+        set.insert(key)
+        suppressedReminderKeys = set
+    }
+
+    func unsuppressReminder(for key: String) {
+        var set = suppressedReminderKeys
+        set.remove(key)
+        suppressedReminderKeys = set
     }
 }

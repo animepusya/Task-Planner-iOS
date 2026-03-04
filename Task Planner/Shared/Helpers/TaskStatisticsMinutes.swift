@@ -9,8 +9,6 @@ import Foundation
 
 enum TaskStatisticsMinutes {
     /// For statistics only:
-    /// - all-day tasks contribute 0
-    /// - otherwise use the existing overlap logic (including repeats)
     static func minutesOnDay(
         task: TaskEntity,
         day: Date,

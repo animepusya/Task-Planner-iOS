@@ -139,25 +139,55 @@ final class NotificationsViewModel: ObservableObject {
         }
     }
 
-    func disableReminder(for taskId: PersistentIdentifier) {
-        do {
-            guard let task = try taskRepository.fetch(by: taskId) else { return }
-            task.reminderEnabled = false
-            try taskRepository.save()
-        } catch { }
-    }
-
     func openTask(taskId: PersistentIdentifier, day: Date) {
         onOpenTaskEditor(taskId, day)
     }
 
+    // MARK: - Per-occurrence disable / enable
+
+    func disableReminderForThisDay(taskId: PersistentIdentifier, occurrenceKey: String) {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.disableInternal(taskId: taskId, occurrenceKey: occurrenceKey)
+        }
+    }
+
+    func enableReminderForThisDay(taskId: PersistentIdentifier, occurrenceKey: String, occurrenceDay: Date) {
+        Task { [weak self] in
+            guard let self else { return }
+            await self.enableInternal(taskId: taskId, occurrenceKey: occurrenceKey, occurrenceDay: occurrenceDay)
+        }
+    }
+
+    private func disableInternal(taskId: PersistentIdentifier, occurrenceKey: String) async {
+        await notificationSync.cancelSingle(taskId: taskId, occurrenceKey: occurrenceKey)
+
+        do {
+            guard let task = try taskRepository.fetch(by: taskId) else { return }
+            task.suppressReminder(for: occurrenceKey)
+            try taskRepository.save()
+        } catch {
+        }
+    }
+
+    private func enableInternal(taskId: PersistentIdentifier, occurrenceKey: String, occurrenceDay: Date) async {
+        do {
+            guard let task = try taskRepository.fetch(by: taskId) else { return }
+            task.unsuppressReminder(for: occurrenceKey)
+            try taskRepository.save()
+
+            await notificationSync.scheduleSingleOccurrence(task: task, occurrenceDay: occurrenceDay)
+        } catch {
+        }
+    }
+
     // MARK: - Scheduled list
 
-    func scheduledNext7Days(tasks: [TaskEntity]) -> [PendingReminder] {
+    func scheduledNext7Days(tasks: [TaskEntity]) -> [ScheduledReminderItem] {
         guard notificationsEnabled else { return [] }
         guard systemStatus == .authorized else { return [] }
 
-        return notificationSync.upcomingRemindersNext7Days(tasks: tasks)
+        return notificationSync.upcomingReminderRowsNext7Days(tasks: tasks)
     }
 
     // MARK: - Private

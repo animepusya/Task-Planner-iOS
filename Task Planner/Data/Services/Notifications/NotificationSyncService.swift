@@ -14,7 +14,6 @@ final class NotificationSyncService {
     private let notificationService: NotificationService
     private let preferencesRepository: PreferencesRepository
 
-    // Rolling window for repeating tasks to avoid infinite scheduling.
     private let rollingDays: Int = 30
 
     init(
@@ -44,22 +43,18 @@ final class NotificationSyncService {
 
         let auth = await notificationService.getAuthorizationStatus()
 
-        // If user disabled app-level notifications -> cancel immediately.
         if prefs.notificationsEnabled == false {
             await notificationService.cancelAll()
             return
         }
 
-        // If system denied -> do not schedule (keep UI guidance).
         guard auth == .authorized else {
             return
         }
 
-        // We do a simple strategy: cancel all and schedule fresh for the rolling window.
-        // MVP, robust, and avoids complex diff logic.
         await notificationService.cancelAll()
 
-        let reminders = buildRemindersForRollingWindow(tasks: tasks, prefs: prefs)
+        let reminders = buildPendingRemindersForRollingWindow(tasks: tasks, prefs: prefs)
         await notificationService.scheduleReminders(reminders)
     }
 
@@ -72,9 +67,55 @@ final class NotificationSyncService {
         await notificationService.cancel(ids: ids)
     }
 
-    // MARK: - Diagnostics / UI list (next 7 days)
+    func cancelSingle(taskId: PersistentIdentifier, occurrenceKey: String) async {
+        let taskKey = String(describing: taskId)
+        let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+        await notificationService.cancel(ids: [id])
+    }
 
-    func upcomingRemindersNext7Days(tasks: [TaskEntity]) -> [PendingReminder] {
+    func scheduleSingleOccurrence(task: TaskEntity, occurrenceDay: Date) async {
+        let prefs: AppPreferencesEntity
+        do {
+            prefs = try preferencesRepository.getOrCreate()
+        } catch { return }
+
+        guard prefs.notificationsEnabled else { return }
+        let auth = await notificationService.getAuthorizationStatus()
+        guard auth == .authorized else { return }
+        guard task.reminderEnabled else { return }
+
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: .now)
+        let end = cal.date(byAdding: .day, value: rollingDays, to: start) ?? start.addingTimeInterval(Double(rollingDays) * 86400)
+
+        let occ = cal.startOfDay(for: occurrenceDay)
+        guard occ >= start && occ < end else { return }
+
+        let occurrenceKey = TaskEntity.dayKey(for: occ, calendar: cal)
+        guard task.isReminderSuppressed(for: occurrenceKey) == false else { return }
+
+        guard let fireDate = computeFireDate(task: task, occurrenceDay: occ, prefs: prefs, calendar: cal) else { return }
+
+        let taskKey = String(describing: task.persistentModelID)
+        let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+
+        let reminder = PendingReminder(
+            id: id,
+            taskId: taskKey,
+            occurrenceKey: occurrenceKey,
+            taskTitle: task.title,
+            taskColor: task.color,
+            fireDate: fireDate,
+            dayKey: cal.startOfDay(for: occ),
+            isAllDay: task.isAllDay
+        )
+
+        await notificationService.scheduleReminders([reminder])
+    }
+
+    // MARK: - Diagnostics / UI list (next 7 days) — includes suppressed rows
+
+    func upcomingReminderRowsNext7Days(tasks: [TaskEntity]) -> [ScheduledReminderItem] {
         let prefs: AppPreferencesEntity
         do {
             prefs = try preferencesRepository.getOrCreate()
@@ -85,24 +126,25 @@ final class NotificationSyncService {
         let start = Calendar.current.startOfDay(for: .now)
         let end = Calendar.current.date(byAdding: .day, value: 7, to: start) ?? start.addingTimeInterval(7 * 86400)
 
-        return buildReminders(
+        return buildReminderItemsForUI(
             tasks: tasks,
             prefs: prefs,
             rangeStart: start,
             rangeEnd: end
-        ).sorted { $0.fireDate < $1.fireDate }
+        )
+        .sorted { $0.fireDate < $1.fireDate }
     }
 
     // MARK: - Core building
 
-    private func buildRemindersForRollingWindow(tasks: [TaskEntity], prefs: AppPreferencesEntity) -> [PendingReminder] {
+    private func buildPendingRemindersForRollingWindow(tasks: [TaskEntity], prefs: AppPreferencesEntity) -> [PendingReminder] {
         let start = Calendar.current.startOfDay(for: .now)
         let end = Calendar.current.date(byAdding: .day, value: rollingDays, to: start) ?? start.addingTimeInterval(Double(rollingDays) * 86400)
 
-        return buildReminders(tasks: tasks, prefs: prefs, rangeStart: start, rangeEnd: end)
+        return buildPendingRemindersForScheduling(tasks: tasks, prefs: prefs, rangeStart: start, rangeEnd: end)
     }
 
-    private func buildReminders(
+    private func buildPendingRemindersForScheduling(
         tasks: [TaskEntity],
         prefs: AppPreferencesEntity,
         rangeStart: Date,
@@ -110,7 +152,6 @@ final class NotificationSyncService {
     ) -> [PendingReminder] {
         let cal = Calendar.current
 
-        // Only tasks with reminder enabled.
         let enabledTasks = tasks.filter { $0.reminderEnabled }
 
         var out: [PendingReminder] = []
@@ -120,22 +161,70 @@ final class NotificationSyncService {
             let occurrenceDays = occurrenceStartDays(for: task, rangeStart: rangeStart, rangeEnd: rangeEnd)
 
             for day in occurrenceDays {
-                // MVP: multi-day tasks — schedule only at start (or first day for all-day).
-                let fire = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal)
-                if fire == nil { continue }
+                let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
 
-                let fireDate = fire!
-                let id = notificationId(task: task, occurrenceDay: day, calendar: cal)
+                if task.isReminderSuppressed(for: occurrenceKey) {
+                    continue
+                }
+
+                guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
+
+                let taskKey = String(describing: task.persistentModelID)
+                let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
                 out.append(
                     PendingReminder(
                         id: id,
-                        taskId: String(describing: task.persistentModelID),
+                        taskId: taskKey,
+                        occurrenceKey: occurrenceKey,
                         taskTitle: task.title,
                         taskColor: task.color,
                         fireDate: fireDate,
                         dayKey: cal.startOfDay(for: day),
                         isAllDay: task.isAllDay
+                    )
+                )
+            }
+        }
+
+        return out
+    }
+
+    private func buildReminderItemsForUI(
+        tasks: [TaskEntity],
+        prefs: AppPreferencesEntity,
+        rangeStart: Date,
+        rangeEnd: Date
+    ) -> [ScheduledReminderItem] {
+        let cal = Calendar.current
+        let enabledTasks = tasks.filter { $0.reminderEnabled }
+
+        var out: [ScheduledReminderItem] = []
+        out.reserveCapacity(enabledTasks.count * 2)
+
+        for task in enabledTasks {
+            let occurrenceDays = occurrenceStartDays(for: task, rangeStart: rangeStart, rangeEnd: rangeEnd)
+
+            for day in occurrenceDays {
+                guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
+
+                let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
+                let isSuppressed = task.isReminderSuppressed(for: occurrenceKey)
+
+                let taskKey = String(describing: task.persistentModelID)
+                let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+
+                out.append(
+                    ScheduledReminderItem(
+                        id: id,
+                        taskId: taskKey,
+                        occurrenceKey: occurrenceKey,
+                        taskTitle: task.title,
+                        taskColor: task.color,
+                        fireDate: fireDate,
+                        dayKey: cal.startOfDay(for: day),
+                        isAllDay: task.isAllDay,
+                        isSuppressed: isSuppressed
                     )
                 )
             }
@@ -174,17 +263,13 @@ final class NotificationSyncService {
             let base = TimeOfDayMinutes.date(on: occurrenceDay, minutes: timeMinutes, calendar: cal)
             return cal.date(byAdding: .minute, value: -offset, to: base)
         } else {
-            // Non-all-day: schedule relative to start time.
-            // Use occurrence day + task.startTime's time component.
             let start = TaskOccurrence.combine(day: occurrenceDay, time: task.startTime, calendar: cal)
             return cal.date(byAdding: .minute, value: -offset, to: start)
         }
     }
 
-    private func notificationId(task: TaskEntity, occurrenceDay: Date, calendar: Calendar) -> String {
-        let taskKey = String(describing: task.persistentModelID)
-        let dayKey = TaskEntity.dayKey(for: occurrenceDay, calendar: calendar)
-        return "task-\(taskKey)-\(dayKey)"
+    private func notificationId(taskKey: String, occurrenceKey: String) -> String {
+        "\(taskKey)_\(occurrenceKey)"
     }
 
     private func buildAllPossibleIdsForTaskRollingWindow(task: TaskEntity) -> [String] {
@@ -193,6 +278,23 @@ final class NotificationSyncService {
         let end = cal.date(byAdding: .day, value: rollingDays, to: start) ?? start.addingTimeInterval(Double(rollingDays) * 86400)
 
         let days = occurrenceStartDays(for: task, rangeStart: start, rangeEnd: end)
-        return days.map { notificationId(task: task, occurrenceDay: $0, calendar: cal) }
+        let taskKey = String(describing: task.persistentModelID)
+        return days.map { day in
+            let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
+            return notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+        }
     }
+}
+
+// MARK: - UI Model (Scheduled list)
+struct ScheduledReminderItem: Identifiable, Hashable {
+    let id: String
+    let taskId: String
+    let occurrenceKey: String
+    let taskTitle: String
+    let taskColor: TaskColor
+    let fireDate: Date
+    let dayKey: Date
+    let isAllDay: Bool
+    let isSuppressed: Bool
 }
