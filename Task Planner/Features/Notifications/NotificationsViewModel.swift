@@ -23,7 +23,7 @@ final class NotificationsViewModel: ObservableObject {
     @Published private(set) var isLoading: Bool = false
 
     @Published var notificationsEnabled: Bool = true
-    @Published var defaultReminderOffsetMinutes: Int = 10
+    @Published var defaultReminderOffsetMinutes: Int = ReminderPreset.default.minutes
     @Published var defaultAllDayTimeMinutes: Int = 9 * 60
 
     init(
@@ -54,8 +54,13 @@ final class NotificationsViewModel: ObservableObject {
         do {
             let prefs = try preferencesRepository.getOrCreate()
             notificationsEnabled = prefs.notificationsEnabled
-            defaultReminderOffsetMinutes = prefs.defaultReminderOffsetMinutes
+            defaultReminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(prefs.defaultReminderOffsetMinutes)
             defaultAllDayTimeMinutes = prefs.defaultAllDayTimeMinutes
+
+            if prefs.defaultReminderOffsetMinutes != defaultReminderOffsetMinutes {
+                prefs.defaultReminderOffsetMinutes = defaultReminderOffsetMinutes
+                try preferencesRepository.save()
+            }
         } catch { }
 
         systemStatus = await notificationService.getAuthorizationStatus()
@@ -74,7 +79,6 @@ final class NotificationsViewModel: ObservableObject {
                 let ok = await self.notificationService.requestAuthorization()
                 self.systemStatus = await self.notificationService.getAuthorizationStatus()
 
-                // If user enabled permissions, reschedule if app toggle is ON.
                 if ok {
                     await self.rescheduleAllIfNeeded()
                 }
@@ -108,10 +112,12 @@ final class NotificationsViewModel: ObservableObject {
     }
 
     func setDefaultOffsetMinutes(_ minutes: Int) {
-        defaultReminderOffsetMinutes = max(0, minutes)
+        let normalized = ReminderPreset.normalizeOffsetMinutes(minutes)
+        defaultReminderOffsetMinutes = normalized
+
         do {
             let prefs = try preferencesRepository.getOrCreate()
-            prefs.defaultReminderOffsetMinutes = max(0, minutes)
+            prefs.defaultReminderOffsetMinutes = normalized
             try preferencesRepository.save()
         } catch { }
 
@@ -148,9 +154,7 @@ final class NotificationsViewModel: ObservableObject {
     // MARK: - Scheduled list
 
     func scheduledNext7Days(tasks: [TaskEntity]) -> [PendingReminder] {
-        // If app toggle OFF -> show empty (control center behavior).
         guard notificationsEnabled else { return [] }
-        // If system denied -> show empty list but UI will guide user.
         guard systemStatus == .authorized else { return [] }
 
         return notificationSync.upcomingRemindersNext7Days(tasks: tasks)

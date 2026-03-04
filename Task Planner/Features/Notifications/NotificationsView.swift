@@ -16,8 +16,8 @@ struct NotificationsView: View {
     @Query(sort: [SortDescriptor(\TaskEntity.dayDate, order: .forward)])
     private var tasks: [TaskEntity]
 
-    @State private var showOffsetSheet = false
-    @State private var showAllDayTimeSheet = false
+    @State private var showAllDayTimePopover = false
+    @State private var allDayTempDate: Date = .now
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,8 +36,6 @@ struct NotificationsView: View {
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear { viewModel.onAppear() }
-        .sheet(isPresented: $showOffsetSheet) { offsetPickerSheet }
-        .sheet(isPresented: $showAllDayTimeSheet) { allDayTimeSheet }
     }
 
     // MARK: - Top bar
@@ -62,7 +60,6 @@ struct NotificationsView: View {
 
             Spacer()
 
-            // balance
             Color.clear.frame(width: 44, height: 44)
         }
         .padding(.horizontal, DS.Spacing.lg)
@@ -160,17 +157,34 @@ struct NotificationsView: View {
                 .font(DS.Typography.sectionTitle)
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
-            DSRowButton(
+            DSRowMenu(
                 title: "Default reminder",
-                value: defaultOffsetTitle,
-                onTap: { showOffsetSheet = true }
-            )
+                value: defaultOffsetTitle
+            ) {
+                ForEach(ReminderPreset.allCases) { preset in
+                    Button {
+                        viewModel.setDefaultOffsetMinutes(preset.minutes)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(preset.displayName)
+                            Spacer(minLength: 12)
+                            if preset.minutes == viewModel.defaultReminderOffsetMinutes {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
 
             DSRowButton(
                 title: "All-day time",
                 value: TimeOfDayMinutes.format(viewModel.defaultAllDayTimeMinutes),
-                onTap: { showAllDayTimeSheet = true }
+                onTap: openAllDayPopover
             )
+            .popover(isPresented: $showAllDayTimePopover) {
+                allDayTimePopoverContent
+                    .presentationCompactAdaptation(.popover)
+            }
 
             Text("These defaults apply to new tasks. Each task can override.")
                 .font(DS.Typography.caption)
@@ -180,9 +194,42 @@ struct NotificationsView: View {
     }
 
     private var defaultOffsetTitle: String {
-        ReminderPreset.fromOffsetMinutes(viewModel.defaultReminderOffsetMinutes).title
-            + (ReminderPreset.fromOffsetMinutes(viewModel.defaultReminderOffsetMinutes) == .customMinutes
-               ? " (\(viewModel.defaultReminderOffsetMinutes)m)" : "")
+        ReminderPreset(rawValue: viewModel.defaultReminderOffsetMinutes)?.displayName
+        ?? ReminderPreset.default.displayName
+    }
+
+    private func openAllDayPopover() {
+        let today = Calendar.current.startOfDay(for: .now)
+        allDayTempDate = TimeOfDayMinutes.date(on: today, minutes: viewModel.defaultAllDayTimeMinutes)
+        showAllDayTimePopover = true
+    }
+
+    private var allDayTimePopoverContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("All-day time")
+                .font(DS.Typography.sectionTitle)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+
+            Text("Default time for all-day reminders.")
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+
+            DatePicker(
+                "",
+                selection: $allDayTempDate,
+                displayedComponents: .hourAndMinute
+            )
+            .labelsHidden()
+            .datePickerStyle(.wheel)
+            .frame(maxWidth: .infinity)
+            .clipped()
+        }
+        .padding(DS.Spacing.lg)
+        .background(DS.ColorToken.appBackground)
+        .onChange(of: allDayTempDate) { _, newValue in
+            let minutes = TimeOfDayMinutes.minutes(from: newValue)
+            viewModel.setDefaultAllDayTimeMinutes(minutes)
+        }
     }
 
     // MARK: - Scheduled
@@ -204,8 +251,6 @@ struct NotificationsView: View {
                     ScheduledReminderRow(reminder: r)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            // Open TaskEditor, preselect day of reminder
-                            // Note: taskId string -> we need PersistentIdentifier; we can resolve via tasks list.
                             if let task = tasks.first(where: { String(describing: $0.persistentModelID) == r.taskId }) {
                                 viewModel.openTask(taskId: task.persistentModelID, day: r.dayKey)
                             }
@@ -236,33 +281,5 @@ struct NotificationsView: View {
         case .authorized:
             return "No reminders scheduled for the next 7 days."
         }
-    }
-
-    // MARK: - Sheets
-
-    private var offsetPickerSheet: some View {
-        NotificationsOffsetPickerSheet(
-            selectedMinutes: viewModel.defaultReminderOffsetMinutes,
-            onSelect: { minutes in
-                viewModel.setDefaultOffsetMinutes(minutes)
-                showOffsetSheet = false
-            },
-            onClose: { showOffsetSheet = false }
-        )
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
-    }
-
-    private var allDayTimeSheet: some View {
-        NotificationsAllDayTimeSheet(
-            selectedMinutes: viewModel.defaultAllDayTimeMinutes,
-            onSelect: { minutes in
-                viewModel.setDefaultAllDayTimeMinutes(minutes)
-                showAllDayTimeSheet = false
-            },
-            onClose: { showAllDayTimeSheet = false }
-        )
-        .presentationDetents([.medium])
-        .presentationDragIndicator(.visible)
     }
 }

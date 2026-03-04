@@ -7,55 +7,37 @@
 
 import Foundation
 
-enum ReminderPreset: Hashable, CaseIterable, Identifiable {
-    case atTime
-    case minutes(Int)
-    case customMinutes
+enum ReminderPreset: Int, CaseIterable, Identifiable, Hashable {
+    case minutes5 = 5
+    case minutes10 = 10
+    case minutes15 = 15
+    case minutes30 = 30
+    case minutes60 = 60
+    case minutes120 = 120
+    case minutes1440 = 1440
+    case minutes2880 = 2880
+    case minutes10080 = 10080
 
-    var id: String {
+    var id: Int { rawValue }
+    var minutes: Int { rawValue }
+
+    static var `default`: ReminderPreset { .minutes5 }
+
+    var displayName: String {
         switch self {
-        case .atTime: return "atTime"
-        case .minutes(let m): return "m-\(m)"
-        case .customMinutes: return "custom"
+        case .minutes5: return "5 minutes before"
+        case .minutes10: return "10 minutes before"
+        case .minutes15: return "15 minutes before"
+        case .minutes30: return "30 minutes before"
+        case .minutes60: return "1 hour before"
+        case .minutes120: return "2 hours before"
+        case .minutes1440: return "1 day before"
+        case .minutes2880: return "2 days before"
+        case .minutes10080: return "1 week before"
         }
     }
 
-    static var allCases: [ReminderPreset] {
-        [
-            .atTime,
-            .minutes(5),
-            .minutes(10),
-            .minutes(15),
-            .minutes(30),
-            .minutes(60),
-            .minutes(24 * 60),
-            .customMinutes
-        ]
-    }
-
-    var title: String {
-        switch self {
-        case .atTime: return "At time"
-        case .minutes(let m):
-            if m == 60 { return "1h" }
-            if m == 24 * 60 { return "1d" }
-            return "\(m)m"
-        case .customMinutes: return "Custom"
-        }
-    }
-
-    static func fromOffsetMinutes(_ minutes: Int) -> ReminderPreset {
-        if minutes == 0 { return .atTime }
-        let candidates = [5, 10, 15, 30, 60, 24 * 60]
-        if candidates.contains(minutes) { return .minutes(minutes) }
-        return .customMinutes
-    }
-
-    func resolvedOffsetMinutes(customValue: Int) -> Int {
-        switch self {
-        case .atTime: return 0
-        case .minutes(let m): return max(0, m)
-        case .customMinutes: return max(0, customValue)
-        }
+    static func normalizeOffsetMinutes(_ minutes: Int) -> Int {
+        ReminderPreset(rawValue: minutes)?.minutes ?? ReminderPreset.default.minutes
     }
 }

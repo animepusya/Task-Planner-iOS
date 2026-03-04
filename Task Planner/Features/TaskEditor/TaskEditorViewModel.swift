@@ -32,7 +32,7 @@ final class TaskEditorViewModel: ObservableObject {
     private var weekStartsOnMonday = true
 
     @Published private(set) var defaultAllDayTimeMinutes: Int = 9 * 60
-    @Published private(set) var defaultReminderOffsetMinutes: Int = 10
+    @Published private(set) var defaultReminderOffsetMinutes: Int = ReminderPreset.default.minutes
 
     @Published private(set) var reminderGate: ReminderGate?
 
@@ -75,7 +75,7 @@ final class TaskEditorViewModel: ObservableObject {
             photoThumbData: nil,
 
             reminderEnabled: false,
-            reminderOffsetMinutes: 10,
+            reminderOffsetMinutes: ReminderPreset.default.minutes,
             reminderAllDayTimeMinutes: nil,
 
             timeValidationMessage: nil,
@@ -257,18 +257,28 @@ final class TaskEditorViewModel: ObservableObject {
             let prefs = try preferencesRepository.getOrCreate()
             weekStartsOnMonday = prefs.weekStartsOnMonday
             defaultAllDayTimeMinutes = prefs.defaultAllDayTimeMinutes
-            defaultReminderOffsetMinutes = prefs.defaultReminderOffsetMinutes
 
-            // For new tasks, init reminder defaults
+            let normalizedDefaultOffset = ReminderPreset.normalizeOffsetMinutes(prefs.defaultReminderOffsetMinutes)
+            defaultReminderOffsetMinutes = normalizedDefaultOffset
+
+            if prefs.defaultReminderOffsetMinutes != normalizedDefaultOffset {
+                prefs.defaultReminderOffsetMinutes = normalizedDefaultOffset
+                try? preferencesRepository.save()
+            }
+
             if taskId == nil {
                 var copy = form
-                copy.reminderOffsetMinutes = prefs.defaultReminderOffsetMinutes
+                copy.reminderOffsetMinutes = normalizedDefaultOffset
+                setFormIfChanged(copy)
+            } else {
+                var copy = form
+                copy.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(copy.reminderOffsetMinutes)
                 setFormIfChanged(copy)
             }
         } catch {
             weekStartsOnMonday = true
             defaultAllDayTimeMinutes = 9 * 60
-            defaultReminderOffsetMinutes = 10
+            defaultReminderOffsetMinutes = ReminderPreset.default.minutes
         }
 
         ensureCategoryIsValid(available: availableCategories)
@@ -336,7 +346,6 @@ final class TaskEditorViewModel: ObservableObject {
         var copy = form
         copy.isAllDay = newValue
         setFormIfChanged(copy)
-        // Времена не трогаем.
     }
 
     func setRepeatRule(_ newValue: RepeatRule) {
@@ -464,9 +473,8 @@ final class TaskEditorViewModel: ObservableObject {
 
             next.photoThumbData = existing.photoThumbData
 
-            // Reminder
             next.reminderEnabled = existing.reminderEnabled
-            next.reminderOffsetMinutes = existing.reminderOffsetMinutes
+            next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
             next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
 
             setFormIfChanged(next)
@@ -542,10 +550,9 @@ final class TaskEditorViewModel: ObservableObject {
 
         let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
-        // Reminder values
         let reminderEnabled = form.reminderEnabled
-        let reminderOffset = max(0, form.reminderOffsetMinutes)
-        let reminderAllDayTime = form.reminderAllDayTimeMinutes // can be nil
+        let reminderOffset = ReminderPreset.normalizeOffsetMinutes(form.reminderOffsetMinutes)
+        let reminderAllDayTime = form.reminderAllDayTimeMinutes
 
         if let taskId {
             guard let existing = try taskRepository.fetch(by: taskId) else {
@@ -568,7 +575,6 @@ final class TaskEditorViewModel: ObservableObject {
             existing.categoryTitle = normalizedCategory
             existing.photoThumbData = form.photoThumbData
 
-            // Reminder
             existing.reminderEnabled = reminderEnabled
             existing.reminderOffsetMinutes = reminderOffset
             existing.reminderAllDayTimeMinutes = reminderAllDayTime

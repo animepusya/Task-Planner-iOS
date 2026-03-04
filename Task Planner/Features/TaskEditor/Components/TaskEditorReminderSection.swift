@@ -20,8 +20,8 @@ struct TaskEditorReminderSection: View {
     let onOpenNotificationsCenter: (() -> Void)?
     let onOpenSystemSettings: (() -> Void)?
 
-    @State private var showOffsetSheet = false
-    @State private var showAllDayTimeSheet = false
+    @State private var showAllDayTimePopover = false
+    @State private var allDayTempDate: Date = .now
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -41,11 +41,24 @@ struct TaskEditorReminderSection: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
-            DSRowButton(
+            DSRowMenu(
                 title: "Remind",
-                value: offsetTitle,
-                onTap: { showOffsetSheet = true }
-            )
+                value: offsetTitle
+            ) {
+                ForEach(ReminderPreset.allCases) { preset in
+                    Button {
+                        reminderOffsetMinutes = preset.minutes
+                    } label: {
+                        HStack(spacing: 10) {
+                            Text(preset.displayName)
+                            Spacer(minLength: 12)
+                            if preset.minutes == reminderOffsetMinutes {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
             .disabled(!reminderEnabled)
             .opacity(reminderEnabled ? 1.0 : 0.55)
 
@@ -53,10 +66,14 @@ struct TaskEditorReminderSection: View {
                 DSRowButton(
                     title: "Time",
                     value: TimeOfDayMinutes.format(reminderAllDayTimeMinutes ?? defaultAllDayTimeMinutes),
-                    onTap: { showAllDayTimeSheet = true }
+                    onTap: openAllDayPopover
                 )
                 .disabled(!reminderEnabled)
                 .opacity(reminderEnabled ? 1.0 : 0.55)
+                .popover(isPresented: $showAllDayTimePopover) {
+                    allDayTimePopoverContent
+                        .presentationCompactAdaptation(.popover)
+                }
 
                 Button {
                     reminderAllDayTimeMinutes = nil
@@ -75,30 +92,6 @@ struct TaskEditorReminderSection: View {
             }
         }
         .dsCard()
-        .sheet(isPresented: $showOffsetSheet) {
-            NotificationsOffsetPickerSheet(
-                selectedMinutes: reminderOffsetMinutes,
-                onSelect: { minutes in
-                    reminderOffsetMinutes = minutes
-                    showOffsetSheet = false
-                },
-                onClose: { showOffsetSheet = false }
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-        }
-        .sheet(isPresented: $showAllDayTimeSheet) {
-            NotificationsAllDayTimeSheet(
-                selectedMinutes: reminderAllDayTimeMinutes ?? defaultAllDayTimeMinutes,
-                onSelect: { minutes in
-                    reminderAllDayTimeMinutes = minutes
-                    showAllDayTimeSheet = false
-                },
-                onClose: { showAllDayTimeSheet = false }
-            )
-            .presentationDetents([.medium])
-            .presentationDragIndicator(.visible)
-        }
         .animation(.easeInOut(duration: 0.18), value: gate != nil)
     }
 
@@ -124,7 +117,6 @@ struct TaskEditorReminderSection: View {
                     }
                     .buttonStyle(.plain)
                 } else {
-                    // Fallback hint if navigation isn’t wired yet.
                     Text("Go to Notifications screen.")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
@@ -147,10 +139,38 @@ struct TaskEditorReminderSection: View {
     // MARK: - Helpers
 
     private var offsetTitle: String {
-        let preset = ReminderPreset.fromOffsetMinutes(reminderOffsetMinutes)
-        if preset == .customMinutes {
-            return "\(preset.title) (\(reminderOffsetMinutes)m)"
+        ReminderPreset(rawValue: reminderOffsetMinutes)?.displayName
+        ?? ReminderPreset.default.displayName
+    }
+
+    private func openAllDayPopover() {
+        let minutes = reminderAllDayTimeMinutes ?? defaultAllDayTimeMinutes
+        let today = Calendar.current.startOfDay(for: .now)
+        allDayTempDate = TimeOfDayMinutes.date(on: today, minutes: minutes)
+        showAllDayTimePopover = true
+    }
+
+    private var allDayTimePopoverContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Time")
+                .font(DS.Typography.sectionTitle)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+
+            DatePicker(
+                "",
+                selection: $allDayTempDate,
+                displayedComponents: .hourAndMinute
+            )
+            .labelsHidden()
+            .datePickerStyle(.wheel)
+            .frame(maxWidth: .infinity)
+            .clipped()
         }
-        return preset.title
+        .padding(DS.Spacing.lg)
+        .background(DS.ColorToken.appBackground)
+        .onChange(of: allDayTempDate) { _, newValue in
+            let minutes = TimeOfDayMinutes.minutes(from: newValue)
+            reminderAllDayTimeMinutes = minutes
+        }
     }
 }

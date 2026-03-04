@@ -7,6 +7,36 @@
 
 import SwiftUI
 
+private struct DSRowContent: View {
+    let title: String
+    let value: String
+    let showsChevron: Bool
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(title)
+                .font(DS.Typography.body)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+
+            Spacer(minLength: 12)
+
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+
+            if showsChevron {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.7))
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(Color.black.opacity(0.04))
+        .cornerRadius(DS.Radius.sm)
+    }
+}
+
 struct DSRowButton: View {
     let title: String
     let value: String
@@ -14,26 +44,24 @@ struct DSRowButton: View {
 
     var body: some View {
         Button(action: onTap) {
-            HStack(spacing: 10) {
-                Text(title)
-                    .font(DS.Typography.body)
-                    .foregroundStyle(DS.ColorToken.textPrimary)
-
-                Spacer(minLength: 12)
-
-                Text(value)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.7))
-            }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 12)
-            .background(Color.black.opacity(0.04))
-            .cornerRadius(DS.Radius.sm)
+            DSRowContent(title: title, value: value, showsChevron: true)
         }
+        .buttonStyle(.plain)
+    }
+}
+
+struct DSRowMenu<Content: View>: View {
+    let title: String
+    let value: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            DSRowContent(title: title, value: value, showsChevron: true)
+        }
+        .menuStyle(.button)
         .buttonStyle(.plain)
     }
 }
