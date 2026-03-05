@@ -12,14 +12,15 @@ struct ScheduledReminderRow: View {
 
     private let doneAnim: Animation = .easeInOut(duration: 0.18)
 
-    private var timeText: String {
+    private static let timeFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale.current
-        f.calendar = Calendar.current
+        f.locale = .current
+        f.calendar = .current
         f.dateFormat = "d MMM, HH:mm"
-        return f.string(from: reminder.fireDate)
-    }
+        return f
+    }()
 
+    private var timeText: String { Self.timeFormatter.string(from: reminder.fireDate) }
     private var isSuppressed: Bool { reminder.isSuppressed }
 
     var body: some View {
@@ -58,13 +59,37 @@ struct ScheduledReminderRow: View {
             Spacer(minLength: 0)
         }
         .padding(12)
-        .background(DS.ColorToken.cardBackground)
-        .cornerRadius(DS.Radius.md)
-        .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
+        .background(cardSurface)
         .saturation(isSuppressed ? 0.35 : 1.0)
         .grayscale(isSuppressed ? 0.25 : 0.0)
         .scaleEffect(isSuppressed ? 0.995 : 1.0)
-        .opacity(isSuppressed ? 0.90 : 1.0)
+
         .animation(doneAnim, value: isSuppressed)
+    }
+
+    private var cardSurface: some View {
+        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+            .fill(DS.ColorToken.cardBackground)
+            .overlay(topHighlight.clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)))
+            .overlay(border)
+    }
+
+    private var topHighlight: some View {
+        LinearGradient(
+            colors: [
+                Color.white.opacity(0.55),
+                Color.white.opacity(0.18),
+                Color.white.opacity(0.0)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .blendMode(.screen)
+        .opacity(0.9)
+    }
+
+    private var border: some View {
+        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+            .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
     }
 }
