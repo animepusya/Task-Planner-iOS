@@ -21,12 +21,12 @@ struct TaskCardView: View {
 
     private var model: PlannerCardModel {
         .init(
-            title: occurrence.task.title,
+            title: occurrence.title,
             subtitle: subtitleText,
             timeText: timeRangeText,
             badgeText: occurrence.badge?.rawValue,
             thumb: thumbImage,
-            surfaceColor: occurrence.task.color.surface(opacity: 1.0), // opacity управляется внутри PlannerCardView
+            surfaceColor: occurrence.color.surface(opacity: 1.0),
             isMuted: isVisuallyDone
         )
     }
@@ -37,11 +37,11 @@ struct TaskCardView: View {
     }
 
     private var subtitleText: String {
-        if let notes = occurrence.task.notes,
+        if let notes = occurrence.notes,
            !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return notes
         }
-        return occurrence.task.categoryTitle ?? CategorySystem.uncategorizedTitle
+        return occurrence.categoryTitle ?? CategorySystem.uncategorizedTitle
     }
 
     private var timeRangeText: String {

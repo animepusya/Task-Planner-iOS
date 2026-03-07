@@ -8,8 +8,6 @@
 import Foundation
 import SwiftData
 
-// MARK: - DayOccurrence (virtual appearance of a task on a specific day)
-
 struct DayOccurrence: Identifiable, Hashable {
     enum Badge: String, Hashable {
         case continues = "Continues"
@@ -21,6 +19,13 @@ struct DayOccurrence: Identifiable, Hashable {
 
     let task: TaskEntity
     let dayStart: Date
+
+    let occurrenceStartDay: Date
+
+    let title: String
+    let notes: String?
+    let categoryTitle: String?
+    let color: TaskColor
 
     let displayStart: Date
     let displayEnd: Date
@@ -34,6 +39,11 @@ struct DayOccurrence: Identifiable, Hashable {
     init(
         task: TaskEntity,
         dayStart: Date,
+        occurrenceStartDay: Date,
+        title: String,
+        notes: String?,
+        categoryTitle: String?,
+        color: TaskColor,
         displayStart: Date,
         displayEnd: Date,
         isStartDay: Bool,
@@ -43,6 +53,11 @@ struct DayOccurrence: Identifiable, Hashable {
     ) {
         self.task = task
         self.dayStart = dayStart
+        self.occurrenceStartDay = occurrenceStartDay
+        self.title = title
+        self.notes = notes
+        self.categoryTitle = categoryTitle
+        self.color = color
         self.displayStart = displayStart
         self.displayEnd = displayEnd
         self.isStartDay = isStartDay
@@ -50,16 +65,12 @@ struct DayOccurrence: Identifiable, Hashable {
         self.isAllDaySegment = isAllDaySegment
         self.badge = badge
 
-        // unique per (task, day)
         self.id = "\(String(describing: task.persistentModelID))_\(dayStart.timeIntervalSince1970)"
     }
 }
 
-// MARK: - TaskDaySegment (source of truth)
-
 enum TaskDaySegment {
 
-    /// Builds a day-specific occurrence (virtual segment) for rendering in lists.
     static func occurrence(
         for task: TaskEntity,
         on day: Date,
@@ -69,39 +80,51 @@ enum TaskDaySegment {
         let dayStart = cal.startOfDay(for: day)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
 
-        // All-day tasks keep current behavior (no segments / no badges).
-        if task.isAllDay {
-            // still show if affects this day
-            guard TaskDayOverlap.affectsDay(task: task, day: dayStart, weekStartsOnMonday: weekStartsOnMonday) else { return nil }
-
-            return DayOccurrence(
-                task: task,
-                dayStart: dayStart,
-                displayStart: dayStart,
-                displayEnd: dayEnd,
-                isStartDay: TaskDayOverlap.startsWithinDay(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday),
-                isEndDay: TaskDayOverlap.endsWithinDay(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday),
-                isAllDaySegment: true,
-                badge: nil
-            )
-        }
+        TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
 
         guard let interval = TaskDayOverlap.occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
             return nil
         }
 
+        guard let tpl = TaskSeriesEngine.template(for: task, startDay: interval.occurrenceStartDay, calendar: cal) else {
+            return nil
+        }
+
+        let effectiveTitle = tpl.title
+        let effectiveNotes = tpl.notes
+        let effectiveCategory = tpl.categoryTitle
+        let effectiveColor = TaskColor(rawValue: tpl.colorRaw) ?? task.color
+
+        if tpl.isAllDay {
+            let startsInDay = TaskDayOverlap.startsWithinDay(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday)
+            let endsInDay = TaskDayOverlap.endsWithinDay(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday)
+
+            return DayOccurrence(
+                task: task,
+                dayStart: dayStart,
+                occurrenceStartDay: interval.occurrenceStartDay,
+                title: effectiveTitle,
+                notes: effectiveNotes,
+                categoryTitle: effectiveCategory,
+                color: effectiveColor,
+                displayStart: dayStart,
+                displayEnd: dayEnd,
+                isStartDay: startsInDay,
+                isEndDay: endsInDay,
+                isAllDaySegment: true,
+                badge: nil
+            )
+        }
+
         let overlapStart = max(interval.start, dayStart)
         let overlapEnd = min(interval.end, dayEnd)
-
         guard overlapEnd > overlapStart else { return nil }
 
         let startsInThisDay = (interval.start >= dayStart && interval.start < dayEnd)
         let endsInThisDay = (interval.end > dayStart && interval.end <= dayEnd)
 
-        // Middle day = full day segment and neither start nor end day
         let isMiddleDay = !startsInThisDay && !endsInThisDay
         let isFullDay = overlapStart == dayStart && overlapEnd == dayEnd
-
         let allDaySegment = isMiddleDay && isFullDay
 
         let badge: DayOccurrence.Badge? = {
@@ -114,6 +137,11 @@ enum TaskDaySegment {
         return DayOccurrence(
             task: task,
             dayStart: dayStart,
+            occurrenceStartDay: interval.occurrenceStartDay,
+            title: effectiveTitle,
+            notes: effectiveNotes,
+            categoryTitle: effectiveCategory,
+            color: effectiveColor,
             displayStart: overlapStart,
             displayEnd: overlapEnd,
             isStartDay: startsInThisDay,

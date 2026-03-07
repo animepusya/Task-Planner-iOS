@@ -7,18 +7,15 @@
 
 import Foundation
 
-/// Source of truth for:
-/// - does a task affect a given day?
-/// - how many minutes fall into a given day?
-/// - effective start time inside the day (for sorting)
 enum TaskDayOverlap {
 
     struct OccurrenceInterval {
         let start: Date
         let end: Date
+        let occurrenceStart: Date
+        let occurrenceStartDay: Date
     }
 
-    /// Returns minutes of the task that fall within [dayStart; dayStart+1day)
     static func minutesOnDay(
         task: TaskEntity,
         day: Date,
@@ -41,7 +38,6 @@ enum TaskDayOverlap {
         return max(0, minutes)
     }
 
-    /// True if any part of the task overlaps the day.
     static func affectsDay(
         task: TaskEntity,
         day: Date,
@@ -50,7 +46,6 @@ enum TaskDayOverlap {
         minutesOnDay(task: task, day: day, weekStartsOnMonday: weekStartsOnMonday) > 0
     }
 
-    /// For sorting inside a day: when the task starts within the day (or 00:00 if it started earlier)
     static func effectiveStartOnDay(
         task: TaskEntity,
         day: Date,
@@ -65,8 +60,6 @@ enum TaskDayOverlap {
 
         return max(occ.start, dayStart)
     }
-
-    // MARK: - Public interval for day-segmentation (NEW)
 
     static func occurrenceInterval(
         task: TaskEntity,
@@ -100,7 +93,7 @@ enum TaskDayOverlap {
         return occ.end > dayStart && occ.end <= dayEnd
     }
 
-    // MARK: - Core overlap
+    // MARK: - Core overlap (series-aware)
 
     private static func occurrenceOverlapping(
         task: TaskEntity,
@@ -110,34 +103,28 @@ enum TaskDayOverlap {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
 
-        let duration = task.endTime.timeIntervalSince(task.startTime)
-        guard duration > 0 else { return nil }
+        TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
 
-        // if no repeats: one real interval
-        if task.repeatRule == .none {
-            let s = task.startTime
-            let e = task.endTime
-            if overlaps(aStart: s, aEnd: e, bStart: dayStart, bEnd: dayEnd) {
-                return OccurrenceInterval(start: s, end: e)
-            }
-            return nil
-        }
+        let maxBackDays = 14
 
-        // repeating: an occurrence might have started today OR within previous days (because it can span > 1 day).
-        // thanks to "repeat conflict" prevention, at most one occurrence can overlap a given day.
-        let spanDays = max(0, Int(ceil(duration / 86400.0))) // e.g. 9h -> 1, 30h -> 2
-
-        for back in 0...spanDays {
+        for back in 0...maxBackDays {
             guard let candidateStartDay = cal.date(byAdding: .day, value: -back, to: dayStart) else { continue }
-            let candidateStartDaySOD = cal.startOfDay(for: candidateStartDay)
+            let candidateSOD = cal.startOfDay(for: candidateStartDay)
 
-            if TaskOccurrence.occursStartOn(task, on: candidateStartDaySOD, weekStartsOnMonday: weekStartsOnMonday) {
-                let occStart = TaskOccurrence.combine(day: candidateStartDaySOD, time: task.startTime, calendar: cal)
-                let occEnd = occStart.addingTimeInterval(duration)
+            guard TaskOccurrence.occursStartOn(task, on: candidateSOD, weekStartsOnMonday: weekStartsOnMonday) else { continue }
 
-                if overlaps(aStart: occStart, aEnd: occEnd, bStart: dayStart, bEnd: dayEnd) {
-                    return OccurrenceInterval(start: occStart, end: occEnd)
-                }
+            guard let tpl = TaskSeriesEngine.template(for: task, startDay: candidateSOD, calendar: cal) else { continue }
+
+            let occStart = TimeMinutes.date(on: candidateSOD, minutes: tpl.startMinutes, calendar: cal)
+            let occEnd = occStart.addingTimeInterval(tpl.durationSeconds)
+
+            if overlaps(aStart: occStart, aEnd: occEnd, bStart: dayStart, bEnd: dayEnd) {
+                return OccurrenceInterval(
+                    start: occStart,
+                    end: occEnd,
+                    occurrenceStart: occStart,
+                    occurrenceStartDay: candidateSOD
+                )
             }
         }
 
@@ -145,7 +132,6 @@ enum TaskDayOverlap {
     }
 
     private static func overlaps(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) -> Bool {
-        // [aStart, aEnd) intersects [bStart, bEnd)
         return aEnd > bStart && aStart < bEnd
     }
 }

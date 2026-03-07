@@ -24,11 +24,13 @@ final class TaskEntity {
     var photoThumbData: Data?
     var completedDayKeysRaw: String
     var appleEventIdentifier: String?
-
     var reminderEnabled: Bool
     var reminderOffsetMinutes: Int
     var reminderAllDayTimeMinutes: Int?
     var suppressedReminderKeysRaw: String?
+    var seriesSegmentsRaw: String?
+    var seriesOverridesRaw: String?
+    var seriesEndDay: Date?
 
     init(
         title: String,
@@ -64,6 +66,9 @@ final class TaskEntity {
         self.reminderOffsetMinutes = reminderOffsetMinutes
         self.reminderAllDayTimeMinutes = reminderAllDayTimeMinutes
         self.suppressedReminderKeysRaw = nil
+        self.seriesSegmentsRaw = nil
+        self.seriesOverridesRaw = nil
+        self.seriesEndDay = nil
     }
 
     var repeatRule: RepeatRule {
@@ -85,40 +90,36 @@ final class TaskEntity {
 // MARK: - Per-day completion helpers (visual-only)
 extension TaskEntity {
 
-    private static let dayKeyFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.calendar = Calendar(identifier: .gregorian)
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = TimeZone(secondsFromGMT: 0)
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
     static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
-        let start = calendar.startOfDay(for: date)
-        let utc = Date(timeIntervalSince1970: start.timeIntervalSince1970)
-        return dayKeyFormatter.string(from: utc)
+        let d = calendar.startOfDay(for: date)
+        let c = calendar.dateComponents([.year, .month, .day], from: d)
+        let y = c.year ?? 0
+        let m = c.month ?? 1
+        let day = c.day ?? 1
+        return String(format: "%04d-%02d-%02d", y, m, day)
+    }
+
+    private static func encodeStringArray(_ arr: [String]) -> String {
+        do {
+            let data = try JSONEncoder().encode(arr)
+            return String(data: data, encoding: .utf8) ?? "[]"
+        } catch {
+            return "[]"
+        }
+    }
+
+    private static func decodeStringArray(_ raw: String) -> [String] {
+        guard let data = raw.data(using: .utf8) else { return [] }
+        do {
+            return try JSONDecoder().decode([String].self, from: data)
+        } catch {
+            return []
+        }
     }
 
     private var completedDayKeys: Set<String> {
-        get {
-            guard let data = completedDayKeysRaw.data(using: .utf8) else { return [] }
-            do {
-                let arr = try JSONDecoder().decode([String].self, from: data)
-                return Set(arr)
-            } catch {
-                return []
-            }
-        }
-        set {
-            let arr = Array(newValue).sorted()
-            do {
-                let data = try JSONEncoder().encode(arr)
-                completedDayKeysRaw = String(data: data, encoding: .utf8) ?? "[]"
-            } catch {
-                completedDayKeysRaw = "[]"
-            }
-        }
+        get { Set(Self.decodeStringArray(completedDayKeysRaw)) }
+        set { completedDayKeysRaw = Self.encodeStringArray(Array(newValue).sorted()) }
     }
 
     func isCompleted(on day: Date, calendar: Calendar = .current) -> Bool {
@@ -148,26 +149,11 @@ extension TaskEntity {
 
     var suppressedReminderKeys: Set<String> {
         get {
-            guard
-                let raw = suppressedReminderKeysRaw,
-                let data = raw.data(using: .utf8)
-            else { return [] }
-
-            do {
-                let arr = try JSONDecoder().decode([String].self, from: data)
-                return Set(arr)
-            } catch {
-                return []
-            }
+            guard let raw = suppressedReminderKeysRaw else { return [] }
+            return Set(Self.decodeStringArray(raw))
         }
         set {
-            let arr = Array(newValue).sorted()
-            do {
-                let data = try JSONEncoder().encode(arr)
-                suppressedReminderKeysRaw = String(data: data, encoding: .utf8) ?? "[]"
-            } catch {
-                suppressedReminderKeysRaw = "[]"
-            }
+            suppressedReminderKeysRaw = Self.encodeStringArray(Array(newValue).sorted())
         }
     }
 
@@ -185,5 +171,44 @@ extension TaskEntity {
         var set = suppressedReminderKeys
         set.remove(key)
         suppressedReminderKeys = set
+    }
+}
+
+// MARK: - Series segmentation JSON helpers
+extension TaskEntity {
+
+    private static let seriesEncoder = JSONEncoder()
+    private static let seriesDecoder = JSONDecoder()
+
+    var seriesSegments: [TaskSeriesSegment] {
+        get {
+            guard let raw = seriesSegmentsRaw, let data = raw.data(using: .utf8) else { return [] }
+            do { return try Self.seriesDecoder.decode([TaskSeriesSegment].self, from: data) } catch { return [] }
+        }
+        set {
+            let sorted = newValue.sorted { $0.startDay < $1.startDay }
+            do {
+                let data = try Self.seriesEncoder.encode(sorted)
+                seriesSegmentsRaw = String(data: data, encoding: .utf8) ?? "[]"
+            } catch {
+                seriesSegmentsRaw = "[]"
+            }
+        }
+    }
+
+    var seriesOverrides: [TaskSeriesOverride] {
+        get {
+            guard let raw = seriesOverridesRaw, let data = raw.data(using: .utf8) else { return [] }
+            do { return try Self.seriesDecoder.decode([TaskSeriesOverride].self, from: data) } catch { return [] }
+        }
+        set {
+            let sorted = newValue.sorted { $0.dayKey < $1.dayKey }
+            do {
+                let data = try Self.seriesEncoder.encode(sorted)
+                seriesOverridesRaw = String(data: data, encoding: .utf8) ?? "[]"
+            } catch {
+                seriesOverridesRaw = "[]"
+            }
+        }
     }
 }

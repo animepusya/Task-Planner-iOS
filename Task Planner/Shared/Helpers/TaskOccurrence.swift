@@ -23,15 +23,17 @@ enum TaskOccurrence {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
     }
 
-    static func occursStartOn(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {
-        let cal = calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        let targetDay = cal.startOfDay(for: date)
-        let baseDay = cal.startOfDay(for: task.dayDate)
-
+    static func occursStartOnBase(
+        rule: RepeatRule,
+        intervalDays: Int?,
+        baseDay: Date,
+        targetDay: Date,
+        calendar cal: Calendar,
+        weekStartsOnMonday: Bool
+    ) -> Bool {
         guard targetDay >= baseDay else { return false }
 
-        switch task.repeatRule {
+        switch rule {
         case .none:
             return cal.isDate(targetDay, inSameDayAs: baseDay)
 
@@ -53,10 +55,14 @@ enum TaskOccurrence {
             return cal.component(.day, from: targetDay) == cal.component(.day, from: baseDay)
 
         case .everyNDays:
-            let n = max(1, task.repeatIntervalDays ?? 1)
+            let n = max(1, intervalDays ?? 1)
             let days = cal.dateComponents([.day], from: baseDay, to: targetDay).day ?? 0
             return days % n == 0
         }
+    }
+
+    static func occursStartOn(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {
+        TaskSeriesEngine.occursStartOn(task, on: date, weekStartsOnMonday: weekStartsOnMonday)
     }
 
     static func occurs(_ task: TaskEntity, on date: Date, weekStartsOnMonday: Bool) -> Bool {

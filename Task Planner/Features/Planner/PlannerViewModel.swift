@@ -17,6 +17,7 @@ final class PlannerViewModel: ObservableObject {
     private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
     private let onOpenNotifications: () -> Void
+    private let seriesService: TaskSeriesService
 
     @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
 
@@ -47,12 +48,14 @@ final class PlannerViewModel: ObservableObject {
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
         calendarSync: CalendarSyncService,
+        seriesService: TaskSeriesService,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.calendarSync = calendarSync
+        self.seriesService = seriesService
         self.onOpenTaskEditor = onOpenTaskEditor
         self.onOpenNotifications = onOpenNotifications
 
@@ -206,6 +209,26 @@ final class PlannerViewModel: ObservableObject {
             try taskRepository.delete(task)
         } catch {
             assertionFailure("delete failed: \(error)")
+        }
+    }
+    
+    func deleteOccurrence(
+        taskId: PersistentIdentifier,
+        occurrenceStartDay: Date,
+        scope: TaskSeriesService.Scope
+    ) {
+        pendingToggleTasks[taskId]?.cancel()
+        visualDoneOverride[taskId] = nil
+        sortDoneOverride[taskId] = nil
+        
+        do {
+            try seriesService.applyDelete(
+                taskId: taskId,
+                occurrenceStartDay: occurrenceStartDay,
+                scope: scope
+            )
+        } catch {
+            assertionFailure("deleteOccurrence failed: \(error)")
         }
     }
 }

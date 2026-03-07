@@ -39,7 +39,6 @@ struct TaskEditorView: View {
         GeometryReader { proxy in
             let pad = adaptiveHorizontalPadding(for: proxy.size.width)
             let contentWidth = max(0, proxy.size.width - pad * 2)
-
             let isCompact = proxy.size.width < 375
 
             VStack(spacing: 0) {
@@ -50,11 +49,20 @@ struct TaskEditorView: View {
                         focusedField = nil
                         dismiss()
                     },
-                    onSave: {
+                    canSave: viewModel.canSave,
+                    showSaveScopeMenu: viewModel.requiresScopeMenuOnSave,
+                    onSaveNormal: {
                         focusedField = nil
-                        save()
+                        saveNormal()
                     },
-                    canSave: viewModel.canSave
+                    onSaveOnlyThisDay: {
+                        focusedField = nil
+                        saveScoped(.onlyThisDay)
+                    },
+                    onSaveAllFuture: {
+                        focusedField = nil
+                        saveScoped(.allFutureDays)
+                    }
                 )
                 .frame(width: contentWidth)
                 .padding(.horizontal, pad)
@@ -160,12 +168,31 @@ struct TaskEditorView: View {
         )
     }
 
-    private func save() {
+    private func saveNormal() {
         viewModel.isBusy = true
         defer { viewModel.isBusy = false }
 
         do {
-            try viewModel.save()
+            try viewModel.saveNormal()
+            dismiss()
+        } catch let e as TaskEditorViewModel.EditorError {
+            switch e {
+            case .repeatConflict:
+                return
+            default:
+                viewModel.alert = .init(title: "Can't save", message: e.localizedDescription)
+            }
+        } catch {
+            viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
+        }
+    }
+
+    private func saveScoped(_ scope: TaskSeriesService.Scope) {
+        viewModel.isBusy = true
+        defer { viewModel.isBusy = false }
+
+        do {
+            try viewModel.saveWithScope(scope)
             dismiss()
         } catch let e as TaskEditorViewModel.EditorError {
             switch e {

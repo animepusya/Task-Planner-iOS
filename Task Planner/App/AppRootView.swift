@@ -27,7 +27,7 @@ struct AppRootView: View {
         let prefsRepo = container.makePreferencesRepository(context: modelContext)
         let categoryRepo = container.makeCategoryRepository(context: modelContext)
         let calendarSync = container.makeCalendarSyncService(context: modelContext)
-
+        let seriesService = TaskSeriesService(taskRepository: taskRepo)
         let notificationService = container.makeNotificationService()
         let notificationSync = container.makeNotificationSyncService(context: modelContext)
 
@@ -40,6 +40,7 @@ struct AppRootView: View {
                         taskRepository: taskRepo,
                         preferencesRepository: prefsRepo,
                         calendarSync: calendarSync,
+                        seriesService: seriesService,
                         onOpenTaskEditor: { taskId, day in
                             sheet = .taskEditor(taskId: taskId, preselectedDay: day)
                         },
@@ -78,6 +79,7 @@ struct AppRootView: View {
                             taskRepository: taskRepo,
                             preferencesRepository: prefsRepo,
                             notificationService: notificationService,
+                            seriesService: seriesService,
                             taskId: taskId,
                             preselectedDay: day
                         ),

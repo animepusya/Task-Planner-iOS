@@ -104,11 +104,42 @@ struct PlannerView: View {
                                         )
                                     }
                                     .tint(DS.ColorToken.purple)
-
-                                    Button(role: .destructive) {
-                                        viewModel.delete(taskId: occ.task.persistentModelID)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
+                                    
+                                    if occ.task.repeatRule != .none {
+                                        Menu {
+                                            Text("How to delete?")
+                                                .foregroundStyle(DS.ColorToken.textSecondary)
+                                                .disabled(true)
+                                            
+                                            Button(role: .destructive) {
+                                                viewModel.deleteOccurrence(
+                                                    taskId: occ.task.persistentModelID,
+                                                    occurrenceStartDay: occ.occurrenceStartDay,
+                                                    scope: .onlyThisDay
+                                                )
+                                            } label: {
+                                                Text("Only this day")
+                                            }
+                                            
+                                            Button(role: .destructive) {
+                                                viewModel.deleteOccurrence(
+                                                    taskId: occ.task.persistentModelID,
+                                                    occurrenceStartDay: occ.occurrenceStartDay,
+                                                    scope: .allFutureDays
+                                                )
+                                            } label: {
+                                                Text("All future days")
+                                            }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                        .tint(.red)
+                                    } else {
+                                        Button(role: .destructive) {
+                                            viewModel.delete(taskId: occ.task.persistentModelID)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
                                     }
                                 }
 

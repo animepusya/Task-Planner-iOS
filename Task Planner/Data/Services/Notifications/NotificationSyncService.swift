@@ -158,6 +158,8 @@ final class NotificationSyncService {
         out.reserveCapacity(enabledTasks.count * 2)
 
         for task in enabledTasks {
+            TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
+
             let occurrenceDays = occurrenceStartDays(for: task, rangeStart: rangeStart, rangeEnd: rangeEnd)
 
             for day in occurrenceDays {
@@ -167,6 +169,9 @@ final class NotificationSyncService {
                     continue
                 }
 
+                guard let tpl = TaskSeriesEngine.template(for: task, startDay: day, calendar: cal) else { continue }
+                guard tpl.reminderEnabled else { continue }
+                
                 guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
 
                 let taskKey = String(describing: task.persistentModelID)
@@ -177,11 +182,11 @@ final class NotificationSyncService {
                         id: id,
                         taskId: taskKey,
                         occurrenceKey: occurrenceKey,
-                        taskTitle: task.title,
-                        taskColor: task.color,
+                        taskTitle: tpl.title,
+                        taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
                         fireDate: fireDate,
                         dayKey: cal.startOfDay(for: day),
-                        isAllDay: task.isAllDay
+                        isAllDay: tpl.isAllDay
                     )
                 )
             }
@@ -256,14 +261,20 @@ final class NotificationSyncService {
         prefs: AppPreferencesEntity,
         calendar cal: Calendar
     ) -> Date? {
-        let offset = max(0, task.reminderOffsetMinutes)
-
-        if task.isAllDay {
-            let timeMinutes = task.reminderAllDayTimeMinutes ?? prefs.defaultAllDayTimeMinutes
+        
+        TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
+        guard let tpl = TaskSeriesEngine.template(for: task, startDay: occurrenceDay, calendar: cal) else {
+            return nil
+        }
+        
+        let offset = max(0, tpl.reminderOffsetMinutes)
+        
+        if tpl.isAllDay {
+            let timeMinutes = tpl.reminderAllDayTimeMinutes ?? prefs.defaultAllDayTimeMinutes
             let base = TimeOfDayMinutes.date(on: occurrenceDay, minutes: timeMinutes, calendar: cal)
             return cal.date(byAdding: .minute, value: -offset, to: base)
         } else {
-            let start = TaskOccurrence.combine(day: occurrenceDay, time: task.startTime, calendar: cal)
+            let start = TimeMinutes.date(on: occurrenceDay, minutes: tpl.startMinutes, calendar: cal)
             return cal.date(byAdding: .minute, value: -offset, to: start)
         }
     }
