@@ -89,9 +89,11 @@ struct TaskEditorView: View {
                             }
                         )
 
-                        TaskEditorColorSection(color: viewModel.binding(\.color))
-                        repeatSection
-                        TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
+                        if !viewModel.hidesSeriesLockedFields {
+                            TaskEditorColorSection(color: viewModel.binding(\.color))
+                            repeatSection
+                            TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
+                        }
                     }
                     .frame(width: contentWidth, alignment: .leading)
                     .padding(.horizontal, pad)
@@ -141,7 +143,8 @@ struct TaskEditorView: View {
             notes: viewModel.binding(\.notes),
             availableCategories: availableCategoryTitles,
             fixedCategoryChipWidth: 132,
-            focusedField: $focusedField
+            focusedField: $focusedField,
+            showsTitleAndCategory: !viewModel.hidesSeriesLockedFields
         )
     }
 
@@ -173,7 +176,11 @@ struct TaskEditorView: View {
         defer { viewModel.isBusy = false }
 
         do {
-            try viewModel.saveNormal()
+            if viewModel.requiresScopeMenuOnSave {
+                try viewModel.saveWithScope(.allFutureDays)
+            } else {
+                try viewModel.saveNormal()
+            }
             dismiss()
         } catch let e as TaskEditorViewModel.EditorError {
             switch e {

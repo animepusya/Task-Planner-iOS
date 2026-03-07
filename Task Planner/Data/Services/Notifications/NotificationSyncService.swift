@@ -82,7 +82,6 @@ final class NotificationSyncService {
         guard prefs.notificationsEnabled else { return }
         let auth = await notificationService.getAuthorizationStatus()
         guard auth == .authorized else { return }
-        guard task.reminderEnabled else { return }
 
         let cal = Calendar.current
         let start = cal.startOfDay(for: .now)
@@ -90,6 +89,10 @@ final class NotificationSyncService {
 
         let occ = cal.startOfDay(for: occurrenceDay)
         guard occ >= start && occ < end else { return }
+
+        TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
+        guard let tpl = TaskSeriesEngine.template(for: task, startDay: occ, calendar: cal) else { return }
+        guard tpl.reminderEnabled else { return }
 
         let occurrenceKey = TaskEntity.dayKey(for: occ, calendar: cal)
         guard task.isReminderSuppressed(for: occurrenceKey) == false else { return }
@@ -103,11 +106,11 @@ final class NotificationSyncService {
             id: id,
             taskId: taskKey,
             occurrenceKey: occurrenceKey,
-            taskTitle: task.title,
-            taskColor: task.color,
+            taskTitle: tpl.title,
+            taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
             fireDate: fireDate,
             dayKey: cal.startOfDay(for: occ),
-            isAllDay: task.isAllDay
+            isAllDay: tpl.isAllDay
         )
 
         await notificationService.scheduleReminders([reminder])
@@ -144,6 +147,13 @@ final class NotificationSyncService {
         return buildPendingRemindersForScheduling(tasks: tasks, prefs: prefs, rangeStart: start, rangeEnd: end)
     }
 
+    private func candidateTasksForReminderScan(from tasks: [TaskEntity]) -> [TaskEntity] {
+        tasks.filter { task in
+            if task.repeatRule != .none { return true }
+            return task.reminderEnabled
+        }
+    }
+
     private func buildPendingRemindersForScheduling(
         tasks: [TaskEntity],
         prefs: AppPreferencesEntity,
@@ -151,13 +161,12 @@ final class NotificationSyncService {
         rangeEnd: Date
     ) -> [PendingReminder] {
         let cal = Calendar.current
-
-        let enabledTasks = tasks.filter { $0.reminderEnabled }
+        let candidateTasks = candidateTasksForReminderScan(from: tasks)
 
         var out: [PendingReminder] = []
-        out.reserveCapacity(enabledTasks.count * 2)
+        out.reserveCapacity(candidateTasks.count * 2)
 
-        for task in enabledTasks {
+        for task in candidateTasks {
             TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
 
             let occurrenceDays = occurrenceStartDays(for: task, rangeStart: rangeStart, rangeEnd: rangeEnd)
@@ -171,7 +180,6 @@ final class NotificationSyncService {
 
                 guard let tpl = TaskSeriesEngine.template(for: task, startDay: day, calendar: cal) else { continue }
                 guard tpl.reminderEnabled else { continue }
-                
                 guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
 
                 let taskKey = String(describing: task.persistentModelID)
@@ -202,15 +210,18 @@ final class NotificationSyncService {
         rangeEnd: Date
     ) -> [ScheduledReminderItem] {
         let cal = Calendar.current
-        let enabledTasks = tasks.filter { $0.reminderEnabled }
+        let candidateTasks = candidateTasksForReminderScan(from: tasks)
 
         var out: [ScheduledReminderItem] = []
-        out.reserveCapacity(enabledTasks.count * 2)
+        out.reserveCapacity(candidateTasks.count * 2)
 
-        for task in enabledTasks {
+        for task in candidateTasks {
+            TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
             let occurrenceDays = occurrenceStartDays(for: task, rangeStart: rangeStart, rangeEnd: rangeEnd)
 
             for day in occurrenceDays {
+                guard let tpl = TaskSeriesEngine.template(for: task, startDay: day, calendar: cal) else { continue }
+                guard tpl.reminderEnabled else { continue }
                 guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
 
                 let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
@@ -224,11 +235,11 @@ final class NotificationSyncService {
                         id: id,
                         taskId: taskKey,
                         occurrenceKey: occurrenceKey,
-                        taskTitle: task.title,
-                        taskColor: task.color,
+                        taskTitle: tpl.title,
+                        taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
                         fireDate: fireDate,
                         dayKey: cal.startOfDay(for: day),
-                        isAllDay: task.isAllDay,
+                        isAllDay: tpl.isAllDay,
                         isSuppressed: isSuppressed
                     )
                 )
@@ -246,7 +257,7 @@ final class NotificationSyncService {
         let endDay = cal.startOfDay(for: rangeEnd)
 
         while cursor < endDay {
-            if TaskOccurrence.occursStartOn(task, on: cursor, weekStartsOnMonday: true /* reminders don't depend on week start */) {
+            if TaskOccurrence.occursStartOn(task, on: cursor, weekStartsOnMonday: true) {
                 days.append(cursor)
             }
             cursor = cal.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86400)
@@ -261,14 +272,13 @@ final class NotificationSyncService {
         prefs: AppPreferencesEntity,
         calendar cal: Calendar
     ) -> Date? {
-        
         TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
         guard let tpl = TaskSeriesEngine.template(for: task, startDay: occurrenceDay, calendar: cal) else {
             return nil
         }
-        
+
         let offset = max(0, tpl.reminderOffsetMinutes)
-        
+
         if tpl.isAllDay {
             let timeMinutes = tpl.reminderAllDayTimeMinutes ?? prefs.defaultAllDayTimeMinutes
             let base = TimeOfDayMinutes.date(on: occurrenceDay, minutes: timeMinutes, calendar: cal)

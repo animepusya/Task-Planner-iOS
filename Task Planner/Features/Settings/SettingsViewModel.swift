@@ -21,11 +21,9 @@ final class SettingsViewModel: ObservableObject {
     @Published var categories: [CategoryEntity] = []
     @Published var newCategoryTitle: String = ""
 
-    // ✅ Calendar toggles
     @Published var showTasksInAppleCalendar: Bool = false
     @Published var showAppleCalendarEventsInPlanner: Bool = false
 
-    // UI feedback
     @Published var calendarStatusText: String = ""
     @Published var calendarErrorText: String?
 
@@ -98,7 +96,6 @@ final class SettingsViewModel: ObservableObject {
                 try preferencesRepository.save()
 
                 if value {
-                    // request permission + ensure calendar exists + export all
                     _ = try await calendarSync.ensureTaskPlannerCalendarExists()
                     let tasks = try taskRepository.fetchAll()
                     try await calendarSync.exportAllTasks(tasks)
@@ -107,7 +104,6 @@ final class SettingsViewModel: ObservableObject {
                 calendarStatusText = statusText()
             } catch {
                 calendarErrorText = error.localizedDescription
-                // rollback UI if needed
                 showTasksInAppleCalendar = false
                 do {
                     let prefs = try preferencesRepository.getOrCreate()
@@ -208,12 +204,10 @@ final class SettingsViewModel: ObservableObject {
             let deletedTitle = category.title
 
             tasks.forEach { task in
-                if (task.categoryTitle ?? "").lowercased() == deletedTitle.lowercased() {
-                    task.categoryTitle = nil
-                }
+                clearCategoryReferences(in: task, deletedTitle: deletedTitle)
             }
-            try taskRepository.save()
 
+            try taskRepository.save()
             try categoryRepository.delete(category)
             reloadCategories()
         } catch {}
@@ -225,5 +219,52 @@ final class SettingsViewModel: ObservableObject {
 
     func isDeletable(_ category: CategoryEntity) -> Bool {
         !CategorySystem.isNonDeletable(category)
+    }
+
+    // MARK: - Helpers
+
+    private func clearCategoryReferences(in task: TaskEntity, deletedTitle: String) {
+        if equalsCategory(task.categoryTitle, deletedTitle) {
+            task.categoryTitle = nil
+        }
+
+        if !task.seriesSegments.isEmpty {
+            var segs = task.seriesSegments
+            var changed = false
+
+            for idx in segs.indices {
+                if equalsCategory(segs[idx].template.categoryTitle, deletedTitle) {
+                    segs[idx].template.categoryTitle = nil
+                    changed = true
+                }
+            }
+
+            if changed {
+                task.seriesSegments = segs
+            }
+        }
+
+        if !task.seriesOverrides.isEmpty {
+            var ovs = task.seriesOverrides
+            var changed = false
+
+            for idx in ovs.indices {
+                guard var tpl = ovs[idx].template else { continue }
+                if equalsCategory(tpl.categoryTitle, deletedTitle) {
+                    tpl.categoryTitle = nil
+                    ovs[idx].template = tpl
+                    changed = true
+                }
+            }
+
+            if changed {
+                task.seriesOverrides = ovs
+            }
+        }
+    }
+
+    private func equalsCategory(_ lhs: String?, _ rhs: String) -> Bool {
+        (lhs ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        == rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 }

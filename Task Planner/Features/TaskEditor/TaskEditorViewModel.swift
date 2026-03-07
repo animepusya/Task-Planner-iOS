@@ -17,7 +17,6 @@ final class TaskEditorViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
     private let notificationService: NotificationService
-
     private let seriesService: TaskSeriesService
 
     private let taskId: PersistentIdentifier?
@@ -27,8 +26,15 @@ final class TaskEditorViewModel: ObservableObject {
     private let preselectedDay: Date
     private var occurrenceStartDay: Date?
 
-    private(set) var isEditingRepeatingOccurrence: Bool = false
-    var requiresScopeMenuOnSave: Bool { isEditingRepeatingOccurrence && canSave }
+    @Published private(set) var isEditingRepeatingTask: Bool = false
+
+    var requiresScopeMenuOnSave: Bool {
+        isEditing && isEditingRepeatingTask && canSave
+    }
+
+    var hidesSeriesLockedFields: Bool {
+        isEditing && isEditingRepeatingTask
+    }
 
     // MARK: UI State
     @Published var isBusy: Bool = false
@@ -467,54 +473,83 @@ final class TaskEditorViewModel: ObservableObject {
                 return
             }
 
-            TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
+            isEditingRepeatingTask = existing.repeatRule != .none
 
-            let selectedDay = Calendar.current.startOfDay(for: preselectedDay)
+            if existing.repeatRule != .none {
+                TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
 
-            let occStart = TaskSeriesEngine
-                .occurrenceStartDayOverlapping(task: existing, day: selectedDay, weekStartsOnMonday: weekStartsOnMonday)
-                ?? Calendar.current.startOfDay(for: existing.dayDate)
+                let selectedDay = Calendar.current.startOfDay(for: preselectedDay)
+                let occStart = TaskSeriesEngine
+                    .occurrenceStartDayOverlapping(task: existing, day: selectedDay, weekStartsOnMonday: weekStartsOnMonday)
+                    ?? Calendar.current.startOfDay(for: existing.dayDate)
 
-            self.occurrenceStartDay = occStart
+                self.occurrenceStartDay = occStart
 
-            let tpl = TaskSeriesEngine.template(for: existing, startDay: occStart, calendar: .current)
-                ?? TaskSeriesEngine.templateFromTask(existing, dayStart: Calendar.current.startOfDay(for: existing.dayDate), calendar: .current)
+                let tpl = TaskSeriesEngine.template(for: existing, startDay: occStart, calendar: .current)
+                    ?? TaskSeriesEngine.templateFromTask(existing, dayStart: Calendar.current.startOfDay(for: existing.dayDate), calendar: .current)
+
+                var next = form
+                next.title = tpl.title
+                next.notes = tpl.notes ?? ""
+                next.dayDate = occStart
+
+                let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: occStart) ?? occStart
+                next.endDayDate = endDay
+
+                next.startTime = TimeMinutes.date(on: occStart, minutes: tpl.startMinutes, calendar: .current)
+                next.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: .current)
+
+                next.isAllDay = tpl.isAllDay
+                next.repeatRule = tpl.repeatRule
+                next.repeatIntervalDays = tpl.repeatIntervalDays ?? 2
+
+                next.color = TaskColor(rawValue: tpl.colorRaw) ?? existing.color
+                next.categoryTitle = tpl.categoryTitle ?? (existing.categoryTitle ?? CategorySystem.uncategorizedTitle)
+                next.photoThumbData = existing.photoThumbData
+
+                next.reminderEnabled = tpl.reminderEnabled
+                next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(tpl.reminderOffsetMinutes)
+                next.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
+
+                setFormIfChanged(next)
+                reminderGate = nil
+
+                let validated = time.validateAndFix(
+                    dayDate: form.dayDate,
+                    endDayDate: form.endDayDate,
+                    startTime: form.startTime,
+                    endTime: form.endTime
+                )
+                apply(validated)
+                return
+            }
+
+            occurrenceStartDay = nil
 
             var next = form
-            next.title = tpl.title
-            next.notes = tpl.notes ?? ""
+            next.title = existing.title
+            next.notes = existing.notes ?? ""
 
-            next.dayDate = occStart
+            next.dayDate = time.startOfDay(existing.dayDate)
+            next.startTime = existing.startTime
+            next.endTime = existing.endTime
+            next.endDayDate = time.startOfDay(existing.endTime)
 
-            let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: occStart) ?? occStart
-            next.endDayDate = endDay
+            next.isAllDay = existing.isAllDay
 
-            next.startTime = TimeMinutes.date(on: occStart, minutes: tpl.startMinutes, calendar: .current)
-            next.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: .current)
-
-            next.isAllDay = tpl.isAllDay
-
-            next.repeatRule = tpl.repeatRule
-            next.repeatIntervalDays = tpl.repeatIntervalDays ?? 2
-
-            next.color = TaskColor(rawValue: tpl.colorRaw) ?? existing.color
-            next.categoryTitle = tpl.categoryTitle ?? (existing.categoryTitle ?? CategorySystem.uncategorizedTitle)
+            next.repeatRule = existing.repeatRule
+            next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
+            next.color = existing.color
+            next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
 
             next.photoThumbData = existing.photoThumbData
 
-            next.reminderEnabled = tpl.reminderEnabled
-            next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(tpl.reminderOffsetMinutes)
-            next.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
+            next.reminderEnabled = existing.reminderEnabled
+            next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
+            next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
 
             setFormIfChanged(next)
             reminderGate = nil
-
-            isEditingRepeatingOccurrence =
-                (existing.repeatRule != .none) &&
-                !Calendar.current.isDate(
-                    occStart,
-                    inSameDayAs: Calendar.current.startOfDay(for: existing.dayDate)
-                )
 
             let validated = time.validateAndFix(
                 dayDate: form.dayDate,
@@ -550,19 +585,24 @@ final class TaskEditorViewModel: ObservableObject {
     // MARK: - Save (public API for UI)
 
     func save() throws {
-        try saveInternalDirect()
+        if requiresScopeMenuOnSave {
+            try saveWithScope(.allFutureDays)
+        } else {
+            try saveInternalDirect()
+        }
     }
 
     func saveNormal() throws {
-        try saveInternalDirect()
+        if requiresScopeMenuOnSave {
+            try saveWithScope(.allFutureDays)
+        } else {
+            try saveInternalDirect()
+        }
     }
 
     func saveWithScope(_ scope: TaskSeriesService.Scope) throws {
-        guard let taskId else { throw EditorError.taskNotFound }
-
-        guard let occStart = occurrenceStartDay else {
-            try saveInternalDirect()
-            return
+        guard let taskId else {
+            throw EditorError.taskNotFound
         }
 
         let clamped = time.clampEndDayDateIfNeeded(
@@ -578,7 +618,7 @@ final class TaskEditorViewModel: ObservableObject {
         }
 
         let cal = Calendar.current
-        let startDay = cal.startOfDay(for: occStart)
+        let startDay = cal.startOfDay(for: occurrenceStartDay ?? form.dayDate)
 
         let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
@@ -602,7 +642,6 @@ final class TaskEditorViewModel: ObservableObject {
         )
 
         let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
-
         let reminderOffset = ReminderPreset.normalizeOffsetMinutes(form.reminderOffsetMinutes)
 
         let tpl = TaskSeriesTemplate(
@@ -629,7 +668,7 @@ final class TaskEditorViewModel: ObservableObject {
         )
     }
 
-    // MARK: - Direct save (old logic moved here)
+    // MARK: - Direct save (non-repeating only)
     private func saveInternalDirect() throws {
         let clamped = time.clampEndDayDateIfNeeded(
             dayDate: form.dayDate,
@@ -675,6 +714,10 @@ final class TaskEditorViewModel: ObservableObject {
         if let taskId {
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 throw EditorError.taskNotFound
+            }
+
+            if existing.repeatRule != .none {
+                throw EditorError.repeatingTasksMustUseSeriesSave
             }
 
             existing.title = safeTitle
@@ -814,7 +857,6 @@ final class TaskEditorViewModel: ObservableObject {
 
         var photoThumbData: Data?
 
-        // Reminder
         var reminderEnabled: Bool
         var reminderOffsetMinutes: Int
         var reminderAllDayTimeMinutes: Int?
@@ -828,6 +870,7 @@ final class TaskEditorViewModel: ObservableObject {
     enum EditorError: LocalizedError {
         case taskNotFound
         case repeatConflict
+        case repeatingTasksMustUseSeriesSave
 
         var errorDescription: String? {
             switch self {
@@ -835,6 +878,8 @@ final class TaskEditorViewModel: ObservableObject {
                 return "The task was not found. It may have been deleted."
             case .repeatConflict:
                 return "Repeat unavailable: task overlaps the next occurrence."
+            case .repeatingTasksMustUseSeriesSave:
+                return "Repeating tasks must be saved through the series model."
             }
         }
     }

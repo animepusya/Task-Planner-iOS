@@ -45,7 +45,7 @@ struct TaskCardView: View {
     }
 
     private var timeRangeText: String {
-        if occurrence.task.isAllDay || occurrence.isAllDaySegment {
+        if occurrence.isAllDaySegment {
             return "All day"
         }
         return "\(occurrence.displayStart.formatted(date: .omitted, time: .shortened)) – \(occurrence.displayEnd.formatted(date: .omitted, time: .shortened))"

@@ -16,9 +16,10 @@ struct TaskEditorNameSection: View {
     let fixedCategoryChipWidth: CGFloat
 
     @FocusState.Binding var focusedField: TaskEditorField?
+    let showsTitleAndCategory: Bool
 
     @State private var isNotesExpanded = false
-    
+
     private var hasNotes: Bool {
         !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
@@ -26,20 +27,22 @@ struct TaskEditorNameSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
 
-            Text("Task Name")
-                .font(DS.Typography.caption)
-                .foregroundStyle(DS.ColorToken.textSecondary)
+            if showsTitleAndCategory {
+                Text("Task Name")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
 
-            HStack(spacing: 10) {
-                TextField("Enter task name", text: $title)
-                    .font(DS.Typography.body)
-                    .textInputAutocapitalization(.sentences)
-                    .disableAutocorrection(false)
-                    .focused($focusedField, equals: .title)
+                HStack(spacing: 10) {
+                    TextField("Enter task name", text: $title)
+                        .font(DS.Typography.body)
+                        .textInputAutocapitalization(.sentences)
+                        .disableAutocorrection(false)
+                        .focused($focusedField, equals: .title)
 
-                categoryMenuChip
+                    categoryMenuChip
+                }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
 
             TaskEditorDescriptionEditor(
                 notes: $notes,
@@ -49,7 +52,9 @@ struct TaskEditorNameSection: View {
         }
         .dsCard()
         .onAppear {
-            if hasNotes { isNotesExpanded = true }
+            if hasNotes || !showsTitleAndCategory {
+                isNotesExpanded = true
+            }
         }
         .onChange(of: notes) { _, newValue in
             if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

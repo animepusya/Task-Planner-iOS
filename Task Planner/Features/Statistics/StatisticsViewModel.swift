@@ -52,7 +52,7 @@ final class StatisticsViewModel: ObservableObject {
             weekStartsOnMonday = true
         }
     }
-    
+
     func reloadPreferencesAndRefresh() {
         loadPreferences()
         refresh()
@@ -95,7 +95,6 @@ final class StatisticsViewModel: ObservableObject {
         computeStats()
     }
 
-    // Existing API (kept)
     func percent(for stat: CategoryStat) -> Double {
         percent(forMinutes: stat.minutes)
     }
@@ -109,12 +108,11 @@ final class StatisticsViewModel: ObservableObject {
         return Double(minutes) / Double(totalMinutes)
     }
 
-    // MARK: - Computation (WITH repeats)
+    // MARK: - Computation (series-consistent)
 
     private func computeStats() {
         do {
             let allTasks = try taskRepository.fetchAll()
-
             let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
             let (start, end) = dateRange(using: cal)
 
@@ -127,24 +125,24 @@ final class StatisticsViewModel: ObservableObject {
             }
 
             var perCategory: [String: (totalMinutes: Int, colorMinutes: [String: Int])] = [:]
-
             var perTask: [String: (title: String, minutes: Int, colorRaw: String)] = [:]
-
             var total = 0
 
             for day in enumerateDays(from: start, to: end, calendar: cal) {
-                for task in candidates {
-                    let minutes = TaskStatisticsMinutes.minutesOnDay(
-                        task: task,
-                        day: day,
-                        weekStartsOnMonday: weekStartsOnMonday
-                    )
+                let occs = TaskDaySegment.occurrences(
+                    for: day,
+                    from: candidates,
+                    weekStartsOnMonday: weekStartsOnMonday
+                )
+
+                for occ in occs {
+                    let minutes = minutes(for: occ)
                     guard minutes > 0 else { continue }
 
                     total += minutes
 
-                    let categoryName = normalizedCategoryTitle(task.categoryTitle)
-                    let colorRaw = task.color.rawValue
+                    let categoryName = normalizedCategoryTitle(occ.categoryTitle)
+                    let colorRaw = occ.color.rawValue
 
                     if var existing = perCategory[categoryName] {
                         existing.totalMinutes += minutes
@@ -157,15 +155,21 @@ final class StatisticsViewModel: ObservableObject {
                         )
                     }
 
-                    let taskID = String(describing: task.persistentModelID)
-                    let title = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let displayTitle = title.isEmpty ? "Untitled" : title
+                    let taskID = String(describing: occ.task.persistentModelID)
+                    let rawTitle = occ.title.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let displayTitle = rawTitle.isEmpty ? "Untitled" : rawTitle
 
                     if var existingTask = perTask[taskID] {
                         existingTask.minutes += minutes
+                        existingTask.title = displayTitle
+                        existingTask.colorRaw = colorRaw
                         perTask[taskID] = existingTask
                     } else {
-                        perTask[taskID] = (title: displayTitle, minutes: minutes, colorRaw: colorRaw)
+                        perTask[taskID] = (
+                            title: displayTitle,
+                            minutes: minutes,
+                            colorRaw: colorRaw
+                        )
                     }
                 }
             }
@@ -194,6 +198,12 @@ final class StatisticsViewModel: ObservableObject {
         }
     }
 
+    private func minutes(for occurrence: DayOccurrence) -> Int {
+        let delta = occurrence.displayEnd.timeIntervalSince(occurrence.displayStart)
+        guard delta > 0 else { return 0 }
+        return Int((delta / 60.0).rounded(.toNearestOrAwayFromZero))
+    }
+
     private func makeTopTasks(from perTask: [String: (title: String, minutes: Int, colorRaw: String)]) -> [TaskStat] {
         let sorted = perTask
             .map { TaskStat(id: $0.key, title: $0.value.title, minutes: $0.value.minutes, colorRaw: $0.value.colorRaw) }
@@ -210,13 +220,6 @@ final class StatisticsViewModel: ObservableObject {
 
         let other = TaskStat(id: "other", title: "Other", minutes: otherMinutes, colorRaw: "")
         return top + [other]
-    }
-
-    // (оставил как было — если не используется, можно удалить позже)
-    private func durationMinutes(task: TaskEntity) -> Int {
-        let deltaSeconds = task.endTime.timeIntervalSince(task.startTime)
-        let minutes = Int((deltaSeconds / 60.0).rounded())
-        return Swift.max(0, minutes)
     }
 
     private func enumerateDays(from start: Date, to end: Date, calendar: Calendar) -> [Date] {

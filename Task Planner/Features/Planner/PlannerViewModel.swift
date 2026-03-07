@@ -271,7 +271,7 @@ extension PlannerViewModel {
             if lhsCompleted != rhsCompleted { return !lhsCompleted }
             if $0.displayStart != $1.displayStart { return $0.displayStart < $1.displayStart }
 
-            return $0.task.title.localizedCaseInsensitiveCompare($1.task.title) == .orderedAscending
+            return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
         }
     }
 
@@ -302,8 +302,8 @@ extension PlannerViewModel {
                 let id = occ.task.persistentModelID
                 aCompleted = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
                 aStart = occ.displayStart
-                aTitle = occ.task.title
-                aColorIndex = occ.task.color.sortIndex
+                aTitle = occ.title
+                aColorIndex = occ.color.sortIndex
             case .imported(let ev):
                 aCompleted = false
                 aStart = ev.startDate
@@ -316,8 +316,8 @@ extension PlannerViewModel {
                 let id = occ.task.persistentModelID
                 bCompleted = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
                 bStart = occ.displayStart
-                bTitle = occ.task.title
-                bColorIndex = occ.task.color.sortIndex
+                bTitle = occ.title
+                bColorIndex = occ.color.sortIndex
             case .imported(let ev):
                 bCompleted = false
                 bStart = ev.startDate
@@ -350,7 +350,7 @@ extension PlannerViewModel {
                 let id = occ.task.persistentModelID
                 let completed = isCompletedForSort(task: occ.task, taskId: id, dayKey: dayKey)
                 guard !completed else { return nil }
-                return occ.task.color
+                return occ.color
 
             case .imported(let ev):
                 return TaskColor.closest(to: ev.calendarColor)
