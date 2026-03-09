@@ -116,8 +116,9 @@ struct AppRootView: View {
                     )
 
                 case .recurringBaseTasks:
-                    BaseRecurringTasksView(
-                        viewModel: BaseRecurringTasksViewModel(
+                    RecurringTasksView(
+                        viewModel: RecurringTasksViewModel(
+                            taskRepository: taskRepo,
                             preferencesRepository: prefsRepo,
                             onOpenBaseRecurringEditor: { taskId, day in
                                 sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .baseRecurringIdentity)

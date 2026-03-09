@@ -1,5 +1,5 @@
 //
-//  BaseRecurringTaskCardView.swift
+//  RecurringTaskCardView.swift
 //  Task Planner
 //
 //  Created by Руслан Меланин on 09.03.2026.
@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-struct BaseRecurringTaskCardView: View {
+struct RecurringTaskCardView: View {
     let task: TaskEntity
 
     var body: some View {

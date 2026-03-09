@@ -1,5 +1,5 @@
 //
-//  BaseRecurringTasksViewModel.swift
+//  RecurringTasksViewModel.swift
 //  Task Planner
 //
 //  Created by Руслан Меланин on 09.03.2026.
@@ -10,16 +10,19 @@ import SwiftData
 import Combine
 
 @MainActor
-final class BaseRecurringTasksViewModel: ObservableObject {
+final class RecurringTasksViewModel: ObservableObject {
+    private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
     private let onOpenBaseRecurringEditor: (_ taskId: PersistentIdentifier, _ day: Date) -> Void
 
     @Published private(set) var weekStartsOnMonday: Bool = true
 
     init(
+        taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
         onOpenBaseRecurringEditor: @escaping (_ taskId: PersistentIdentifier, _ day: Date) -> Void
     ) {
+        self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.onOpenBaseRecurringEditor = onOpenBaseRecurringEditor
         loadPreferences()
@@ -36,6 +39,15 @@ final class BaseRecurringTasksViewModel: ObservableObject {
 
     func open(task: TaskEntity) {
         onOpenBaseRecurringEditor(task.persistentModelID, Calendar.current.startOfDay(for: task.dayDate))
+    }
+
+    func deleteSeries(taskId: PersistentIdentifier) {
+        do {
+            guard let task = try taskRepository.fetch(by: taskId) else { return }
+            try taskRepository.delete(task)
+        } catch {
+            assertionFailure("deleteSeries failed: \(error)")
+        }
     }
 
     func sections(from tasks: [TaskEntity]) -> Sections {
