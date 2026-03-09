@@ -463,11 +463,18 @@ final class TaskEditorViewModel: ObservableObject {
 
     func loadExistingTask() async {
         guard let taskId else { return }
-
+        
         isBusy = true
         defer { isBusy = false }
-
+        
         do {
+            do {
+                let prefs = try preferencesRepository.getOrCreate()
+                weekStartsOnMonday = prefs.weekStartsOnMonday
+            } catch {
+                weekStartsOnMonday = true
+            }
+            
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 alert = .init(title: "Task not found", message: "This task no longer exists.")
                 return
