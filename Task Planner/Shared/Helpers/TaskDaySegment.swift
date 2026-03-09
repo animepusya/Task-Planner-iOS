@@ -31,6 +31,7 @@ struct DayOccurrence: Identifiable, Hashable {
     let displayStart: Date
     let displayEnd: Date
 
+    let isAllDayOccurrence: Bool
     let isStartDay: Bool
     let isEndDay: Bool
     let isAllDaySegment: Bool
@@ -48,6 +49,7 @@ struct DayOccurrence: Identifiable, Hashable {
         photoThumbData: Data?,
         displayStart: Date,
         displayEnd: Date,
+        isAllDayOccurrence: Bool,
         isStartDay: Bool,
         isEndDay: Bool,
         isAllDaySegment: Bool,
@@ -63,6 +65,7 @@ struct DayOccurrence: Identifiable, Hashable {
         self.photoThumbData = photoThumbData
         self.displayStart = displayStart
         self.displayEnd = displayEnd
+        self.isAllDayOccurrence = isAllDayOccurrence
         self.isStartDay = isStartDay
         self.isEndDay = isEndDay
         self.isAllDaySegment = isAllDaySegment
@@ -114,6 +117,7 @@ enum TaskDaySegment {
                 photoThumbData: effectivePhoto,
                 displayStart: dayStart,
                 displayEnd: dayEnd,
+                isAllDayOccurrence: true,
                 isStartDay: startsInDay,
                 isEndDay: endsInDay,
                 isAllDaySegment: true,
@@ -150,6 +154,7 @@ enum TaskDaySegment {
             photoThumbData: effectivePhoto,
             displayStart: overlapStart,
             displayEnd: overlapEnd,
+            isAllDayOccurrence: false,
             isStartDay: startsInThisDay,
             isEndDay: endsInThisDay,
             isAllDaySegment: allDaySegment,

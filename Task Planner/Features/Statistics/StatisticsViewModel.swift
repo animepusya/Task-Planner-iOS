@@ -199,8 +199,11 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func minutes(for occurrence: DayOccurrence) -> Int {
+        guard occurrence.isAllDayOccurrence == false else { return 0 }
+
         let delta = occurrence.displayEnd.timeIntervalSince(occurrence.displayStart)
         guard delta > 0 else { return 0 }
+
         return Int((delta / 60.0).rounded(.toNearestOrAwayFromZero))
     }
 
