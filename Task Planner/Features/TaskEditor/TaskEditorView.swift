@@ -92,8 +92,9 @@ struct TaskEditorView: View {
                         if !viewModel.hidesSeriesLockedFields {
                             TaskEditorColorSection(color: viewModel.binding(\.color))
                             repeatSection
-                            TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
                         }
+
+                        TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
                     }
                     .frame(width: contentWidth, alignment: .leading)
                     .padding(.horizontal, pad)

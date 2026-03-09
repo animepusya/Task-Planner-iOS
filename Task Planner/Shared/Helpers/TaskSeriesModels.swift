@@ -23,6 +23,7 @@ struct TaskSeriesTemplate: Codable, Equatable {
 
     var colorRaw: String
     var categoryTitle: String?
+    var photoThumbData: Data?
 
     var reminderEnabled: Bool
     var reminderOffsetMinutes: Int

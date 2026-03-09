@@ -106,6 +106,26 @@ enum TaskSeriesEngine {
         return cal.startOfDay(for: occ.occurrenceStart)
     }
 
+    static func nextOccurrenceStartDay(
+        for task: TaskEntity,
+        after day: Date,
+        weekStartsOnMonday: Bool,
+        searchLimitDays: Int = 3660
+    ) -> Date? {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        var cursor = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: day)) ?? cal.startOfDay(for: day).addingTimeInterval(86400)
+
+        for _ in 0..<searchLimitDays {
+            let candidate = cal.startOfDay(for: cursor)
+            if occursStartOn(task, on: candidate, weekStartsOnMonday: weekStartsOnMonday) {
+                return candidate
+            }
+            cursor = cal.date(byAdding: .day, value: 1, to: candidate) ?? candidate.addingTimeInterval(86400)
+        }
+
+        return nil
+    }
+
     // MARK: - Internals
 
     private static func activeSegmentStartDay(for task: TaskEntity, day: Date, calendar: Calendar) -> Date? {
@@ -139,6 +159,7 @@ enum TaskSeriesEngine {
             repeatIntervalDays: task.repeatIntervalDays,
             colorRaw: task.colorRaw,
             categoryTitle: task.categoryTitle,
+            photoThumbData: task.photoThumbData,
             reminderEnabled: task.reminderEnabled,
             reminderOffsetMinutes: task.reminderOffsetMinutes,
             reminderAllDayTimeMinutes: task.reminderAllDayTimeMinutes

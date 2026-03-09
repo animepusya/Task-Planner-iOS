@@ -26,6 +26,7 @@ struct DayOccurrence: Identifiable, Hashable {
     let notes: String?
     let categoryTitle: String?
     let color: TaskColor
+    let photoThumbData: Data?
 
     let displayStart: Date
     let displayEnd: Date
@@ -44,6 +45,7 @@ struct DayOccurrence: Identifiable, Hashable {
         notes: String?,
         categoryTitle: String?,
         color: TaskColor,
+        photoThumbData: Data?,
         displayStart: Date,
         displayEnd: Date,
         isStartDay: Bool,
@@ -58,6 +60,7 @@ struct DayOccurrence: Identifiable, Hashable {
         self.notes = notes
         self.categoryTitle = categoryTitle
         self.color = color
+        self.photoThumbData = photoThumbData
         self.displayStart = displayStart
         self.displayEnd = displayEnd
         self.isStartDay = isStartDay
@@ -94,6 +97,7 @@ enum TaskDaySegment {
         let effectiveNotes = tpl.notes
         let effectiveCategory = tpl.categoryTitle
         let effectiveColor = TaskColor(rawValue: tpl.colorRaw) ?? task.color
+        let effectivePhoto = tpl.photoThumbData
 
         if tpl.isAllDay {
             let startsInDay = TaskDayOverlap.startsWithinDay(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday)
@@ -107,6 +111,7 @@ enum TaskDaySegment {
                 notes: effectiveNotes,
                 categoryTitle: effectiveCategory,
                 color: effectiveColor,
+                photoThumbData: effectivePhoto,
                 displayStart: dayStart,
                 displayEnd: dayEnd,
                 isStartDay: startsInDay,
@@ -142,6 +147,7 @@ enum TaskDaySegment {
             notes: effectiveNotes,
             categoryTitle: effectiveCategory,
             color: effectiveColor,
+            photoThumbData: effectivePhoto,
             displayStart: overlapStart,
             displayEnd: overlapEnd,
             isStartDay: startsInThisDay,

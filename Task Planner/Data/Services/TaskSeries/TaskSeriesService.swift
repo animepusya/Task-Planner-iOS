@@ -48,6 +48,7 @@ final class TaskSeriesService {
 
         case .allFutureDays:
             splitAndApplyAllFuture(task: task, from: day, newTemplate: changes.template)
+            syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
         }
     }
@@ -66,13 +67,28 @@ final class TaskSeriesService {
 
         switch scope {
         case .onlyThisDay:
+            if isOwnerDay(task: task, day: day, calendar: cal) {
+                let transferred = transferOwnershipAfterDeletingOwnerDay(task: task, deletedOwnerDay: day, calendar: cal)
+                if transferred == false {
+                    try taskRepository.delete(task)
+                    return
+                }
+            }
+
             markDeletedOverride(task: task, day: day)
             let key = TaskEntity.dayKey(for: day, calendar: cal)
             task.suppressReminder(for: key)
+            syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
 
         case .allFutureDays:
+            if isOwnerDay(task: task, day: day, calendar: cal) {
+                try taskRepository.delete(task)
+                return
+            }
+
             deleteAllFuture(task: task, from: day)
+            syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
         }
     }
@@ -107,6 +123,59 @@ final class TaskSeriesService {
         }
 
         task.seriesOverrides = overrides
+    }
+
+    // MARK: - Ownership transfer
+
+    private func isOwnerDay(task: TaskEntity, day: Date, calendar: Calendar) -> Bool {
+        calendar.isDate(calendar.startOfDay(for: task.dayDate), inSameDayAs: calendar.startOfDay(for: day))
+    }
+
+    @discardableResult
+    private func transferOwnershipAfterDeletingOwnerDay(
+        task: TaskEntity,
+        deletedOwnerDay: Date,
+        calendar: Calendar
+    ) -> Bool {
+        guard let nextDay = TaskSeriesEngine.nextOccurrenceStartDay(
+            for: task,
+            after: deletedOwnerDay,
+            weekStartsOnMonday: true
+        ) else {
+            return false
+        }
+
+        applyOwnerFields(task: task, ownerDay: nextDay, calendar: calendar)
+        return true
+    }
+
+    private func syncOwnerFieldsToCurrentOwnerIfNeeded(task: TaskEntity, calendar: Calendar) {
+        let ownerDay = calendar.startOfDay(for: task.dayDate)
+        applyOwnerFields(task: task, ownerDay: ownerDay, calendar: calendar)
+    }
+
+    private func applyOwnerFields(task: TaskEntity, ownerDay: Date, calendar: Calendar) {
+        guard let tpl = TaskSeriesEngine.template(for: task, startDay: ownerDay, calendar: calendar) else { return }
+
+        let endDay = calendar.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: ownerDay) ?? ownerDay
+
+        task.dayDate = ownerDay
+        task.startTime = TimeMinutes.date(on: ownerDay, minutes: tpl.startMinutes, calendar: calendar)
+        task.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: calendar)
+
+        task.title = tpl.title
+        task.notes = tpl.notes
+        task.isAllDay = tpl.isAllDay
+        task.repeatRuleRaw = tpl.repeatRuleRaw
+        task.repeatIntervalDays = tpl.repeatIntervalDays
+        task.colorRaw = tpl.colorRaw
+        task.categoryTitle = tpl.categoryTitle
+        task.photoThumbData = tpl.photoThumbData
+        task.reminderEnabled = tpl.reminderEnabled
+        task.reminderOffsetMinutes = tpl.reminderOffsetMinutes
+        task.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
+
+        task.normalizeRepeatFields()
     }
 
     // MARK: - All future split (deterministic, no conflicts)

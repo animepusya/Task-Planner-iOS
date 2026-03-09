@@ -32,7 +32,7 @@ struct TaskCardView: View {
     }
 
     private var thumbImage: UIImage? {
-        guard let data = occurrence.task.photoThumbData else { return nil }
+        guard let data = occurrence.photoThumbData else { return nil }
         return UIImage(data: data)
     }
 
