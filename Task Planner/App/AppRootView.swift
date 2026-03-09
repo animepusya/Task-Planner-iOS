@@ -42,10 +42,13 @@ struct AppRootView: View {
                         calendarSync: calendarSync,
                         seriesService: seriesService,
                         onOpenTaskEditor: { taskId, day in
-                            sheet = .taskEditor(taskId: taskId, preselectedDay: day)
+                            sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
                         },
                         onOpenNotifications: {
                             sheet = .notifications
+                        },
+                        onOpenRecurringBaseTasks: {
+                            sheet = .recurringBaseTasks
                         }
                     )
                 )
@@ -73,7 +76,7 @@ struct AppRootView: View {
             }
             .sheet(item: $sheet) { route in
                 switch route {
-                case .taskEditor(let taskId, let day):
+                case .taskEditor(let taskId, let day, let mode):
                     TaskEditorView(
                         viewModel: TaskEditorViewModel(
                             taskRepository: taskRepo,
@@ -81,7 +84,8 @@ struct AppRootView: View {
                             notificationService: notificationService,
                             seriesService: seriesService,
                             taskId: taskId,
-                            preselectedDay: day
+                            preselectedDay: day,
+                            editMode: mode
                         ),
                         onOpenNotificationsCenter: {
                             sheet = .notifications
@@ -106,7 +110,17 @@ struct AppRootView: View {
                             notificationService: notificationService,
                             notificationSync: notificationSync,
                             onOpenTaskEditor: { taskId, day in
-                                sheet = .taskEditor(taskId: taskId, preselectedDay: day)
+                                sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
+                            }
+                        )
+                    )
+
+                case .recurringBaseTasks:
+                    BaseRecurringTasksView(
+                        viewModel: BaseRecurringTasksViewModel(
+                            preferencesRepository: prefsRepo,
+                            onOpenBaseRecurringEditor: { taskId, day in
+                                sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .baseRecurringIdentity)
                             }
                         )
                     )

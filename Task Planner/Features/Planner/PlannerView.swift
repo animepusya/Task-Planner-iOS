@@ -15,12 +15,10 @@ struct PlannerView: View {
                   SortDescriptor(\TaskEntity.startTime, order: .forward)])
     private var tasks: [TaskEntity]
 
-    // MARK: - Swipe month switch
     @State private var didTriggerSwipe = false
     private let swipeThreshold: CGFloat = 72
     private let monthAnim: Animation = .easeInOut(duration: 0.2)
 
-    // MARK: - Month slide animation direction
     private enum MonthNavDirection {
         case next
         case prev
@@ -104,13 +102,13 @@ struct PlannerView: View {
                                         )
                                     }
                                     .tint(DS.ColorToken.purple)
-                                    
+
                                     if occ.task.repeatRule != .none {
                                         Menu {
                                             Text("How to delete?")
                                                 .foregroundStyle(DS.ColorToken.textSecondary)
                                                 .disabled(true)
-                                            
+
                                             Button(role: .destructive) {
                                                 viewModel.deleteOccurrence(
                                                     taskId: occ.task.persistentModelID,
@@ -120,7 +118,7 @@ struct PlannerView: View {
                                             } label: {
                                                 Text("Only this day")
                                             }
-                                            
+
                                             Button(role: .destructive) {
                                                 viewModel.deleteOccurrence(
                                                     taskId: occ.task.persistentModelID,
@@ -169,8 +167,6 @@ struct PlannerView: View {
         }
     }
 
-    // MARK: - Header
-
     private var header: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 6) {
@@ -185,14 +181,19 @@ struct PlannerView: View {
 
             Spacer(minLength: 12)
 
-            IconCircleButton(systemName: "bell") {
-                viewModel.openNotifications()
+            HStack(spacing: 10) {
+                IconCircleButton(systemName: "square.stack.3d.up") {
+                    viewModel.openRecurringBaseTasks()
+                }
+                .accessibilityLabel("Recurring Tasks")
+
+                IconCircleButton(systemName: "bell") {
+                    viewModel.openNotifications()
+                }
+                .accessibilityLabel("Notifications")
             }
-            .accessibilityLabel("Notifications")
         }
     }
-
-    // MARK: - Calendar
 
     private var calendarCard: some View {
         ZStack {
@@ -306,8 +307,6 @@ struct PlannerView: View {
         monthDirection = .next
         withAnimation(monthAnim) { viewModel.goToToday() }
     }
-
-    // MARK: - Tasks Header
 
     private var tasksHeader: some View {
         HStack {

@@ -17,6 +17,7 @@ final class PlannerViewModel: ObservableObject {
     private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
     private let onOpenNotifications: () -> Void
+    private let onOpenRecurringBaseTasks: () -> Void
     private let seriesService: TaskSeriesService
 
     @Published var selectedDay: Date = Calendar.current.startOfDay(for: .now)
@@ -50,7 +51,8 @@ final class PlannerViewModel: ObservableObject {
         calendarSync: CalendarSyncService,
         seriesService: TaskSeriesService,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
-        onOpenNotifications: @escaping () -> Void
+        onOpenNotifications: @escaping () -> Void,
+        onOpenRecurringBaseTasks: @escaping () -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
@@ -58,6 +60,7 @@ final class PlannerViewModel: ObservableObject {
         self.seriesService = seriesService
         self.onOpenTaskEditor = onOpenTaskEditor
         self.onOpenNotifications = onOpenNotifications
+        self.onOpenRecurringBaseTasks = onOpenRecurringBaseTasks
 
         loadPreferences()
         Task { await loadExternalEventsForVisibleMonth() }
@@ -131,6 +134,7 @@ final class PlannerViewModel: ObservableObject {
     func openCreateTask() { onOpenTaskEditor(nil, selectedDay) }
     func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDay) }
     func openNotifications() { onOpenNotifications() }
+    func openRecurringBaseTasks() { onOpenRecurringBaseTasks() }
 
     func goToPreviousMonth() { monthAnchor = monthAnchor.addingMonths(-1) }
     func goToNextMonth() { monthAnchor = monthAnchor.addingMonths(1) }
@@ -211,7 +215,7 @@ final class PlannerViewModel: ObservableObject {
             assertionFailure("delete failed: \(error)")
         }
     }
-    
+
     func deleteOccurrence(
         taskId: PersistentIdentifier,
         occurrenceStartDay: Date,
@@ -220,7 +224,7 @@ final class PlannerViewModel: ObservableObject {
         pendingToggleTasks[taskId]?.cancel()
         visualDoneOverride[taskId] = nil
         sortDoneOverride[taskId] = nil
-        
+
         do {
             try seriesService.applyDelete(
                 taskId: taskId,
@@ -233,7 +237,7 @@ final class PlannerViewModel: ObservableObject {
     }
 }
 
-// MARK: - Unified day items + sorting (single source of truth)
+// MARK: - Unified day items + sorting
 
 extension PlannerViewModel {
 

@@ -17,6 +17,7 @@ struct TaskEditorNameSection: View {
 
     @FocusState.Binding var focusedField: TaskEditorField?
     let showsTitleAndCategory: Bool
+    let showsNotesEditor: Bool
 
     @State private var isNotesExpanded = false
 
@@ -26,7 +27,6 @@ struct TaskEditorNameSection: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-
             if showsTitleAndCategory {
                 Text("Task Name")
                     .font(DS.Typography.caption)
@@ -44,11 +44,13 @@ struct TaskEditorNameSection: View {
                 .padding(.vertical, 4)
             }
 
-            TaskEditorDescriptionEditor(
-                notes: $notes,
-                isExpanded: $isNotesExpanded,
-                focusedField: $focusedField
-            )
+            if showsNotesEditor {
+                TaskEditorDescriptionEditor(
+                    notes: $notes,
+                    isExpanded: $isNotesExpanded,
+                    focusedField: $focusedField
+                )
+            }
         }
         .dsCard()
         .onAppear {

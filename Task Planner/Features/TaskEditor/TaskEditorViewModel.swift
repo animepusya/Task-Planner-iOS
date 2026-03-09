@@ -13,7 +13,6 @@ import Combine
 @MainActor
 final class TaskEditorViewModel: ObservableObject {
 
-    // MARK: Dependencies
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
     private let notificationService: NotificationService
@@ -22,6 +21,7 @@ final class TaskEditorViewModel: ObservableObject {
     private let taskId: PersistentIdentifier?
     private let time: TaskEditorTimeCoordinator
     private let category: TaskEditorCategoryCoordinator
+    private let editMode: TaskEditorMode
 
     private let preselectedDay: Date
     private var occurrenceStartDay: Date?
@@ -30,15 +30,23 @@ final class TaskEditorViewModel: ObservableObject {
     @Published private(set) var isEditingRepeatingBaseOwner: Bool = false
     @Published private(set) var isEditingRepeatingOccurrence: Bool = false
 
+    var isBaseRecurringIdentityMode: Bool {
+        editMode == .baseRecurringIdentity
+    }
+
     var requiresScopeMenuOnSave: Bool {
-        isEditing && isEditingRepeatingTask && canSave
+        editMode == .standard && isEditing && isEditingRepeatingTask && canSave
     }
 
-    var hidesSeriesLockedFields: Bool {
-        isEditing && isEditingRepeatingOccurrence
-    }
+    var showsNameSection: Bool { true }
+    var showsTitleAndCategory: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
+    var showsNotesEditor: Bool { !isBaseRecurringIdentityMode }
+    var showsDateTimeSection: Bool { !isBaseRecurringIdentityMode }
+    var showsReminderSection: Bool { !isBaseRecurringIdentityMode }
+    var showsColorSection: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
+    var showsRepeatSection: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
+    var showsPhotoSection: Bool { !isBaseRecurringIdentityMode }
 
-    // MARK: UI State
     @Published var isBusy: Bool = false
     @Published var alert: TaskEditorAlert?
 
@@ -53,23 +61,27 @@ final class TaskEditorViewModel: ObservableObject {
     @Published private(set) var reminderGate: ReminderGate?
 
     var isEditing: Bool { taskId != nil }
-    var navigationTitle: String { isEditing ? "Edit Task" : "Create Task" }
+    var navigationTitle: String {
+        if isBaseRecurringIdentityMode { return "Edit Recurring Task" }
+        return isEditing ? "Edit Task" : "Create Task"
+    }
     var canSave: Bool { !isBusy && !form.isRepeatInvalid }
 
-    // MARK: Init
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
         notificationService: NotificationService,
         seriesService: TaskSeriesService,
         taskId: PersistentIdentifier?,
-        preselectedDay: Date
+        preselectedDay: Date,
+        editMode: TaskEditorMode
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.notificationService = notificationService
         self.seriesService = seriesService
         self.taskId = taskId
+        self.editMode = editMode
 
         self.time = TaskEditorTimeCoordinator(calendar: .current)
         self.category = TaskEditorCategoryCoordinator()
@@ -93,11 +105,9 @@ final class TaskEditorViewModel: ObservableObject {
             color: .purple,
             categoryTitle: "Work",
             photoThumbData: nil,
-
             reminderEnabled: false,
             reminderOffsetMinutes: ReminderPreset.default.minutes,
             reminderAllDayTimeMinutes: nil,
-
             timeValidationMessage: nil,
             isRepeatInvalid: false,
             repeatValidationMessage: nil
@@ -117,8 +127,6 @@ final class TaskEditorViewModel: ObservableObject {
             apply(validated)
         }
     }
-
-    // MARK: - Reminder gate types
 
     struct ReminderGate: Equatable {
         enum Action: Equatable {
@@ -158,7 +166,6 @@ final class TaskEditorViewModel: ObservableObject {
         setFormIfChanged(copy)
     }
 
-    // MARK: - Simple Binding helper
     func binding<T>(_ keyPath: WritableKeyPath<FormState, T>) -> Binding<T> {
         Binding(
             get: { self.form[keyPath: keyPath] },
@@ -169,8 +176,6 @@ final class TaskEditorViewModel: ObservableObject {
             }
         )
     }
-
-    // MARK: - Smart bindings
 
     var reminderEnabledBinding: Binding<Bool> {
         Binding(
@@ -209,8 +214,6 @@ final class TaskEditorViewModel: ObservableObject {
     var repeatIntervalDaysBinding: Binding<Int> {
         Binding(get: { self.form.repeatIntervalDays }, set: { [weak self] in self?.setRepeatIntervalDays($0) })
     }
-
-    // MARK: - Reminder toggle pipeline
 
     private func setReminderEnabledAttempt(_ newValue: Bool) async {
         if newValue == false {
@@ -268,7 +271,6 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Bootstrap
     func onAppear(availableCategories: [String]) {
         guard !didBootstrap else { return }
         didBootstrap = true
@@ -320,7 +322,6 @@ final class TaskEditorViewModel: ObservableObject {
         apply(validated)
     }
 
-    // MARK: - Setters
     func setDayDate(_ newValue: Date) {
         let newDay = time.startOfDay(newValue)
         guard !Calendar.current.isDate(newDay, inSameDayAs: form.dayDate) else { return }
@@ -387,7 +388,6 @@ final class TaskEditorViewModel: ObservableObject {
         recalcRepeatConflictAndPublishIfNeeded()
     }
 
-    // MARK: - Time pipeline
     func onStartDayChanged() {
         let synced = time.syncTimesToSelectedDay(
             newStartDay: form.dayDate,
@@ -452,7 +452,6 @@ final class TaskEditorViewModel: ObservableObject {
         apply(validated)
     }
 
-    // MARK: - Category
     func ensureCategoryIsValid(available: [String]) {
         let fixed = category.ensureCategoryIsValid(current: form.categoryTitle, available: available)
         guard fixed != form.categoryTitle else { return }
@@ -462,7 +461,6 @@ final class TaskEditorViewModel: ObservableObject {
         setFormIfChanged(copy)
     }
 
-    // MARK: - Loading
     func loadExistingTask() async {
         guard let taskId else { return }
 
@@ -482,29 +480,35 @@ final class TaskEditorViewModel: ObservableObject {
             if existing.repeatRule != .none {
                 TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
 
-                let selectedDay = Calendar.current.startOfDay(for: preselectedDay)
-                let occStart = TaskSeriesEngine
-                    .occurrenceStartDayOverlapping(task: existing, day: selectedDay, weekStartsOnMonday: weekStartsOnMonday)
-                    ?? Calendar.current.startOfDay(for: existing.dayDate)
-
-                self.occurrenceStartDay = occStart
-
                 let ownerDay = Calendar.current.startOfDay(for: existing.dayDate)
-                isEditingRepeatingBaseOwner = Calendar.current.isDate(occStart, inSameDayAs: ownerDay)
-                isEditingRepeatingOccurrence = !isEditingRepeatingBaseOwner
 
-                let tpl = TaskSeriesEngine.template(for: existing, startDay: occStart, calendar: .current)
+                let targetDay: Date
+                if isBaseRecurringIdentityMode {
+                    targetDay = ownerDay
+                } else {
+                    targetDay = Calendar.current.startOfDay(for: preselectedDay)
+                }
+
+                let occStart = TaskSeriesEngine
+                    .occurrenceStartDayOverlapping(task: existing, day: targetDay, weekStartsOnMonday: weekStartsOnMonday)
+                    ?? ownerDay
+
+                occurrenceStartDay = isBaseRecurringIdentityMode ? ownerDay : occStart
+                isEditingRepeatingBaseOwner = isBaseRecurringIdentityMode
+                isEditingRepeatingOccurrence = !isBaseRecurringIdentityMode
+
+                let tpl = TaskSeriesEngine.template(for: existing, startDay: occurrenceStartDay ?? ownerDay, calendar: .current)
                     ?? TaskSeriesEngine.templateFromTask(existing, dayStart: ownerDay, calendar: .current)
 
                 var next = form
                 next.title = tpl.title
                 next.notes = tpl.notes ?? ""
-                next.dayDate = occStart
+                next.dayDate = occurrenceStartDay ?? ownerDay
 
-                let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: occStart) ?? occStart
+                let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: next.dayDate) ?? next.dayDate
                 next.endDayDate = endDay
 
-                next.startTime = TimeMinutes.date(on: occStart, minutes: tpl.startMinutes, calendar: .current)
+                next.startTime = TimeMinutes.date(on: next.dayDate, minutes: tpl.startMinutes, calendar: .current)
                 next.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: .current)
 
                 next.isAllDay = tpl.isAllDay
@@ -544,14 +548,11 @@ final class TaskEditorViewModel: ObservableObject {
             next.endDayDate = time.startOfDay(existing.endTime)
 
             next.isAllDay = existing.isAllDay
-
             next.repeatRule = existing.repeatRule
             next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
             next.color = existing.color
             next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
-
             next.photoThumbData = existing.photoThumbData
-
             next.reminderEnabled = existing.reminderEnabled
             next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
             next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
@@ -572,7 +573,6 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Duration
     func applyDuration(minutes: Int) {
         let result = time.applyDuration(
             minutes: minutes,
@@ -590,17 +590,16 @@ final class TaskEditorViewModel: ObservableObject {
         apply(validated)
     }
 
-    // MARK: - Save
-
     func save() throws {
-        if requiresScopeMenuOnSave {
-            try saveWithScope(.allFutureDays)
-        } else {
-            try saveInternalDirect()
-        }
+        try saveNormal()
     }
 
     func saveNormal() throws {
+        if isBaseRecurringIdentityMode {
+            try saveBaseRecurringIdentity()
+            return
+        }
+
         if requiresScopeMenuOnSave {
             try saveWithScope(.allFutureDays)
         } else {
@@ -677,6 +676,42 @@ final class TaskEditorViewModel: ObservableObject {
         )
     }
 
+    private func saveBaseRecurringIdentity() throws {
+        guard let taskId else { throw EditorError.taskNotFound }
+
+        guard let existing = try taskRepository.fetch(by: taskId) else {
+            throw EditorError.taskNotFound
+        }
+
+        guard existing.repeatRule != .none else {
+            throw EditorError.repeatingTasksMustUseSeriesSave
+        }
+
+        let cal = Calendar.current
+        let ownerDay = cal.startOfDay(for: existing.dayDate)
+        let currentOwnerTemplate = TaskSeriesEngine.template(for: existing, startDay: ownerDay, calendar: cal)
+            ?? TaskSeriesEngine.templateFromTask(existing, dayStart: ownerDay, calendar: cal)
+
+        var template = currentOwnerTemplate
+
+        let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        template.title = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
+
+        let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        template.categoryTitle = trimmedCategory.isEmpty ? "Work" : trimmedCategory
+
+        template.repeatRuleRaw = form.repeatRule.rawValue
+        template.repeatIntervalDays = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
+        template.colorRaw = form.color.rawValue
+
+        try seriesService.applyEdit(
+            taskId: taskId,
+            occurrenceStartDay: ownerDay,
+            scope: .allFutureDays,
+            changes: .init(template: template)
+        )
+    }
+
     private func saveInternalDirect() throws {
         let clamped = time.clampEndDayDateIfNeeded(
             dayDate: form.dayDate,
@@ -735,7 +770,6 @@ final class TaskEditorViewModel: ObservableObject {
             existing.endTime = finalTimes.end
 
             existing.isAllDay = form.isAllDay
-
             existing.repeatRule = form.repeatRule
             existing.repeatIntervalDays = intervalOrNil
             existing.normalizeRepeatFields()
@@ -772,7 +806,6 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Apply
     private func apply(_ result: TaskEditorTimeCoordinator.Result) {
         var copy = form
         copy.dayDate = result.dayDate
@@ -845,7 +878,6 @@ final class TaskEditorViewModel: ObservableObject {
         form = newValue
     }
 
-    // MARK: - Types
     struct FormState: Equatable {
         var title: String
         var notes: String

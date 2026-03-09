@@ -70,31 +70,43 @@ struct TaskEditorView: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        nameSection
-                        dateTimeSection(isCompact: isCompact)
+                        if viewModel.showsNameSection {
+                            nameSection
+                        }
 
-                        TaskEditorReminderSection(
-                            reminderEnabled: viewModel.reminderEnabledBinding,
-                            reminderOffsetMinutes: viewModel.binding(\.reminderOffsetMinutes),
-                            reminderAllDayTimeMinutes: viewModel.binding(\.reminderAllDayTimeMinutes),
-                            isAllDay: viewModel.form.isAllDay,
-                            defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes,
-                            gate: viewModel.reminderGate,
-                            onOpenNotificationsCenter: {
-                                focusedField = nil
-                                onOpenNotificationsCenter()
-                            },
-                            onOpenSystemSettings: {
-                                viewModel.openSystemSettings()
-                            }
-                        )
+                        if viewModel.showsDateTimeSection {
+                            dateTimeSection(isCompact: isCompact)
+                        }
 
-                        if !viewModel.hidesSeriesLockedFields {
+                        if viewModel.showsReminderSection {
+                            TaskEditorReminderSection(
+                                reminderEnabled: viewModel.reminderEnabledBinding,
+                                reminderOffsetMinutes: viewModel.binding(\.reminderOffsetMinutes),
+                                reminderAllDayTimeMinutes: viewModel.binding(\.reminderAllDayTimeMinutes),
+                                isAllDay: viewModel.form.isAllDay,
+                                defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes,
+                                gate: viewModel.reminderGate,
+                                onOpenNotificationsCenter: {
+                                    focusedField = nil
+                                    onOpenNotificationsCenter()
+                                },
+                                onOpenSystemSettings: {
+                                    viewModel.openSystemSettings()
+                                }
+                            )
+                        }
+
+                        if viewModel.showsColorSection {
                             TaskEditorColorSection(color: viewModel.binding(\.color))
+                        }
+
+                        if viewModel.showsRepeatSection {
                             repeatSection
                         }
 
-                        TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
+                        if viewModel.showsPhotoSection {
+                            TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
+                        }
                     }
                     .frame(width: contentWidth, alignment: .leading)
                     .padding(.horizontal, pad)
@@ -145,7 +157,8 @@ struct TaskEditorView: View {
             availableCategories: availableCategoryTitles,
             fixedCategoryChipWidth: 132,
             focusedField: $focusedField,
-            showsTitleAndCategory: !viewModel.hidesSeriesLockedFields
+            showsTitleAndCategory: viewModel.showsTitleAndCategory,
+            showsNotesEditor: viewModel.showsNotesEditor
         )
     }
 
@@ -177,11 +190,7 @@ struct TaskEditorView: View {
         defer { viewModel.isBusy = false }
 
         do {
-            if viewModel.requiresScopeMenuOnSave {
-                try viewModel.saveWithScope(.allFutureDays)
-            } else {
-                try viewModel.saveNormal()
-            }
+            try viewModel.saveNormal()
             dismiss()
         } catch let e as TaskEditorViewModel.EditorError {
             switch e {
