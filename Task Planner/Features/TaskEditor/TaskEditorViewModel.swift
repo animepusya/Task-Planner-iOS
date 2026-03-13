@@ -335,11 +335,7 @@ final class TaskEditorViewModel: ObservableObject {
 
     func setStartTime(_ newValue: Date) {
         guard newValue != form.startTime else { return }
-        var copy = form
-        copy.startTime = newValue
-        setFormIfChanged(copy)
-
-        onStartTimeChanged()
+        onStartTimeChanged(to: newValue)
     }
 
     func setEndDayDate(_ newValue: Date) {
@@ -355,11 +351,7 @@ final class TaskEditorViewModel: ObservableObject {
 
     func setEndTime(_ newValue: Date) {
         guard newValue != form.endTime else { return }
-        var copy = form
-        copy.endTime = newValue
-        setFormIfChanged(copy)
-
-        onEndTimeChanged()
+        onEndTimeChanged(to: newValue)
     }
 
     func setIsAllDay(_ newValue: Bool) {
@@ -407,13 +399,23 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func onStartTimeChanged() {
-        let alignedStart = time.alignStartTimeToSelectedDay(dayDate: form.dayDate, startTime: form.startTime)
+        onStartTimeChanged(to: form.startTime)
+    }
+
+    private func onStartTimeChanged(to newValue: Date) {
+        let result = time.moveStartKeepingDuration(
+            dayDate: form.dayDate,
+            oldStartTime: form.startTime,
+            oldEndDayDate: form.endDayDate,
+            oldEndTime: form.endTime,
+            newStartTime: newValue
+        )
 
         let validated = time.validateAndFix(
             dayDate: form.dayDate,
-            endDayDate: form.endDayDate,
-            startTime: alignedStart,
-            endTime: form.endTime
+            endDayDate: result.endDayDate,
+            startTime: result.startTime,
+            endTime: result.endTime
         )
 
         apply(validated)
@@ -440,7 +442,11 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func onEndTimeChanged() {
-        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: form.endDayDate, endTime: form.endTime)
+        onEndTimeChanged(to: form.endTime)
+    }
+
+    private func onEndTimeChanged(to newValue: Date) {
+        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: form.endDayDate, endTime: newValue)
 
         let validated = time.validateAndFix(
             dayDate: form.dayDate,
@@ -463,10 +469,10 @@ final class TaskEditorViewModel: ObservableObject {
 
     func loadExistingTask() async {
         guard let taskId else { return }
-        
+
         isBusy = true
         defer { isBusy = false }
-        
+
         do {
             do {
                 let prefs = try preferencesRepository.getOrCreate()
@@ -474,7 +480,7 @@ final class TaskEditorViewModel: ObservableObject {
             } catch {
                 weekStartsOnMonday = true
             }
-            
+
             guard let existing = try taskRepository.fetch(by: taskId) else {
                 alert = .init(title: "Task not found", message: "This task no longer exists.")
                 return

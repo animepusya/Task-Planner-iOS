@@ -43,6 +43,23 @@ struct TaskEditorTimeCoordinator {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
     }
 
+    func durationMinutes(
+        dayDate: Date,
+        endDayDate: Date,
+        startTime: Date,
+        endTime: Date
+    ) -> Int {
+        let normalized = normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+
+        let minutes = Int(normalized.end.timeIntervalSince(normalized.start) / 60)
+        return max(minDurationMinutes, minutes)
+    }
+
     // MARK: - Alignment
 
     func syncTimesToSelectedDay(
@@ -128,23 +145,47 @@ struct TaskEditorTimeCoordinator {
         if endDay < startDay {
             endDay = startDay
             end = combine(day: endDay, time: endTime)
-            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "End date can’t be earlier than start date.")
+            return Result(
+                dayDate: startDay,
+                endDayDate: endDay,
+                startTime: start,
+                endTime: end,
+                message: "End date can’t be earlier than start date."
+            )
         }
 
         if calendar.isDate(endDay, inSameDayAs: startDay), end < start {
             let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
             endDay = calendar.startOfDay(for: nextDay)
             end = combine(day: endDay, time: endTime)
-            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "Ends next day.")
+            return Result(
+                dayDate: startDay,
+                endDayDate: endDay,
+                startTime: start,
+                endTime: end,
+                message: "Ends next day."
+            )
         }
 
         if calendar.isDate(endDay, inSameDayAs: startDay), end == start {
             end = calendar.date(byAdding: .minute, value: minDurationMinutes, to: start) ?? start
             endDay = calendar.startOfDay(for: end)
-            return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: "Added \(minDurationMinutes) minutes.")
+            return Result(
+                dayDate: startDay,
+                endDayDate: endDay,
+                startTime: start,
+                endTime: end,
+                message: "Added \(minDurationMinutes) minutes."
+            )
         }
 
-        return Result(dayDate: startDay, endDayDate: endDay, startTime: start, endTime: end, message: nil)
+        return Result(
+            dayDate: startDay,
+            endDayDate: endDay,
+            startTime: start,
+            endTime: end,
+            message: nil
+        )
     }
 
     // MARK: - Duration
@@ -159,6 +200,70 @@ struct TaskEditorTimeCoordinator {
             startTime: start,
             endTime: end,
             endDayDate: calendar.startOfDay(for: end)
+        )
+    }
+
+    func moveStartKeepingDuration(
+        dayDate: Date,
+        newStartTime: Date,
+        currentEndDayDate: Date,
+        currentEndTime: Date
+    ) -> DurationResult {
+        let startDay = calendar.startOfDay(for: dayDate)
+        let alignedStart = combine(day: startDay, time: newStartTime)
+
+        let currentDurationMinutes = durationMinutes(
+            dayDate: dayDate,
+            endDayDate: currentEndDayDate,
+            startTime: combine(day: startDay, time: newStartTime == currentEndTime ? currentEndTime : newStartTime),
+            endTime: currentEndTime
+        )
+
+        let oldNormalized = normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: currentEndDayDate,
+            startTime: combine(day: startDay, time: alignedStart),
+            endTime: currentEndTime
+        )
+
+        let actualMinutes = Int(oldNormalized.end.timeIntervalSince(oldNormalized.start) / 60)
+        let safeMinutes = max(minDurationMinutes, actualMinutes)
+
+        let newEnd = calendar.date(byAdding: .minute, value: safeMinutes, to: alignedStart) ?? alignedStart
+
+        return DurationResult(
+            startTime: alignedStart,
+            endTime: newEnd,
+            endDayDate: calendar.startOfDay(for: newEnd)
+        )
+    }
+
+    func moveStartKeepingDuration(
+        dayDate: Date,
+        oldStartTime: Date,
+        oldEndDayDate: Date,
+        oldEndTime: Date,
+        newStartTime: Date
+    ) -> DurationResult {
+        let startDay = calendar.startOfDay(for: dayDate)
+
+        let oldNormalized = normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: oldEndDayDate,
+            startTime: oldStartTime,
+            endTime: oldEndTime
+        )
+
+        let actualMinutes = Int(oldNormalized.end.timeIntervalSince(oldNormalized.start) / 60)
+        let safeMinutes = max(minDurationMinutes, actualMinutes)
+
+        let alignedStart = combine(day: startDay, time: newStartTime)
+        let newEnd = calendar.date(byAdding: .minute, value: safeMinutes, to: alignedStart) ?? alignedStart
+
+        return DurationResult(
+            startTime: alignedStart,
+            endTime: newEnd,
+            endDayDate: calendar.startOfDay(for: newEnd)
         )
     }
 
