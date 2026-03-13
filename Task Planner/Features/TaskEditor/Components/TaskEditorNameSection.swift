@@ -37,7 +37,11 @@ struct TaskEditorNameSection: View {
                         .font(DS.Typography.body)
                         .textInputAutocapitalization(.sentences)
                         .disableAutocorrection(false)
+                        .submitLabel(.done)
                         .focused($focusedField, equals: .title)
+                        .onSubmit {
+                            focusedField = nil
+                        }
 
                     categoryMenuChip
                 }

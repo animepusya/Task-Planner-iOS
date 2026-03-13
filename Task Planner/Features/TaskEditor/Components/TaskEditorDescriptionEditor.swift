@@ -10,7 +10,7 @@ import SwiftUI
 struct TaskEditorDescriptionEditor: View {
     @Binding var notes: String
     @Binding var isExpanded: Bool
-    
+
     @FocusState.Binding var focusedField: TaskEditorField?
 
     private var hasNotes: Bool {
@@ -24,32 +24,30 @@ struct TaskEditorDescriptionEditor: View {
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             VStack(spacing: 8) {
-                TextField(
-                    "",
-                    text: $notes,
-                    axis: .vertical
-                )
-                .lineLimit(3...6)
-                .font(DS.Typography.body)
-                .focused($focusedField, equals: .description)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 12)
-                .background(Color.black.opacity(0.04))
-                .cornerRadius(DS.Radius.sm)
-                .overlay(alignment: .topLeading) {
-                    if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text("Add a short description…")
+                if shouldShowEditor {
+                    ZStack(alignment: .topLeading) {
+                        RoundedRectangle(cornerRadius: DS.Radius.sm)
+                            .fill(Color.black.opacity(0.04))
+
+                        TextEditor(text: $notes)
                             .font(DS.Typography.body)
-                            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.8))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 14)
-                            .allowsHitTesting(false)
+                            .focused($focusedField, equals: .description)
+                            .scrollContentBackground(.hidden)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 8)
+                            .frame(minHeight: 104, maxHeight: 168)
+
+                        if notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            Text("Add a short description…")
+                                .font(DS.Typography.body)
+                                .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.8))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 16)
+                                .allowsHitTesting(false)
+                        }
                     }
+                    .transition(.identity)
                 }
-                .opacity(shouldShowEditor ? 1 : 0)
-                .frame(height: shouldShowEditor ? nil : 0)
-                .clipped()
-                .allowsHitTesting(shouldShowEditor)
 
                 if !hasNotes {
                     if isExpanded {

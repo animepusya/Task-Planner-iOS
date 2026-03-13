@@ -46,21 +46,21 @@ struct TaskEditorView: View {
                     title: viewModel.navigationTitle,
                     isBusy: viewModel.isBusy,
                     onBack: {
-                        focusedField = nil
+                        dismissKeyboard()
                         dismiss()
                     },
                     canSave: viewModel.canSave,
                     showSaveScopeMenu: viewModel.requiresScopeMenuOnSave,
                     onSaveNormal: {
-                        focusedField = nil
+                        dismissKeyboard()
                         saveNormal()
                     },
                     onSaveOnlyThisDay: {
-                        focusedField = nil
+                        dismissKeyboard()
                         saveScoped(.onlyThisDay)
                     },
                     onSaveAllFuture: {
-                        focusedField = nil
+                        dismissKeyboard()
                         saveScoped(.allFutureDays)
                     }
                 )
@@ -87,7 +87,7 @@ struct TaskEditorView: View {
                                 defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes,
                                 gate: viewModel.reminderGate,
                                 onOpenNotificationsCenter: {
-                                    focusedField = nil
+                                    dismissKeyboard()
                                     onOpenNotificationsCenter()
                                 },
                                 onOpenSystemSettings: {
@@ -117,10 +117,17 @@ struct TaskEditorView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
+            .taskEditorDismissKeyboardOnTap {
+                focusedField = nil
+            }
             .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focusedField = nil }
+                if focusedField == .description {
+                    ToolbarItemGroup(placement: .keyboard) {
+                        Spacer()
+                        Button("Done") {
+                            dismissKeyboard()
+                        }
+                    }
                 }
             }
             .alert(item: $viewModel.alert) { alert in
@@ -183,6 +190,11 @@ struct TaskEditorView: View {
             isInvalid: viewModel.form.isRepeatInvalid,
             validationMessage: viewModel.form.repeatValidationMessage
         )
+    }
+
+    private func dismissKeyboard() {
+        focusedField = nil
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     }
 
     private func saveNormal() {
