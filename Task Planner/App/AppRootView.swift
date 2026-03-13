@@ -30,6 +30,7 @@ struct AppRootView: View {
         let seriesService = TaskSeriesService(taskRepository: taskRepo)
         let notificationService = container.makeNotificationService()
         let notificationSync = container.makeNotificationSyncService(context: modelContext)
+        let widgetSnapshotSync = container.makeWidgetSnapshotSyncService(context: modelContext)
 
         ZStack {
             AppBackgroundView(gradient: DS.GradientToken.splash)
@@ -132,6 +133,21 @@ struct AppRootView: View {
             guard !didBootstrap else { return }
             didBootstrap = true
             container.ensureSystemCategories(using: modelContext)
+            widgetSnapshotSync.refreshSnapshot()
+        }
+        .onOpenURL { url in
+            guard let route = WidgetRoute(url: url) else { return }
+
+            switch route {
+            case .planner(let day):
+                sheet = nil
+                selectedTab = .planner
+                WidgetRouteCenter.postPlannerDay(day)
+
+            case .createTask(let day):
+                selectedTab = .planner
+                sheet = .taskEditor(taskId: nil, preselectedDay: day, mode: .standard)
+            }
         }
     }
 }

@@ -25,7 +25,6 @@ final class DependencyContainer {
             modelContext: context
         )
 
-        // Notifications
         let notificationService = UNUserNotificationService()
         let notificationSync = NotificationSyncService(
             notificationService: notificationService,
@@ -38,10 +37,20 @@ final class DependencyContainer {
             preferencesRepository: prefsRepo
         )
 
-        return NotifyingTaskRepository(
+        let notifying = NotifyingTaskRepository(
             base: synced,
             notificationSync: notificationSync,
             preferencesRepository: prefsRepo
+        )
+
+        let widgetSync = WidgetSnapshotSyncService(
+            taskRepository: notifying,
+            preferencesRepository: prefsRepo
+        )
+
+        return WidgetSyncingTaskRepository(
+            base: notifying,
+            widgetSnapshotSync: widgetSync
         )
     }
 
@@ -67,6 +76,16 @@ final class DependencyContainer {
         return NotificationSyncService(
             notificationService: UNUserNotificationService(),
             preferencesRepository: prefs
+        )
+    }
+
+    func makeWidgetSnapshotSyncService(context: ModelContext) -> WidgetSnapshotSyncService {
+        let taskRepo = makeTaskRepository(context: context)
+        let prefsRepo = makePreferencesRepository(context: context)
+
+        return WidgetSnapshotSyncService(
+            taskRepository: taskRepo,
+            preferencesRepository: prefsRepo
         )
     }
 

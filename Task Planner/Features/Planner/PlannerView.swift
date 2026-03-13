@@ -165,6 +165,10 @@ struct PlannerView: View {
             viewModel.loadPreferences()
             viewModel.refreshExternalEvents()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .widgetPlannerDayRequested)) { note in
+            guard let day = note.object as? Date else { return }
+            viewModel.applyExternalSelectedDay(day)
+        }
     }
 
     private var header: some View {

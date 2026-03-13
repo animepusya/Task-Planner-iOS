@@ -66,6 +66,12 @@ final class PlannerViewModel: ObservableObject {
         Task { await loadExternalEventsForVisibleMonth() }
     }
 
+    func applyExternalSelectedDay(_ day: Date) {
+        let normalized = Calendar.current.startOfDay(for: day)
+        selectedDay = normalized
+        monthAnchor = Calendar.current.startOfMonth(for: normalized)
+    }
+
     func loadPreferences() {
         do {
             let prefs = try preferencesRepository.getOrCreate()

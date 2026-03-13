@@ -6,19 +6,95 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		8C916A932F6393BC002D4FE3 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C916A922F6393BC002D4FE3 /* WidgetKit.framework */; };
+		8C916A952F6393BC002D4FE3 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8C916A942F6393BC002D4FE3 /* SwiftUI.framework */; };
+		8C916AA62F6393BD002D4FE3 /* TaskPlannerWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 8C916A902F6393BC002D4FE3 /* TaskPlannerWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		8C916AA42F6393BD002D4FE3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8CACBC0C2F39D74F004A371B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8C916A8F2F6393BC002D4FE3;
+			remoteInfo = TaskPlannerWidgetsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8C916AAB2F6393BD002D4FE3 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				8C916AA62F6393BD002D4FE3 /* TaskPlannerWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		8C916A902F6393BC002D4FE3 /* TaskPlannerWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TaskPlannerWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		8C916A922F6393BC002D4FE3 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		8C916A942F6393BC002D4FE3 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		8C916AAC2F6393D8002D4FE3 /* TaskPlannerWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = TaskPlannerWidgetsExtension.entitlements; sourceTree = "<group>"; };
 		8CACBC142F39D74F004A371B /* Task Planner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Task Planner.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		8C916AA72F6393BD002D4FE3 /* Exceptions for "TaskPlannerWidgets" folder in "TaskPlannerWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 8C916A8F2F6393BC002D4FE3 /* TaskPlannerWidgetsExtension */;
+		};
+		8C916AAF2F63958F002D4FE3 /* Exceptions for "Task Planner" folder in "TaskPlannerWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Data/Model/Enums/TaskColor.swift,
+				Shared/DesignSystem/DS.swift,
+				Shared/Widgets/WidgetRouteCenter.swift,
+				Shared/Widgets/WidgetShared.swift,
+				Shared/Widgets/WidgetSnapshotModels.swift,
+				Shared/Widgets/WidgetStore.swift,
+			);
+			target = 8C916A8F2F6393BC002D4FE3 /* TaskPlannerWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		8C916A962F6393BC002D4FE3 /* TaskPlannerWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8C916AA72F6393BD002D4FE3 /* Exceptions for "TaskPlannerWidgets" folder in "TaskPlannerWidgetsExtension" target */,
+			);
+			path = TaskPlannerWidgets;
+			sourceTree = "<group>";
+		};
 		8CACBC162F39D74F004A371B /* Task Planner */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				8C916AAF2F63958F002D4FE3 /* Exceptions for "Task Planner" folder in "TaskPlannerWidgetsExtension" target */,
+			);
 			path = "Task Planner";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		8C916A8D2F6393BC002D4FE3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8C916A952F6393BC002D4FE3 /* SwiftUI.framework in Frameworks */,
+				8C916A932F6393BC002D4FE3 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8CACBC112F39D74F004A371B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -29,10 +105,22 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		8C916A912F6393BC002D4FE3 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				8C916A922F6393BC002D4FE3 /* WidgetKit.framework */,
+				8C916A942F6393BC002D4FE3 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		8CACBC0B2F39D74F004A371B = {
 			isa = PBXGroup;
 			children = (
+				8C916AAC2F6393D8002D4FE3 /* TaskPlannerWidgetsExtension.entitlements */,
 				8CACBC162F39D74F004A371B /* Task Planner */,
+				8C916A962F6393BC002D4FE3 /* TaskPlannerWidgets */,
+				8C916A912F6393BC002D4FE3 /* Frameworks */,
 				8CACBC152F39D74F004A371B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +129,7 @@
 			isa = PBXGroup;
 			children = (
 				8CACBC142F39D74F004A371B /* Task Planner.app */,
+				8C916A902F6393BC002D4FE3 /* TaskPlannerWidgetsExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +137,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		8C916A8F2F6393BC002D4FE3 /* TaskPlannerWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8C916AA82F6393BD002D4FE3 /* Build configuration list for PBXNativeTarget "TaskPlannerWidgetsExtension" */;
+			buildPhases = (
+				8C916A8C2F6393BC002D4FE3 /* Sources */,
+				8C916A8D2F6393BC002D4FE3 /* Frameworks */,
+				8C916A8E2F6393BC002D4FE3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				8C916A962F6393BC002D4FE3 /* TaskPlannerWidgets */,
+			);
+			name = TaskPlannerWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = TaskPlannerWidgetsExtension;
+			productReference = 8C916A902F6393BC002D4FE3 /* TaskPlannerWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		8CACBC132F39D74F004A371B /* Task Planner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 8CACBC212F39D750004A371B /* Build configuration list for PBXNativeTarget "Task Planner" */;
@@ -55,10 +166,12 @@
 				8CACBC102F39D74F004A371B /* Sources */,
 				8CACBC112F39D74F004A371B /* Frameworks */,
 				8CACBC122F39D74F004A371B /* Resources */,
+				8C916AAB2F6393BD002D4FE3 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				8C916AA52F6393BD002D4FE3 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				8CACBC162F39D74F004A371B /* Task Planner */,
@@ -80,6 +193,9 @@
 				LastSwiftUpdateCheck = 2610;
 				LastUpgradeCheck = 2610;
 				TargetAttributes = {
+					8C916A8F2F6393BC002D4FE3 = {
+						CreatedOnToolsVersion = 26.1.1;
+					};
 					8CACBC132F39D74F004A371B = {
 						CreatedOnToolsVersion = 26.1.1;
 					};
@@ -100,11 +216,19 @@
 			projectRoot = "";
 			targets = (
 				8CACBC132F39D74F004A371B /* Task Planner */,
+				8C916A8F2F6393BC002D4FE3 /* TaskPlannerWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		8C916A8E2F6393BC002D4FE3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8CACBC122F39D74F004A371B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +239,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		8C916A8C2F6393BC002D4FE3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		8CACBC102F39D74F004A371B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -124,7 +255,79 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		8C916AA52F6393BD002D4FE3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8C916A8F2F6393BC002D4FE3 /* TaskPlannerWidgetsExtension */;
+			targetProxy = 8C916AA42F6393BD002D4FE3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		8C916AA92F6393BD002D4FE3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = TaskPlannerWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VH6N2XGU8U;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TaskPlannerWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TaskPlannerWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "RM.Task-Planner.TaskPlannerWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		8C916AAA2F6393BD002D4FE3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_ENTITLEMENTS = TaskPlannerWidgetsExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = VH6N2XGU8U;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = TaskPlannerWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = TaskPlannerWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "RM.Task-Planner.TaskPlannerWidgets";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		8CACBC1F2F39D750004A371B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -251,6 +454,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Task Planner/Task Planner.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = VH6N2XGU8U;
@@ -287,6 +491,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = "Task Planner/Task Planner.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = VH6N2XGU8U;
@@ -321,6 +526,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		8C916AA82F6393BD002D4FE3 /* Build configuration list for PBXNativeTarget "TaskPlannerWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8C916AA92F6393BD002D4FE3 /* Debug */,
+				8C916AAA2F6393BD002D4FE3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		8CACBC0F2F39D74F004A371B /* Build configuration list for PBXProject "Task Planner" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
