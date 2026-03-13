@@ -46,8 +46,21 @@ enum TaskSeriesEngine {
         }) {
             return seg.template
         }
+        
+        if task.repeatRule != .none || !task.seriesSegments.isEmpty || !task.seriesOverrides.isEmpty {
+            return nil
+        }
 
         return templateFromTask(task, dayStart: calendar.startOfDay(for: task.dayDate), calendar: calendar)
+    }
+
+    static func explicitOverride(
+        for task: TaskEntity,
+        day: Date,
+        calendar: Calendar = .current
+    ) -> TaskSeriesOverride? {
+        let key = DayKey.format(calendar.startOfDay(for: day), calendar: calendar)
+        return task.seriesOverrides.first(where: { $0.dayKey == key })
     }
 
     static func isBeyondSeriesEnd(_ task: TaskEntity, day: Date, calendar: Calendar = .current) -> Bool {
@@ -61,6 +74,11 @@ enum TaskSeriesEngine {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let targetDay = cal.startOfDay(for: date)
 
+        if let override = explicitOverride(for: task, day: targetDay, calendar: cal) {
+            if override.isDeleted { return false }
+            if override.template != nil { return true }
+        }
+
         if isBeyondSeriesEnd(task, day: targetDay, calendar: cal) { return false }
 
         if task.repeatRule == .none && task.seriesSegments.isEmpty && task.seriesOverrides.isEmpty {
@@ -68,23 +86,23 @@ enum TaskSeriesEngine {
             return cal.isDate(targetDay, inSameDayAs: baseDay)
         }
 
-        guard let tpl = template(for: task, startDay: targetDay, calendar: cal) else { return false }
+        guard let tpl = template(for: task, startDay: targetDay, calendar: cal) else {
+            return false
+        }
 
         let rule = tpl.repeatRule
+        let anchor = activeSegmentStartDay(for: task, day: targetDay, calendar: cal)
+
         if rule == .none {
-            let anchor = activeSegmentStartDay(for: task, day: targetDay, calendar: cal) ?? cal.startOfDay(for: task.dayDate)
+            guard let anchor else { return false }
             return cal.isDate(targetDay, inSameDayAs: anchor)
         }
 
-        guard let anchor = activeSegmentStartDay(for: task, day: targetDay, calendar: cal) else {
-            return TaskOccurrence.occursStartOnBase(
-                rule: rule,
-                intervalDays: tpl.repeatIntervalDays,
-                baseDay: cal.startOfDay(for: task.dayDate),
-                targetDay: targetDay,
-                calendar: cal,
-                weekStartsOnMonday: weekStartsOnMonday
-            )
+        guard let anchor else {
+            // Important:
+            // if template exists only via explicit override and there is no active segment,
+            // treat it as a single explicit occurrence, not as a new recurrence base.
+            return false
         }
 
         return TaskOccurrence.occursStartOnBase(
@@ -113,7 +131,8 @@ enum TaskSeriesEngine {
         searchLimitDays: Int = 3660
     ) -> Date? {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-        var cursor = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: day)) ?? cal.startOfDay(for: day).addingTimeInterval(86400)
+        var cursor = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: day))
+            ?? cal.startOfDay(for: day).addingTimeInterval(86400)
 
         for _ in 0..<searchLimitDays {
             let candidate = cal.startOfDay(for: cursor)
@@ -131,6 +150,7 @@ enum TaskSeriesEngine {
     private static func activeSegmentStartDay(for task: TaskEntity, day: Date, calendar: Calendar) -> Date? {
         let d = calendar.startOfDay(for: day)
         let segs = task.seriesSegments.sorted { $0.startDay < $1.startDay }
+
         guard let seg = segs.last(where: { s in
             let sStart = calendar.startOfDay(for: s.startDay)
             guard d >= sStart else { return false }

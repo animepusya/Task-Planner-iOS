@@ -172,6 +172,14 @@ extension TaskEntity {
         set.remove(key)
         suppressedReminderKeys = set
     }
+
+    func removeSuppressedReminders(onOrAfter day: Date, calendar: Calendar = .current) {
+        let threshold = calendar.startOfDay(for: day)
+        let filtered = suppressedReminderKeys.filter { key in
+            DayKey.parse(key, calendar: calendar) < threshold
+        }
+        suppressedReminderKeys = filtered
+    }
 }
 
 // MARK: - Series segmentation JSON helpers

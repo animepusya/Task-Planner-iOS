@@ -17,6 +17,12 @@ final class TaskSeriesService {
     }
 
     struct EditChanges: Equatable {
+        let startDay: Date
+        let template: TaskSeriesTemplate
+    }
+
+    private struct PreservedPastOccurrence {
+        let day: Date
         let template: TaskSeriesTemplate
     }
 
@@ -37,17 +43,31 @@ final class TaskSeriesService {
         guard let task = try taskRepository.fetch(by: taskId) else { return }
 
         let cal = Calendar.current
-        let day = cal.startOfDay(for: occurrenceStartDay)
+        let sourceDay = cal.startOfDay(for: occurrenceStartDay)
+        let targetDay = cal.startOfDay(for: changes.startDay)
 
         TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
 
         switch scope {
         case .onlyThisDay:
-            upsertOverride(task: task, day: day, template: changes.template)
+            applyOnlyThisDayEdit(
+                task: task,
+                sourceDay: sourceDay,
+                targetDay: targetDay,
+                template: changes.template,
+                calendar: cal
+            )
+            syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
 
         case .allFutureDays:
-            splitAndApplyAllFuture(task: task, from: day, newTemplate: changes.template)
+            splitAndApplyAllFuture(
+                task: task,
+                from: sourceDay,
+                newStartDay: targetDay,
+                newTemplate: changes.template,
+                calendar: cal
+            )
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
         }
@@ -68,7 +88,11 @@ final class TaskSeriesService {
         switch scope {
         case .onlyThisDay:
             if isOwnerDay(task: task, day: day, calendar: cal) {
-                let transferred = transferOwnershipAfterDeletingOwnerDay(task: task, deletedOwnerDay: day, calendar: cal)
+                let transferred = transferOwnershipAfterDeletingOwnerDay(
+                    task: task,
+                    deletedOwnerDay: day,
+                    calendar: cal
+                )
                 if transferred == false {
                     try taskRepository.delete(task)
                     return
@@ -78,6 +102,7 @@ final class TaskSeriesService {
             markDeletedOverride(task: task, day: day)
             let key = TaskEntity.dayKey(for: day, calendar: cal)
             task.suppressReminder(for: key)
+
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
 
@@ -93,6 +118,40 @@ final class TaskSeriesService {
         }
     }
 
+    // MARK: - Only this day edit / move
+
+    private func applyOnlyThisDayEdit(
+        task: TaskEntity,
+        sourceDay: Date,
+        targetDay: Date,
+        template: TaskSeriesTemplate,
+        calendar: Calendar
+    ) {
+        if calendar.isDate(sourceDay, inSameDayAs: targetDay) {
+            upsertOverride(task: task, day: sourceDay, template: template)
+            normalizeReminderSuppressionAfterExplicitOccurrence(
+                task: task,
+                day: sourceDay,
+                template: template,
+                calendar: calendar
+            )
+            return
+        }
+
+        // remove old occurrence from original day
+        markDeletedOverride(task: task, day: sourceDay)
+        task.suppressReminder(for: DayKey.format(sourceDay, calendar: calendar))
+
+        // create explicit moved occurrence on target day
+        upsertOverride(task: task, day: targetDay, template: template)
+        normalizeReminderSuppressionAfterExplicitOccurrence(
+            task: task,
+            day: targetDay,
+            template: template,
+            calendar: calendar
+        )
+    }
+
     // MARK: - Overrides
 
     private func upsertOverride(task: TaskEntity, day: Date, template: TaskSeriesTemplate) {
@@ -104,7 +163,14 @@ final class TaskSeriesService {
             overrides[idx].isDeleted = false
             overrides[idx].template = template
         } else {
-            overrides.append(TaskSeriesOverride(id: UUID(), dayKey: key, isDeleted: false, template: template))
+            overrides.append(
+                TaskSeriesOverride(
+                    id: UUID(),
+                    dayKey: key,
+                    isDeleted: false,
+                    template: template
+                )
+            )
         }
 
         task.seriesOverrides = overrides
@@ -119,16 +185,26 @@ final class TaskSeriesService {
             overrides[idx].isDeleted = true
             overrides[idx].template = nil
         } else {
-            overrides.append(TaskSeriesOverride(id: UUID(), dayKey: key, isDeleted: true, template: nil))
+            overrides.append(
+                TaskSeriesOverride(
+                    id: UUID(),
+                    dayKey: key,
+                    isDeleted: true,
+                    template: nil
+                )
+            )
         }
 
         task.seriesOverrides = overrides
     }
 
-    // MARK: - Ownership transfer
+    // MARK: - Ownership transfer / sync
 
     private func isOwnerDay(task: TaskEntity, day: Date, calendar: Calendar) -> Bool {
-        calendar.isDate(calendar.startOfDay(for: task.dayDate), inSameDayAs: calendar.startOfDay(for: day))
+        calendar.isDate(
+            calendar.startOfDay(for: task.dayDate),
+            inSameDayAs: calendar.startOfDay(for: day)
+        )
     }
 
     @discardableResult
@@ -150,8 +226,31 @@ final class TaskSeriesService {
     }
 
     private func syncOwnerFieldsToCurrentOwnerIfNeeded(task: TaskEntity, calendar: Calendar) {
-        let ownerDay = calendar.startOfDay(for: task.dayDate)
+        guard let ownerDay = resolvedOwnerDay(for: task, calendar: calendar) else { return }
         applyOwnerFields(task: task, ownerDay: ownerDay, calendar: calendar)
+    }
+
+    private func resolvedOwnerDay(for task: TaskEntity, calendar: Calendar) -> Date? {
+        let explicitDays = task.seriesOverrides.compactMap { override -> Date? in
+            guard override.isDeleted == false, override.template != nil else { return nil }
+            return DayKey.parse(override.dayKey, calendar: calendar)
+        }
+
+        let segmentDays = task.seriesSegments.map { calendar.startOfDay(for: $0.startDay) }
+        let mirroredOwnerDay = calendar.startOfDay(for: task.dayDate)
+
+        let earliestCandidate = ([mirroredOwnerDay] + explicitDays + segmentDays).min() ?? mirroredOwnerDay
+        let probeDay = calendar.date(byAdding: .day, value: -1, to: earliestCandidate) ?? earliestCandidate
+
+        if TaskSeriesEngine.occursStartOn(task, on: earliestCandidate, weekStartsOnMonday: true) {
+            return earliestCandidate
+        }
+
+        return TaskSeriesEngine.nextOccurrenceStartDay(
+            for: task,
+            after: probeDay,
+            weekStartsOnMonday: true
+        )
     }
 
     private func applyOwnerFields(task: TaskEntity, ownerDay: Date, calendar: Calendar) {
@@ -178,76 +277,212 @@ final class TaskSeriesService {
         task.normalizeRepeatFields()
     }
 
-    // MARK: - All future split (deterministic, no conflicts)
+    // MARK: - All future split / move
 
-    private func splitAndApplyAllFuture(task: TaskEntity, from day: Date, newTemplate: TaskSeriesTemplate) {
-        let cal = Calendar.current
-        var segs = task.seriesSegments.sorted { $0.startDay < $1.startDay }
-        guard !segs.isEmpty else { return }
+    private func splitAndApplyAllFuture(
+        task: TaskEntity,
+        from sourceDay: Date,
+        newStartDay targetDay: Date,
+        newTemplate: TaskSeriesTemplate,
+        calendar: Calendar
+    ) {
+        let preservedPast = buildPreservedPastOccurrences(
+            task: task,
+            sourceDay: sourceDay,
+            targetDay: targetDay,
+            newTemplate: newTemplate,
+            calendar: calendar
+        )
 
-        guard let activeIndex = segs.lastIndex(where: { s in
-            let sStart = cal.startOfDay(for: s.startDay)
-            guard day >= sStart else { return false }
-            if let end = s.endDay {
-                let sEnd = cal.startOfDay(for: end)
-                return day <= sEnd
+        var segments = task.seriesSegments.sorted { $0.startDay < $1.startDay }
+        guard !segments.isEmpty else { return }
+
+        let originalSeriesEnd = task.seriesEndDay.map { calendar.startOfDay(for: $0) }
+        let sourceMinusOne = calendar.date(byAdding: .day, value: -1, to: sourceDay) ?? sourceDay
+
+        if let activeIndex = activeSegmentIndex(in: segments, for: sourceDay, calendar: calendar) {
+            let activeStart = calendar.startOfDay(for: segments[activeIndex].startDay)
+
+            if sourceDay <= activeStart {
+                segments.removeAll { calendar.startOfDay(for: $0.startDay) >= activeStart }
+            } else {
+                segments[activeIndex].endDayKey = DayKey.format(sourceMinusOne, calendar: calendar)
+                segments.removeAll { calendar.startOfDay(for: $0.startDay) > sourceMinusOne }
             }
-            return true
-        }) else {
-            let nextStart = segs.first(where: { cal.startOfDay(for: $0.startDay) > day })?.startDay
-            let endCap = nextStart.map { cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: $0))! }
-            segs.append(TaskSeriesSegment(
-                id: UUID(),
-                startDayKey: DayKey.format(day, calendar: cal),
-                endDayKey: endCap.map { DayKey.format($0, calendar: cal) },
-                template: newTemplate
-            ))
-            task.seriesSegments = segs
-            return
-        }
-
-        let nextSegStartDay: Date? = {
-            for i in (activeIndex + 1)..<segs.count {
-                let s = cal.startOfDay(for: segs[i].startDay)
-                if s > day { return s }
-            }
-            return nil
-        }()
-
-        let cappedEnd: Date? = {
-            if let next = nextSegStartDay {
-                return cal.date(byAdding: .day, value: -1, to: next)
-            }
-            return segs[activeIndex].endDay.map { cal.startOfDay(for: $0) }
-        }()
-
-        let activeStart = cal.startOfDay(for: segs[activeIndex].startDay)
-        let activeEnd = segs[activeIndex].endDay.map { cal.startOfDay(for: $0) }
-
-        if activeStart == day {
-            segs[activeIndex].template = newTemplate
-            segs[activeIndex].endDayKey = cappedEnd.map { DayKey.format($0, calendar: cal) }
         } else {
-            let leftEnd = cal.date(byAdding: .day, value: -1, to: day)!
-            segs[activeIndex].endDayKey = DayKey.format(leftEnd, calendar: cal)
-
-            let newSeg = TaskSeriesSegment(
-                id: UUID(),
-                startDayKey: DayKey.format(day, calendar: cal),
-                endDayKey: cappedEnd.map { DayKey.format($0, calendar: cal) } ?? activeEnd.map { DayKey.format($0, calendar: cal) },
-                template: newTemplate
-            )
-            segs.insert(newSeg, at: activeIndex + 1)
+            segments.removeAll { calendar.startOfDay(for: $0.startDay) >= sourceDay }
         }
 
-        segs.removeAll { s in
-            if let end = s.endDay {
-                return cal.startOfDay(for: end) < cal.startOfDay(for: s.startDay)
+        segments.removeAll { segment in
+            if let end = segment.endDay {
+                return calendar.startOfDay(for: end) < calendar.startOfDay(for: segment.startDay)
             }
             return false
         }
 
-        task.seriesSegments = segs
+        let newSegment = TaskSeriesSegment(
+            id: UUID(),
+            startDayKey: DayKey.format(targetDay, calendar: calendar),
+            endDayKey: originalSeriesEnd.map { DayKey.format($0, calendar: calendar) },
+            template: newTemplate
+        )
+
+        segments.append(newSegment)
+        task.seriesSegments = normalizedSegments(segments, calendar: calendar)
+
+        // remove all overrides affected by the rewritten future
+        let wipeFloor = min(sourceDay, targetDay)
+        var overrides = task.seriesOverrides
+        overrides.removeAll { override in
+            DayKey.parse(override.dayKey, calendar: calendar) >= wipeFloor
+        }
+        task.seriesOverrides = overrides
+
+        // restore past occurrences that must survive backward moves
+        for preserved in preservedPast {
+            upsertOverride(task: task, day: preserved.day, template: preserved.template)
+        }
+
+        normalizeReminderSuppressionAfterFutureMove(
+            task: task,
+            sourceDay: sourceDay,
+            targetDay: targetDay,
+            newTemplate: newTemplate,
+            calendar: calendar
+        )
+    }
+
+    private func buildPreservedPastOccurrences(
+        task: TaskEntity,
+        sourceDay: Date,
+        targetDay: Date,
+        newTemplate: TaskSeriesTemplate,
+        calendar: Calendar
+    ) -> [PreservedPastOccurrence] {
+        guard targetDay < sourceDay else { return [] }
+
+        var preserved: [PreservedPastOccurrence] = []
+        var cursor = targetDay
+
+        while cursor < sourceDay {
+            let oldOccurs = TaskSeriesEngine.occursStartOn(task, on: cursor, weekStartsOnMonday: true)
+            let newOccurs = TaskOccurrence.occursStartOnBase(
+                rule: newTemplate.repeatRule,
+                intervalDays: newTemplate.repeatIntervalDays,
+                baseDay: targetDay,
+                targetDay: cursor,
+                calendar: calendar,
+                weekStartsOnMonday: true
+            )
+
+            // deterministic rule:
+            // if shifted future does NOT occupy this day, preserve the old past occurrence
+            if oldOccurs,
+               newOccurs == false,
+               let oldTemplate = TaskSeriesEngine.template(for: task, startDay: cursor, calendar: calendar) {
+                preserved.append(PreservedPastOccurrence(day: cursor, template: oldTemplate))
+            }
+
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86_400)
+        }
+
+        return preserved
+    }
+
+    private func activeSegmentIndex(
+        in segments: [TaskSeriesSegment],
+        for day: Date,
+        calendar: Calendar
+    ) -> Int? {
+        segments.lastIndex(where: { segment in
+            let start = calendar.startOfDay(for: segment.startDay)
+            guard day >= start else { return false }
+            if let end = segment.endDay {
+                return day <= calendar.startOfDay(for: end)
+            }
+            return true
+        })
+    }
+
+    private func normalizedSegments(
+        _ segments: [TaskSeriesSegment],
+        calendar: Calendar
+    ) -> [TaskSeriesSegment] {
+        var sorted = segments.sorted { $0.startDay < $1.startDay }
+        var result: [TaskSeriesSegment] = []
+
+        for var segment in sorted {
+            let start = calendar.startOfDay(for: segment.startDay)
+
+            if let last = result.last,
+               calendar.isDate(calendar.startOfDay(for: last.startDay), inSameDayAs: start) {
+                result.removeLast()
+            }
+
+            if let end = segment.endDay {
+                let normalizedEnd = calendar.startOfDay(for: end)
+                if normalizedEnd < start {
+                    continue
+                }
+                segment.endDayKey = DayKey.format(normalizedEnd, calendar: calendar)
+            }
+
+            segment.startDayKey = DayKey.format(start, calendar: calendar)
+            result.append(segment)
+        }
+
+        return result
+    }
+
+    // MARK: - Reminder normalization
+
+    private func normalizeReminderSuppressionAfterExplicitOccurrence(
+        task: TaskEntity,
+        day: Date,
+        template: TaskSeriesTemplate,
+        calendar: Calendar
+    ) {
+        let key = DayKey.format(day, calendar: calendar)
+
+        if template.reminderEnabled {
+            task.unsuppressReminder(for: key)
+        } else {
+            task.suppressReminder(for: key)
+        }
+    }
+
+    private func normalizeReminderSuppressionAfterFutureMove(
+        task: TaskEntity,
+        sourceDay: Date,
+        targetDay: Date,
+        newTemplate: TaskSeriesTemplate,
+        calendar: Calendar
+    ) {
+        let floorDay = min(sourceDay, targetDay)
+        task.removeSuppressedReminders(onOrAfter: floorDay, calendar: calendar)
+
+        guard newTemplate.reminderEnabled == false else { return }
+
+        // keep deterministic reminder state for disabled reminders after future rewrite
+        var cursor = targetDay
+        let limit = calendar.date(byAdding: .day, value: 120, to: targetDay) ?? targetDay
+
+        while cursor <= limit {
+            let occurs = TaskOccurrence.occursStartOnBase(
+                rule: newTemplate.repeatRule,
+                intervalDays: newTemplate.repeatIntervalDays,
+                baseDay: targetDay,
+                targetDay: cursor,
+                calendar: calendar,
+                weekStartsOnMonday: true
+            )
+
+            if occurs {
+                task.suppressReminder(for: DayKey.format(cursor, calendar: calendar))
+            }
+
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86_400)
+        }
     }
 
     // MARK: - Delete all future

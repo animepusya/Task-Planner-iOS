@@ -61,10 +61,12 @@ final class TaskEditorViewModel: ObservableObject {
     @Published private(set) var reminderGate: ReminderGate?
 
     var isEditing: Bool { taskId != nil }
+
     var navigationTitle: String {
         if isBaseRecurringIdentityMode { return "Edit Recurring Task" }
         return isEditing ? "Edit Task" : "Create Task"
     }
+
     var canSave: Bool { !isBusy && !form.isRepeatInvalid }
 
     init(
@@ -638,7 +640,8 @@ final class TaskEditorViewModel: ObservableObject {
         }
 
         let cal = Calendar.current
-        let startDay = cal.startOfDay(for: occurrenceStartDay ?? form.dayDate)
+        let originalOccurrenceDay = cal.startOfDay(for: occurrenceStartDay ?? form.dayDate)
+        let editedStartDay = cal.startOfDay(for: form.dayDate)
 
         let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
         let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
@@ -683,9 +686,12 @@ final class TaskEditorViewModel: ObservableObject {
 
         try seriesService.applyEdit(
             taskId: taskId,
-            occurrenceStartDay: startDay,
+            occurrenceStartDay: originalOccurrenceDay,
             scope: scope,
-            changes: .init(template: tpl)
+            changes: .init(
+                startDay: editedStartDay,
+                template: tpl
+            )
         )
     }
 
@@ -721,7 +727,10 @@ final class TaskEditorViewModel: ObservableObject {
             taskId: taskId,
             occurrenceStartDay: ownerDay,
             scope: .allFutureDays,
-            changes: .init(template: template)
+            changes: .init(
+                startDay: ownerDay,
+                template: template
+            )
         )
     }
 
