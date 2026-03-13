@@ -23,7 +23,6 @@ struct StatisticsView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                    header
                     periodCard
                     donutCard
                     totalCard
@@ -36,6 +35,9 @@ struct StatisticsView: View {
             .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         }
         .navigationBarHidden(true)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            header
+        }
         .onAppear {
             viewModel.reloadPreferencesAndRefresh()
         }
@@ -51,24 +53,11 @@ struct StatisticsView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center) {
-            Text("Statistics")
-                .font(DS.Typography.title)
-                .foregroundColor(DS.ColorToken.textPrimary)
-
-            Spacer()
-
-            Button(action: viewModel.openSettings) {
-                Image(systemName: "person.crop.circle")
-                    .font(.system(size: 22, weight: .semibold))
-                    .foregroundColor(DS.ColorToken.textPrimary)
-                    .frame(width: 44, height: 44)
-                    .background(Color.white)
-                    .clipShape(Circle())
-                    .shadow(color: DS.Shadow.soft, radius: 10, x: 0, y: 6)
+        ScreenTopSection(title: "Statistics") {
+            IconCircleButton(systemName: "gearshape") {
+                viewModel.openSettings()
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Profile")
+            .accessibilityLabel("Settings")
         }
     }
 

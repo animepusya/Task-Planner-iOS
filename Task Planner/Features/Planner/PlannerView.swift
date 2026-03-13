@@ -33,7 +33,6 @@ struct PlannerView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                    header
                     calendarCard
                 }
                 .padding(.horizontal, DS.Spacing.lg)
@@ -161,6 +160,9 @@ struct PlannerView: View {
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         .navigationBarHidden(true)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            header
+        }
         .onAppear {
             viewModel.loadPreferences()
             viewModel.refreshExternalEvents()
@@ -172,19 +174,10 @@ struct PlannerView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Task Planner")
-                    .font(DS.Typography.title)
-                    .foregroundColor(DS.ColorToken.textPrimary)
-
-                Text("Organize your day with ease")
-                    .font(DS.Typography.subtitle)
-                    .foregroundColor(DS.ColorToken.textSecondary)
-            }
-
-            Spacer(minLength: 12)
-
+        ScreenTopSection(
+            title: "Task Planner",
+            subtitle: "Organize your day with ease"
+        ) {
             HStack(spacing: 10) {
                 IconCircleButton(systemName: "square.stack.3d.up") {
                     viewModel.openRecurringBaseTasks()
