@@ -7,8 +7,6 @@
 
 import SwiftUI
 
-import SwiftUI
-
 struct SplashView: View {
     let onFinished: () -> Void
 

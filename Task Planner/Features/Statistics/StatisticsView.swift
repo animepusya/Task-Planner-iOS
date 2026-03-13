@@ -16,11 +16,11 @@ struct StatisticsView: View {
     var body: some View {
         ZStack {
             AppBackgroundView(
-                    gradient: DS.GradientToken.pinkPurpleSoft,
-                    gradientOpacity: 0.55,
-                    blurRadius: 22
-                )
-            
+                gradient: DS.GradientToken.pinkPurpleSoft,
+                gradientOpacity: 0.55,
+                blurRadius: 22
+            )
+
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     header
@@ -33,7 +33,7 @@ struct StatisticsView: View {
                 .padding(.bottom, 24)
             }
             .background(Color.clear)
-            .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
+            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         }
         .navigationBarHidden(true)
         .onAppear {
@@ -49,8 +49,6 @@ struct StatisticsView: View {
             )
         }
     }
-
-    // MARK: - Header
 
     private var header: some View {
         HStack(alignment: .center) {
@@ -73,8 +71,6 @@ struct StatisticsView: View {
             .accessibilityLabel("Profile")
         }
     }
-
-    // MARK: - Period card (like Figma)
 
     private var periodCard: some View {
         HStack {
@@ -123,12 +119,8 @@ struct StatisticsView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Donut card
-
     private var donutCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-
-            // centered title like Figma + small switch button
             HStack(alignment: .center) {
                 Spacer()
 
@@ -173,7 +165,6 @@ struct StatisticsView: View {
         let slices = activeDonutSlices()
         let normalized = normalizedSlices(slices)
 
-        // модель выбранной строки (категория/таск)
         let selectedRow: TotalRowModel? = {
             guard let id = selectedSliceId else { return nil }
             return activeTotalRows.first(where: { $0.id == id })
@@ -182,20 +173,19 @@ struct StatisticsView: View {
         return ZStack {
             DonutChartView(
                 slices: normalized,
-                innerRadiusRatio: 0.7,   // тонкость кольца
-                gapDegrees: 4,          // пробелы (в градусах)
-                cornerRadius: 6,          // мягкость плиток
+                innerRadiusRatio: 0.7,
+                gapDegrees: 4,
+                cornerRadius: 6,
                 selectedSliceId: $selectedSliceId
             )
             .frame(width: 260, height: 260)
+
             VStack(spacing: 6) {
-                // верхняя строка
                 Text(selectedRow?.name ?? "Total")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .lineLimit(1)
 
-                // нижняя строка (число)
                 Text((selectedRow?.minutes ?? viewModel.totalMinutes).formattedHoursMinutes())
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(DS.ColorToken.textPrimary)
@@ -204,11 +194,8 @@ struct StatisticsView: View {
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Total card (like Figma)
-
     private var totalCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-
             HStack(spacing: 14) {
                 Circle()
                     .fill(DS.ColorToken.purple.opacity(0.12))
@@ -224,7 +211,6 @@ struct StatisticsView: View {
                         .font(DS.Typography.subtitle)
                         .foregroundStyle(DS.ColorToken.textSecondary)
 
-                    // если ты хочешь именно число вроде 124.5 — замени на отдельный formatter.
                     Text(viewModel.totalMinutes.formattedHoursMinutes())
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(DS.ColorToken.textPrimary)
@@ -266,8 +252,6 @@ struct StatisticsView: View {
         .dsCard(padding: DS.Spacing.lg)
         .cornerRadius(DS.Radius.lg)
     }
-
-    // MARK: - Stats mapping (category/task)
 
     private var titleForBreakdown: String {
         switch viewModel.breakdown {
@@ -343,8 +327,6 @@ struct StatisticsView: View {
         return slices.map { DonutChartSlice(id: $0.id, fraction: $0.fraction / sum, color: $0.color) }
     }
 
-    // MARK: - Colors
-
     private func categoryColor(_ stat: CategoryStat) -> Color {
         stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
@@ -352,8 +334,6 @@ struct StatisticsView: View {
     private func taskColor(_ stat: TaskStat) -> Color {
         stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
-
-    // MARK: - Formatting
 
     private func percentString(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"

@@ -32,49 +32,53 @@ struct AppRootView: View {
         let notificationSync = container.makeNotificationSyncService(context: modelContext)
         let widgetSnapshotSync = container.makeWidgetSnapshotSyncService(context: modelContext)
 
-        ZStack {
-            AppBackgroundView(gradient: DS.GradientToken.splash)
+        GeometryReader { _ in
+            ZStack {
+                AppBackgroundView(gradient: DS.GradientToken.splash)
 
-            TabView(selection: $selectedTab) {
-                PlannerView(
-                    viewModel: PlannerViewModel(
-                        taskRepository: taskRepo,
-                        preferencesRepository: prefsRepo,
-                        calendarSync: calendarSync,
-                        seriesService: seriesService,
-                        onOpenTaskEditor: { taskId, day in
-                            sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
-                        },
-                        onOpenNotifications: {
-                            sheet = .notifications
-                        },
-                        onOpenRecurringBaseTasks: {
-                            sheet = .recurringBaseTasks
-                        }
+                TabView(selection: $selectedTab) {
+                    PlannerView(
+                        viewModel: PlannerViewModel(
+                            taskRepository: taskRepo,
+                            preferencesRepository: prefsRepo,
+                            calendarSync: calendarSync,
+                            seriesService: seriesService,
+                            onOpenTaskEditor: { taskId, day in
+                                sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
+                            },
+                            onOpenNotifications: {
+                                sheet = .notifications
+                            },
+                            onOpenRecurringBaseTasks: {
+                                sheet = .recurringBaseTasks
+                            }
+                        )
                     )
-                )
-                .tag(AppTab.planner)
+                    .tag(AppTab.planner)
 
-                StatisticsView(
-                    viewModel: StatisticsViewModel(
-                        taskRepository: taskRepo,
-                        preferencesRepository: prefsRepo,
-                        onOpenSettings: { sheet = .settings }
+                    StatisticsView(
+                        viewModel: StatisticsViewModel(
+                            taskRepository: taskRepo,
+                            preferencesRepository: prefsRepo,
+                            onOpenSettings: { sheet = .settings }
+                        )
                     )
-                )
-                .tag(AppTab.statistics)
+                    .tag(AppTab.statistics)
+                }
+                .toolbar(.hidden, for: .tabBar)
             }
-            .toolbar(.hidden, for: .tabBar)
-            .safeAreaInset(edge: .bottom) {
+            .overlay(alignment: .bottom) {
                 CustomTabBar(
                     selected: selectedTab,
                     plannerTitle: Date.now.monthName(),
                     onSelectPlanner: { selectedTab = .planner },
                     onSelectStatistics: { selectedTab = .statistics }
                 )
-                .padding(.top, 8)
-                .background(Color.clear)
+                .padding(.bottom, DS.Layout.tabBarBottomSpacing)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+                .zIndex(10)
             }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .sheet(item: $sheet) { route in
                 switch route {
                 case .taskEditor(let taskId, let day, let mode):

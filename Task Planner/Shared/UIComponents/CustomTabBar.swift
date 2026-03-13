@@ -35,6 +35,8 @@ struct CustomTabBar: View {
             }
         }
         .padding(10)
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: DS.Layout.tabBarMinHeight)
         .background(
             Capsule()
                 .fill(Color.white.opacity(0.70))
@@ -71,6 +73,7 @@ struct CustomTabBar: View {
             .padding(.vertical, 12)
             .background(background(isActive: isActive, activeStyle: activeStyle))
             .clipShape(Capsule())
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }

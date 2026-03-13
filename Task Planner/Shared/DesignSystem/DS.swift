@@ -15,11 +15,12 @@ enum DS {
         static let lg: CGFloat = 22
         static let xl: CGFloat = 28
     }
-    
+
     enum Layout {
-            static let tabBarHeight: CGFloat = 78
-            static let tabBarBottomPadding: CGFloat = 10
-        }
+        static let tabBarMinHeight: CGFloat = 42
+        static let tabBarBottomSpacing: CGFloat = 6
+        static let tabBarReservedScrollSpace: CGFloat = 72
+    }
 
     enum Radius {
         static let sm: CGFloat = 12
@@ -33,19 +34,15 @@ enum DS {
     }
 
     enum ColorToken {
-        // Brand
         static let purple = Color(red: 0.55, green: 0.39, blue: 0.98)
         static let purpleDark = Color(red: 0.38, green: 0.23, blue: 0.82)
 
-        // Backgrounds
         static let appBackground = Color(red: 0.98, green: 0.98, blue: 1.00)
         static let cardBackground = Color.white
 
-        // Accents
         static let lavender = Color(red: 0.85, green: 0.82, blue: 0.98)
         static let lightPink = Color(red: 0.98, green: 0.83, blue: 0.92)
 
-        // Text
         static let textPrimary = Color(red: 0.12, green: 0.12, blue: 0.16)
         static let textSecondary = Color(red: 0.45, green: 0.45, blue: 0.52)
     }
@@ -100,4 +97,3 @@ enum DS {
         static let caption = Font.system(size: 12, weight: .medium, design: .rounded)
     }
 }
-

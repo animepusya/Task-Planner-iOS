@@ -159,7 +159,7 @@ struct PlannerView: View {
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
-        .contentMargins(.bottom, DS.Layout.tabBarHeight + DS.Layout.tabBarBottomPadding, for: .scrollContent)
+        .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         .navigationBarHidden(true)
         .onAppear {
             viewModel.loadPreferences()
