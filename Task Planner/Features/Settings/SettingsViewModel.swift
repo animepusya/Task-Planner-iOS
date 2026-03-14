@@ -12,10 +12,50 @@ import EventKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
+    enum ThemeOption: String, CaseIterable, Identifiable {
+        case system
+        case light
+        case dark
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .system: return "System"
+            case .light: return "Light"
+            case .dark: return "Dark"
+            }
+        }
+    }
+
+    enum LocalizationOption: String, CaseIterable, Identifiable {
+        case system
+        case english
+        case russian
+        case hebrew
+
+        var id: String { rawValue }
+
+        var title: String {
+            switch self {
+            case .system: return "System"
+            case .english: return "English"
+            case .russian: return "Russian"
+            case .hebrew: return "Hebrew"
+            }
+        }
+    }
+
+    private enum StorageKey {
+        static let theme = "settings.theme"
+        static let localization = "settings.localization"
+    }
+
     private let preferencesRepository: PreferencesRepository
     private let taskRepository: TaskRepository
     private let categoryRepository: CategoryRepository
     private let calendarSync: CalendarSyncService
+    private let defaults: UserDefaults
 
     @Published var weekStartsOnMonday: Bool = true
     @Published var categories: [CategoryEntity] = []
@@ -27,16 +67,21 @@ final class SettingsViewModel: ObservableObject {
     @Published var calendarStatusText: String = ""
     @Published var calendarErrorText: String?
 
+    @Published var selectedTheme: ThemeOption = .system
+    @Published var selectedLocalization: LocalizationOption = .system
+
     init(
         preferencesRepository: PreferencesRepository,
         taskRepository: TaskRepository,
         categoryRepository: CategoryRepository,
-        calendarSync: CalendarSyncService
+        calendarSync: CalendarSyncService,
+        defaults: UserDefaults = .standard
     ) {
         self.preferencesRepository = preferencesRepository
         self.taskRepository = taskRepository
         self.categoryRepository = categoryRepository
         self.calendarSync = calendarSync
+        self.defaults = defaults
     }
 
     func load() {
@@ -49,6 +94,9 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             calendarStatusText = "Preferences load failed"
         }
+
+        selectedTheme = loadTheme()
+        selectedLocalization = loadLocalization()
 
         reloadCategories()
     }
@@ -64,6 +112,7 @@ final class SettingsViewModel: ObservableObject {
 
     func setWeekStartsOnMonday(_ value: Bool) {
         weekStartsOnMonday = value
+
         do {
             let prefs = try preferencesRepository.getOrCreate()
             prefs.weekStartsOnMonday = value
@@ -81,6 +130,16 @@ final class SettingsViewModel: ObservableObject {
                 }
             }
         } catch {}
+    }
+
+    func setTheme(_ value: ThemeOption) {
+        selectedTheme = value
+        defaults.set(value.rawValue, forKey: StorageKey.theme)
+    }
+
+    func setLocalization(_ value: LocalizationOption) {
+        selectedLocalization = value
+        defaults.set(value.rawValue, forKey: StorageKey.localization)
     }
 
     // MARK: - Calendar actions
@@ -222,6 +281,26 @@ final class SettingsViewModel: ObservableObject {
     }
 
     // MARK: - Helpers
+
+    private func loadTheme() -> ThemeOption {
+        guard
+            let rawValue = defaults.string(forKey: StorageKey.theme),
+            let value = ThemeOption(rawValue: rawValue)
+        else {
+            return .system
+        }
+        return value
+    }
+
+    private func loadLocalization() -> LocalizationOption {
+        guard
+            let rawValue = defaults.string(forKey: StorageKey.localization),
+            let value = LocalizationOption(rawValue: rawValue)
+        else {
+            return .system
+        }
+        return value
+    }
 
     private func clearCategoryReferences(in task: TaskEntity, deletedTitle: String) {
         if equalsCategory(task.categoryTitle, deletedTitle) {

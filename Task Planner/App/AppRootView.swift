@@ -104,7 +104,20 @@ struct AppRootView: View {
                             taskRepository: taskRepo,
                             categoryRepository: categoryRepo,
                             calendarSync: calendarSync
-                        )
+                        ),
+                        makeNotificationsView: {
+                            NotificationsView(
+                                viewModel: NotificationsViewModel(
+                                    taskRepository: taskRepo,
+                                    preferencesRepository: prefsRepo,
+                                    notificationService: notificationService,
+                                    notificationSync: notificationSync,
+                                    onOpenTaskEditor: { taskId, day in
+                                        sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
+                                    }
+                                )
+                            )
+                        }
                     )
 
                 case .notifications:
@@ -155,3 +168,4 @@ struct AppRootView: View {
         }
     }
 }
+

@@ -11,199 +11,301 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject var viewModel: SettingsViewModel
-
+    
+    private let makeNotificationsView: () -> NotificationsView
+    
+    @State private var showNotifications = false
+    @State private var showClearAllAlert = false
+    
+    init(
+        viewModel: SettingsViewModel,
+        makeNotificationsView: @escaping () -> NotificationsView
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.makeNotificationsView = makeNotificationsView
+    }
+    
     var body: some View {
         NavigationStack {
-            VStack(spacing: DS.Spacing.lg) {
-                Capsule()
-                    .fill(Color.secondary.opacity(0.25))
-                    .frame(width: 40, height: 5)
-                    .padding(.top, DS.Spacing.sm)
-
-                Text("Settings")
-                    .font(.title2).bold()
-
-                VStack(spacing: DS.Spacing.md) {
-                    preferencesCard
-                    calendarCard
-                    categoriesCard
-                    dataCard
-                }
-                .padding(.horizontal, DS.Spacing.md)
-
-                Spacer()
-            }
-            .background(DS.ColorToken.appBackground)
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { dismiss() } label: {
-                        Image(systemName: "xmark")
-                            .padding(10)
-                            .background(.ultraThinMaterial, in: Circle())
-                    }
-                }
-            }
-        }
-        .onAppear { viewModel.load() }
-    }
-
-    private var preferencesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Preferences").font(.headline)
-            HStack {
-                Text("Week starts on Monday").foregroundStyle(.secondary)
-                Spacer()
-                Toggle("", isOn: Binding(
-                    get: { viewModel.weekStartsOnMonday },
-                    set: { viewModel.setWeekStartsOnMonday($0) }
-                ))
-                .labelsHidden()
-                .tint(.purple)
-            }
-        }
-        .padding()
-        .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
-    }
-
-    private var calendarCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Apple Calendar").font(.headline)
-
-            VStack(spacing: 10) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show tasks in Apple Calendar")
-                        Text("Exports to calendar “Task Planner” (one-way)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { viewModel.showTasksInAppleCalendar },
-                        set: { viewModel.setShowTasksInAppleCalendar($0) }
-                    ))
-                    .labelsHidden()
-                    .tint(.purple)
-                }
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Show Apple Calendar events in Planner")
-                        Text("Read-only overlay, not saved in SwiftData")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Toggle("", isOn: Binding(
-                        get: { viewModel.showAppleCalendarEventsInPlanner },
-                        set: { viewModel.setShowAppleCalendarEventsInPlanner($0) }
-                    ))
-                    .labelsHidden()
-                    .tint(.purple)
-                }
-
-                if !viewModel.calendarStatusText.isEmpty {
-                    Text(viewModel.calendarStatusText)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
-                }
-
-                if let err = viewModel.calendarErrorText {
-                    Text(err)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
-                HStack(spacing: 10) {
-                    Button {
-                        viewModel.exportNow()
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.up.right.square")
-                            Text("Export now")
-                            Spacer()
+            ZStack {
+                AppBackgroundView(gradient: DS.GradientToken.splash)
+                
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: DS.Spacing.lg) {
+                        SettingsScreenHeader {
+                            dismiss()
                         }
-                    }
-                    .buttonStyle(.bordered)
-                    .disabled(!viewModel.showTasksInAppleCalendar)
-
-                    Button(role: .destructive) {
-                        viewModel.removeExportedEvents()
-                    } label: {
-                        HStack {
-                            Image(systemName: "trash")
-                            Text("Remove exported events")
-                            Spacer()
+                        
+                        VStack(spacing: DS.Spacing.lg) {
+                            appSection
+                            notificationsSection
+                            calendarSection
+                            categoriesSection
+                            dataSection
                         }
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.bottom, DS.Spacing.xl)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(!viewModel.showTasksInAppleCalendar)
                 }
             }
-        }
-        .padding()
-        .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
-    }
-
-    private var categoriesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Categories").font(.headline)
-
-            HStack(spacing: 10) {
-                TextField("Add category…", text: $viewModel.newCategoryTitle)
-                    .textInputAutocapitalization(.words)
-                    .disableAutocorrection(true)
-
-                Button("Add") { viewModel.addCategory() }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
-                    .disabled(viewModel.newCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .navigationBarHidden(true)
+            .navigationDestination(isPresented: $showNotifications) {
+                makeNotificationsView()
             }
-
-            VStack(spacing: 8) {
-                ForEach(viewModel.categories) { category in
-                    HStack {
-                        Text(category.title)
-                            .foregroundStyle(.primary)
-                        Spacer()
-
-                        if viewModel.isDeletable(category) {
-                            Button(role: .destructive) {
-                                viewModel.deleteCategory(category)
+            .alert("Clear all tasks?", isPresented: $showClearAllAlert) {
+                Button("Cancel", role: .cancel) { }
+                Button("Clear", role: .destructive) {
+                    viewModel.clearAllTasks()
+                }
+            } message: {
+                Text("This action will permanently remove all tasks from the app.")
+            }
+        }
+        .onAppear {
+            viewModel.load()
+        }
+    }
+    
+    // MARK: - Sections
+    
+    private var appSection: some View {
+        SettingsSection(title: "App") {
+            SettingsCard {
+                SettingsRow(
+                    title: "Week starts on Monday",
+                    systemImage: "calendar"
+                ) {
+                    Toggle(
+                        "",
+                        isOn: Binding(
+                            get: { viewModel.weekStartsOnMonday },
+                            set: { viewModel.setWeekStartsOnMonday($0) }
+                        )
+                    )
+                    .labelsHidden()
+                    .tint(DS.ColorToken.purple)
+                }
+                
+                SettingsRowDivider()
+                
+                SettingsRow(
+                    title: "Theme",
+                    subtitle: "Prepared for future appearance support",
+                    systemImage: "circle.lefthalf.filled"
+                ) {
+                    Menu {
+                        ForEach(SettingsViewModel.ThemeOption.allCases) { option in
+                            Button {
+                                viewModel.setTheme(option)
                             } label: {
-                                Image(systemName: "trash")
+                                if option == viewModel.selectedTheme {
+                                    Label(option.title, systemImage: "checkmark")
+                                } else {
+                                    Text(option.title)
+                                }
                             }
-                        } else {
-                            Image(systemName: "lock.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
+                    } label: {
+                        rowValueLabel(viewModel.selectedTheme.title)
                     }
-                    .padding(.vertical, 6)
+                }
+                
+                SettingsRowDivider()
+                
+                SettingsRow(
+                    title: "Localization",
+                    subtitle: "UI is ready. App localization can be connected later",
+                    systemImage: "globe"
+                ) {
+                    Menu {
+                        ForEach(SettingsViewModel.LocalizationOption.allCases) { option in
+                            Button {
+                                viewModel.setLocalization(option)
+                            } label: {
+                                if option == viewModel.selectedLocalization {
+                                    Label(option.title, systemImage: "checkmark")
+                                } else {
+                                    Text(option.title)
+                                }
+                            }
+                        }
+                    } label: {
+                        rowValueLabel(viewModel.selectedLocalization.title)
+                    }
                 }
             }
         }
-        .padding()
-        .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
     }
-
-    private var dataCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Data").font(.headline)
-            Button(role: .destructive) {
-                viewModel.clearAllTasks()
-            } label: {
-                HStack {
-                    Image(systemName: "trash")
-                    Text("Clear all tasks")
-                    Spacer()
+    
+    private var notificationsSection: some View {
+        SettingsSection(title: "Notifications") {
+            SettingsCard {
+                SettingsRow(
+                    title: "Notifications",
+                    subtitle: "Scheduled reminders, defaults and permission status",
+                    systemImage: "bell.badge",
+                    action: {
+                        showNotifications = true
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
+            }
+        }
+    }
+    
+    private var calendarSection: some View {
+        SettingsSection(
+            title: "Calendar",
+            footer: footerTextForCalendar
+        ) {
+            SettingsCard {
+                SettingsRow(
+                    title: "Show tasks in Apple Calendar",
+                    subtitle: "Exports to calendar “Task Planner”",
+                    systemImage: "calendar.badge.plus",
+                    accessory: {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { viewModel.showTasksInAppleCalendar },
+                                set: { viewModel.setShowTasksInAppleCalendar($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(DS.ColorToken.purple)
+                    }
+                )
+                
+                SettingsRowDivider()
+                
+                SettingsRow(
+                    title: "Show Apple Calendar events in Planner",
+                    subtitle: "Read-only overlay, not saved in SwiftData",
+                    systemImage: "calendar.badge.clock",
+                    accessory: {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { viewModel.showAppleCalendarEventsInPlanner },
+                                set: { viewModel.setShowAppleCalendarEventsInPlanner($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(DS.ColorToken.purple)
+                    }
+                )
+                
+                SettingsRowDivider()
+                
+                SettingsRow(
+                    title: "Export now",
+                    subtitle: "Force sync current tasks to Apple Calendar",
+                    systemImage: "arrow.up.right.square",
+                    action: {
+                        viewModel.exportNow()
+                    },
+                    accessory: {
+                        EmptyView()
+                    }
+                )
+                
+                SettingsRowDivider()
+                
+                SettingsRow(
+                    title: "Remove exported events",
+                    subtitle: "Delete all events created by Task Planner",
+                    systemImage: "trash",
+                    isDestructive: true,
+                    action: {
+                        viewModel.removeExportedEvents()
+                    },
+                    accessory: {
+                        EmptyView()
+                    }
+                )
+            }
+        }
+    }
+    
+    private var categoriesSection: some View {
+        SettingsSection(title: "Categories") {
+            SettingsCard {
+                CategoryInputRow(
+                    title: $viewModel.newCategoryTitle,
+                    onAdd: { viewModel.addCategory() }
+                )
+                
+                if !viewModel.categories.isEmpty {
+                    SettingsRowDivider()
+                }
+                
+                ForEach(Array(viewModel.categories.enumerated()), id: \.element.id) { index, category in
+                    CategoryListRow(
+                        title: category.title,
+                        isDeletable: viewModel.isDeletable(category),
+                        onDelete: { viewModel.deleteCategory(category) }
+                    )
+                    
+                    if index < viewModel.categories.count - 1 {
+                        SettingsRowDivider()
+                    }
                 }
             }
         }
-        .padding()
-        .background(DS.ColorToken.cardBackground, in: RoundedRectangle(cornerRadius: DS.Radius.lg))
+    }
+    
+    private var dataSection: some View {
+        SettingsSection(
+            title: "Data",
+            footer: "Use with caution. This action cannot be undone."
+        ) {
+            SettingsCard {
+                SettingsRow(
+                    title: "Clear all tasks",
+                    subtitle: "Remove all tasks and planner data from this device",
+                    systemImage: "trash",
+                    isDestructive: true,
+                    action: {
+                        showClearAllAlert = true
+                    },
+                    accessory: {
+                        EmptyView()
+                    }
+                )
+            }
+        }
+    }
+    
+    // MARK: - Helpers
+    
+    private var footerTextForCalendar: String? {
+        if let error = viewModel.calendarErrorText, !error.isEmpty {
+            return error
+        }
+        
+        return viewModel.calendarStatusText.isEmpty ? nil : viewModel.calendarStatusText
+    }
+    
+    private var trailingChevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.9))
+    }
+    
+    private func rowValueLabel(_ value: String) -> some View {
+        HStack(spacing: 6) {
+            Text(value)
+                .font(DS.Typography.body)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+            
+            Image(systemName: "chevron.up.chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color.black.opacity(0.03), in: Capsule())
     }
 }
