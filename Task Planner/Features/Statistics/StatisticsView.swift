@@ -45,9 +45,7 @@ struct StatisticsView: View {
             StatisticsRangeSheet(
                 range: $viewModel.range,
                 anchorDate: $viewModel.anchorDate,
-                onPickMonthYear: { newAnchor in
-                    viewModel.anchorDate = Calendar.current.startOfMonth(for: newAnchor)
-                }
+                weekStartsOnMonday: viewModel.weekStartsOnMonday
             )
         }
     }

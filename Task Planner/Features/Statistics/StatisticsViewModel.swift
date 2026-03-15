@@ -16,7 +16,10 @@ final class StatisticsViewModel: ObservableObject {
     private let onOpenSettings: () -> Void
 
     @Published var range: StatisticsRange = .month {
-        didSet { refresh() }
+        didSet {
+            normalizeAnchorDateForRange()
+            refresh()
+        }
     }
 
     @Published var anchorDate: Date = Calendar.current.startOfDay(for: .now) {
@@ -25,7 +28,6 @@ final class StatisticsViewModel: ObservableObject {
 
     @Published var breakdown: StatisticsBreakdown = .category
 
-    // Output
     @Published private(set) var displayedTitle: String = Calendar.current.startOfDay(for: .now).monthTitle()
     @Published private(set) var totalMinutes: Int = 0
     @Published private(set) var categoryStats: [CategoryStat] = []
@@ -40,7 +42,9 @@ final class StatisticsViewModel: ObservableObject {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.onOpenSettings = onOpenSettings
+
         loadPreferences()
+        normalizeAnchorDateForRange()
         refresh()
     }
 
@@ -55,22 +59,28 @@ final class StatisticsViewModel: ObservableObject {
 
     func reloadPreferencesAndRefresh() {
         loadPreferences()
+        normalizeAnchorDateForRange()
         refresh()
     }
 
-    func openSettings() { onOpenSettings() }
-
-    // MARK: - Navigation
+    func openSettings() {
+        onOpenSettings()
+    }
 
     func goToPrevious() {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
         switch range {
         case .day:
             anchorDate = cal.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+
         case .week:
             anchorDate = cal.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
+
         case .month:
-            anchorDate = anchorDate.addingMonths(-1)
+            let previous = cal.date(byAdding: .month, value: -1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.startOfMonth(for: previous)
+
         case .year:
             anchorDate = cal.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
         }
@@ -78,13 +88,18 @@ final class StatisticsViewModel: ObservableObject {
 
     func goToNext() {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
         switch range {
         case .day:
             anchorDate = cal.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
+
         case .week:
             anchorDate = cal.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
+
         case .month:
-            anchorDate = anchorDate.addingMonths(1)
+            let next = cal.date(byAdding: .month, value: 1, to: anchorDate) ?? anchorDate
+            anchorDate = cal.startOfMonth(for: next)
+
         case .year:
             anchorDate = cal.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
         }
@@ -108,7 +123,36 @@ final class StatisticsViewModel: ObservableObject {
         return Double(minutes) / Double(totalMinutes)
     }
 
-    // MARK: - Computation (series-consistent)
+    private func normalizeAnchorDateForRange() {
+        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
+        switch range {
+        case .day:
+            let normalized = cal.startOfDay(for: anchorDate)
+            if normalized != anchorDate {
+                anchorDate = normalized
+            }
+
+        case .week:
+            let normalized = cal.startOfDay(for: anchorDate)
+            if normalized != anchorDate {
+                anchorDate = normalized
+            }
+
+        case .month:
+            let normalized = cal.startOfMonth(for: anchorDate)
+            if normalized != anchorDate {
+                anchorDate = normalized
+            }
+
+        case .year:
+            let year = cal.component(.year, from: anchorDate)
+            let normalized = cal.date(from: DateComponents(year: year, month: 1, day: 1)) ?? anchorDate
+            if normalized != anchorDate {
+                anchorDate = normalized
+            }
+        }
+    }
 
     private func computeStats() {
         do {
@@ -157,7 +201,7 @@ final class StatisticsViewModel: ObservableObject {
 
                     let taskID = String(describing: occ.task.persistentModelID)
                     let rawTitle = occ.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let displayTitle = rawTitle.isEmpty ? "Untitled" : rawTitle
+                    let displayTitle = rawTitle.isEmpty ? "Untitled" : displayTitleOrUntitled(rawTitle)
 
                     if var existingTask = perTask[taskID] {
                         existingTask.minutes += minutes
@@ -232,14 +276,14 @@ final class StatisticsViewModel: ObservableObject {
 
         var result: [Date] = []
         var cursor = s
+
         while cursor <= e {
             result.append(cursor)
             cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86400)
         }
+
         return result
     }
-
-    // MARK: - Date range + title
 
     private func dateRange(using cal: Calendar) -> (Date, Date) {
         switch range {
@@ -248,8 +292,10 @@ final class StatisticsViewModel: ObservableObject {
             return (day, day)
 
         case .week:
-            let weekStart = cal.date(from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate))
-                ?? cal.startOfDay(for: anchorDate)
+            let weekStart = cal.date(
+                from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate)
+            ) ?? cal.startOfDay(for: anchorDate)
+
             let weekEnd = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
             return (cal.startOfDay(for: weekStart), cal.startOfDay(for: weekEnd))
 
@@ -268,17 +314,21 @@ final class StatisticsViewModel: ObservableObject {
 
     private func makeDisplayedTitle() -> String {
         let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
         switch range {
         case .day:
             return anchorDate.dayTitle(using: cal)
+
         case .week:
             let (start, end) = dateRange(using: cal)
             let f = DateFormatter()
             f.calendar = cal
             f.dateFormat = "d MMM"
             return "\(f.string(from: start)) – \(f.string(from: end))"
+
         case .month:
             return anchorDate.monthTitle(using: cal)
+
         case .year:
             let f = DateFormatter()
             f.calendar = cal
@@ -290,5 +340,9 @@ final class StatisticsViewModel: ObservableObject {
     private func normalizedCategoryTitle(_ raw: String?) -> String {
         let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Work" : trimmed
+    }
+
+    private func displayTitleOrUntitled(_ rawTitle: String) -> String {
+        rawTitle.isEmpty ? "Untitled" : rawTitle
     }
 }
