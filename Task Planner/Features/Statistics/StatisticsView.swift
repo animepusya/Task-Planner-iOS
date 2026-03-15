@@ -12,7 +12,7 @@ struct StatisticsView: View {
     @StateObject var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
     @State private var selectedSliceId: String? = nil
-
+    
     var body: some View {
         ZStack {
             AppBackgroundView(
@@ -20,7 +20,7 @@ struct StatisticsView: View {
                 gradientOpacity: 0.55,
                 blurRadius: 22
             )
-
+            
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     periodCard
@@ -41,6 +41,11 @@ struct StatisticsView: View {
         .onAppear {
             viewModel.reloadPreferencesAndRefresh()
         }
+        .onChange(of: viewModel.breakdown) { _, _ in
+            withAnimation(.easeInOut(duration: 0.16)) {
+                selectedSliceId = nil
+            }
+        }
         .sheet(isPresented: $isRangeSheetPresented) {
             StatisticsRangeSheet(
                 range: $viewModel.range,
@@ -49,7 +54,7 @@ struct StatisticsView: View {
             )
         }
     }
-
+    
     private var header: some View {
         ScreenTopSection(title: "Statistics") {
             IconCircleButton(systemName: "gearshape") {
@@ -58,13 +63,13 @@ struct StatisticsView: View {
             .accessibilityLabel("Settings")
         }
     }
-
+    
     private var periodCard: some View {
         HStack {
             navCircle("chevron.left", action: viewModel.goToPrevious)
-
+            
             Spacer()
-
+            
             Button {
                 isRangeSheetPresented = true
             } label: {
@@ -72,7 +77,7 @@ struct StatisticsView: View {
                     Image(systemName: "calendar")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(DS.ColorToken.purple)
-
+                    
                     Text(viewModel.displayedTitle)
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(DS.ColorToken.textPrimary)
@@ -82,9 +87,9 @@ struct StatisticsView: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Select period")
-
+            
             Spacer()
-
+            
             navCircle("chevron.right", action: viewModel.goToNext)
         }
         .padding(.horizontal, 12)
@@ -93,7 +98,7 @@ struct StatisticsView: View {
         .cornerRadius(DS.Radius.md)
         .shadow(color: DS.Shadow.soft, radius: 14, x: 0, y: 10)
     }
-
+    
     private func navCircle(_ systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
@@ -105,21 +110,21 @@ struct StatisticsView: View {
         }
         .buttonStyle(.plain)
     }
-
+    
     private var donutCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack(alignment: .center) {
-                Spacer()
-
-                Text(titleForBreakdown)
+            HStack(alignment: .center, spacing: 12) {
+                Text("Time")
                     .font(DS.Typography.sectionTitle)
                     .foregroundColor(DS.ColorToken.textPrimary)
-
-                Spacer()
-
-                breakdownMiniButton
+                    .lineLimit(1)
+                
+                Spacer(minLength: 8)
+                
+                StatisticsBreakdownSegmentedControl(selection: $viewModel.breakdown)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-
+            
             ZStack {
                 donut
             }
@@ -130,33 +135,16 @@ struct StatisticsView: View {
         .dsCard(padding: DS.Spacing.lg)
         .cornerRadius(DS.Radius.lg)
     }
-
-    private var breakdownMiniButton: some View {
-        Button {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                viewModel.breakdown = (viewModel.breakdown == .category) ? .task : .category
-            }
-        } label: {
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 36, height: 36)
-                .background(Circle().fill(Color.white.opacity(0.9)))
-                .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("Switch breakdown")
-    }
-
+    
     private var donut: some View {
         let slices = activeDonutSlices()
         let normalized = normalizedSlices(slices)
-
+        
         let selectedRow: TotalRowModel? = {
             guard let id = selectedSliceId else { return nil }
             return activeTotalRows.first(where: { $0.id == id })
         }()
-
+        
         return ZStack {
             DonutChartView(
                 slices: normalized,
@@ -166,21 +154,23 @@ struct StatisticsView: View {
                 selectedSliceId: $selectedSliceId
             )
             .frame(width: 260, height: 260)
-
+            
             VStack(spacing: 6) {
                 Text(selectedRow?.name ?? "Total")
                     .font(DS.Typography.caption)
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .lineLimit(1)
-
+                    .minimumScaleFactor(0.8)
+                
                 Text((selectedRow?.minutes ?? viewModel.totalMinutes).formattedHoursMinutes())
                     .font(.system(size: 22, weight: .bold, design: .rounded))
                     .foregroundColor(DS.ColorToken.textPrimary)
             }
+            .padding(.horizontal, 16)
         }
         .frame(maxWidth: .infinity)
     }
-
+    
     private var totalCard: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             HStack(spacing: 14) {
@@ -192,22 +182,22 @@ struct StatisticsView: View {
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(DS.ColorToken.purple)
                     )
-
+                
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Total Hours")
                         .font(DS.Typography.subtitle)
                         .foregroundStyle(DS.ColorToken.textSecondary)
-
+                    
                     Text(viewModel.totalMinutes.formattedHoursMinutes())
                         .font(.system(size: 26, weight: .bold, design: .rounded))
                         .foregroundStyle(DS.ColorToken.textPrimary)
                 }
-
+                
                 Spacer()
             }
-
+            
             Divider().opacity(0.15)
-
+            
             if activeCount == 0 {
                 Text("Add some tasks to see totals.")
                     .font(DS.Typography.caption)
@@ -220,17 +210,19 @@ struct StatisticsView: View {
                             Circle()
                                 .fill(row.color)
                                 .frame(width: 12, height: 12)
-
+                            
                             Text(row.name)
                                 .font(DS.Typography.body)
                                 .foregroundColor(DS.ColorToken.textPrimary)
                                 .lineLimit(1)
-
-                            Spacer()
-
+                                .minimumScaleFactor(0.85)
+                            
+                            Spacer(minLength: 12)
+                            
                             Text("\(row.minutes.formattedHoursMinutes()) (\(percentString(row.percent)))")
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                                 .foregroundStyle(DS.ColorToken.textPrimary)
+                                .multilineTextAlignment(.trailing)
                         }
                     }
                 }
@@ -239,21 +231,16 @@ struct StatisticsView: View {
         .dsCard(padding: DS.Spacing.lg)
         .cornerRadius(DS.Radius.lg)
     }
-
-    private var titleForBreakdown: String {
-        switch viewModel.breakdown {
-        case .category: return "Time by Category"
-        case .task:     return "Time by Task"
-        }
-    }
-
+    
     private var activeCount: Int {
         switch viewModel.breakdown {
-        case .category: return viewModel.categoryStats.count
-        case .task:     return viewModel.taskStats.count
+        case .category:
+            return viewModel.categoryStats.count
+        case .task:
+            return viewModel.taskStats.count
         }
     }
-
+    
     private struct TotalRowModel: Identifiable {
         let id: String
         let name: String
@@ -261,7 +248,7 @@ struct StatisticsView: View {
         let color: Color
         let percent: Double
     }
-
+    
     private var activeTotalRows: [TotalRowModel] {
         switch viewModel.breakdown {
         case .category:
@@ -274,6 +261,7 @@ struct StatisticsView: View {
                     percent: viewModel.percent(for: stat)
                 )
             }
+            
         case .task:
             return viewModel.taskStats.map { stat in
                 TotalRowModel(
@@ -286,7 +274,7 @@ struct StatisticsView: View {
             }
         }
     }
-
+    
     private func activeDonutSlices() -> [DonutChartSlice] {
         switch viewModel.breakdown {
         case .category:
@@ -297,6 +285,7 @@ struct StatisticsView: View {
                     color: categoryColor(stat)
                 )
             }
+            
         case .task:
             return viewModel.taskStats.map { stat in
                 DonutChartSlice(
@@ -307,21 +296,28 @@ struct StatisticsView: View {
             }
         }
     }
-
+    
     private func normalizedSlices(_ slices: [DonutChartSlice]) -> [DonutChartSlice] {
         let sum = slices.reduce(0) { $0 + $1.fraction }
         guard sum > 0 else { return [] }
-        return slices.map { DonutChartSlice(id: $0.id, fraction: $0.fraction / sum, color: $0.color) }
+        
+        return slices.map {
+            DonutChartSlice(
+                id: $0.id,
+                fraction: $0.fraction / sum,
+                color: $0.color
+            )
+        }
     }
-
+    
     private func categoryColor(_ stat: CategoryStat) -> Color {
         stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
-
+    
     private func taskColor(_ stat: TaskStat) -> Color {
         stat.taskColor?.uiColor ?? DS.ColorToken.textSecondary
     }
-
+    
     private func percentString(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
     }
