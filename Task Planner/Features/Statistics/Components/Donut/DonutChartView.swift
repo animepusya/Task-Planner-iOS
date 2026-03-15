@@ -8,15 +8,11 @@
 import SwiftUI
 import Charts
 
-// MARK: - Model
-
 struct DonutChartSlice: Identifiable, Hashable {
     let id: String
     let fraction: Double
     let color: Color
 }
-
-// MARK: - Donut View
 
 struct DonutChartView: View {
     let slices: [DonutChartSlice]
@@ -55,7 +51,7 @@ struct DonutChartView: View {
                 )
                 .foregroundStyle(s.color)
                 .cornerRadius(cornerRadius)
-                .opacity(selectedSliceId == nil || selectedSliceId == s.id ? 1.0 : 0.35)
+                .opacity(selectedSliceId == nil || selectedSliceId == s.id ? 1.0 : 0.32)
             }
         }
         .chartLegend(.hidden)
@@ -95,11 +91,10 @@ struct DonutChartView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.14), value: selectedSliceId)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Donut chart")
     }
-
-    // MARK: - Gestures
 
     private func tapSelectionGesture(
         center: CGPoint,
@@ -165,8 +160,6 @@ struct DonutChartView: View {
             }
     }
 
-    // MARK: - Hit testing
-
     private func hitTest(
         point: CGPoint,
         center: CGPoint,
@@ -210,8 +203,6 @@ struct DonutChartView: View {
         return nil
     }
 
-    // MARK: - Normalize
-
     private func normalized(_ input: [DonutChartSlice]) -> [DonutChartSlice] {
         let sum = input.reduce(0.0) { $0 + max(0, $1.fraction) }
         guard sum > 0 else { return [] }
@@ -225,8 +216,6 @@ struct DonutChartView: View {
         }
     }
 }
-
-// MARK: - Interaction Shape
 
 private struct DonutInteractionRingShape: Shape {
     let innerRadiusRatio: Double
