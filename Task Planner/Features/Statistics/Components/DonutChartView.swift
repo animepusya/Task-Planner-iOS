@@ -5,16 +5,6 @@
 //  Created by Руслан Меланин on 10.02.2026.
 //
 
-//
-//  DonutChartView.swift
-//  Task Planner
-//
-//  iOS 17+ Swift Charts donut with:
-//  - gaps between slices
-//  - rounded tile corners
-//  - long-press to lock + drag to select slice (ScrollView-friendly)
-//
-
 import SwiftUI
 import Charts
 
@@ -22,7 +12,6 @@ import Charts
 
 struct DonutChartSlice: Identifiable, Hashable {
     let id: String
-    /// Can be normalized or not — we normalize internally.
     let fraction: Double
     let color: Color
 }
@@ -32,14 +21,8 @@ struct DonutChartSlice: Identifiable, Hashable {
 struct DonutChartView: View {
     let slices: [DonutChartSlice]
 
-    /// Inner hole ratio (0...1). Bigger = thinner ring.
-    /// Example: 0.62 looks close to most “wide donut” designs.
     let innerRadiusRatio: Double
-
-    /// Gap between tiles in degrees.
     let gapDegrees: Double
-
-    /// Soft rounding for tiles (pt).
     let cornerRadius: CGFloat
 
     @Binding var selectedSliceId: String?
@@ -81,28 +64,74 @@ struct DonutChartView: View {
         }
         .chartOverlay { proxy in
             GeometryReader { geo in
-                let frame = geo[proxy.plotAreaFrame]
-                let center = CGPoint(x: frame.midX, y: frame.midY)
+                let plotFrame = geo[proxy.plotAreaFrame]
 
-                Rectangle()
-                    .fill(Color.clear)
-                    .contentShape(Rectangle())
-                    .highPriorityGesture(selectionGesture(center: center, plotFrame: frame, data: data))
+                if plotFrame.width > 0, plotFrame.height > 0 {
+                    let localCenter = CGPoint(
+                        x: plotFrame.width / 2,
+                        y: plotFrame.height / 2
+                    )
+
+                    Color.clear
+                        .frame(width: plotFrame.width, height: plotFrame.height)
+                        .position(x: plotFrame.midX, y: plotFrame.midY)
+                        .contentShape(
+                            DonutInteractionRingShape(innerRadiusRatio: innerRadiusRatio)
+                        )
+                        .gesture(
+                            tapSelectionGesture(
+                                center: localCenter,
+                                plotSize: plotFrame.size,
+                                data: data
+                            )
+                        )
+                        .simultaneousGesture(
+                            dragSelectionGesture(
+                                center: localCenter,
+                                plotSize: plotFrame.size,
+                                data: data
+                            )
+                        )
+                }
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Donut chart")
     }
 
-    // MARK: - Gesture
+    // MARK: - Gestures
 
-    private func selectionGesture(
+    private func tapSelectionGesture(
         center: CGPoint,
-        plotFrame: CGRect,
+        plotSize: CGSize,
         data: [DonutChartSlice]
     ) -> some Gesture {
-        LongPressGesture(minimumDuration: 0.18, maximumDistance: 12)
-            .sequenced(before: DragGesture(minimumDistance: 0, coordinateSpace: .local))
+        SpatialTapGesture()
+            .onEnded { value in
+                let id = hitTest(
+                    point: value.location,
+                    center: center,
+                    plotSize: plotSize,
+                    data: data
+                )
+
+                withAnimation(.easeInOut(duration: 0.12)) {
+                    if selectedSliceId == id {
+                        selectedSliceId = nil
+                    } else {
+                        selectedSliceId = id
+                    }
+                }
+            }
+    }
+
+    private func dragSelectionGesture(
+        center: CGPoint,
+        plotSize: CGSize,
+        data: [DonutChartSlice]
+    ) -> some Gesture {
+        LongPressGesture(minimumDuration: 0.18, maximumDistance: 10)
+            .sequenced(before: DragGesture(minimumDistance: 6, coordinateSpace: .local))
             .onChanged { value in
                 switch value {
                 case .first(true):
@@ -110,14 +139,18 @@ struct DonutChartView: View {
 
                 case .second(true, let drag?):
                     guard isInteracting else { return }
+
                     let id = hitTest(
                         point: drag.location,
                         center: center,
-                        plotFrame: plotFrame,
+                        plotSize: plotSize,
                         data: data
                     )
+
                     if selectedSliceId != id {
-                        selectedSliceId = id
+                        withAnimation(.easeInOut(duration: 0.10)) {
+                            selectedSliceId = id
+                        }
                     }
 
                 default:
@@ -126,7 +159,9 @@ struct DonutChartView: View {
             }
             .onEnded { _ in
                 isInteracting = false
-                selectedSliceId = nil
+                withAnimation(.easeInOut(duration: 0.10)) {
+                    selectedSliceId = nil
+                }
             }
     }
 
@@ -135,23 +170,21 @@ struct DonutChartView: View {
     private func hitTest(
         point: CGPoint,
         center: CGPoint,
-        plotFrame: CGRect,
+        plotSize: CGSize,
         data: [DonutChartSlice]
     ) -> String? {
         guard !data.isEmpty else { return nil }
 
-        let outerR = min(plotFrame.width, plotFrame.height) / 2
+        let outerR = min(plotSize.width, plotSize.height) / 2
         let innerR = outerR * innerRadiusRatio
 
         let dx = point.x - center.x
         let dy = point.y - center.y
         let r = hypot(dx, dy)
 
-        // only ring
         guard r >= innerR, r <= outerR else { return nil }
 
-        // angle: 0 at top, clockwise
-        var a = atan2(dy, dx) // [-π, π]
+        var a = atan2(dy, dx)
         if a < 0 { a += 2 * .pi }
         a += .pi / 2
         if a >= 2 * .pi { a -= 2 * .pi }
@@ -164,7 +197,6 @@ struct DonutChartView: View {
             let start = cursor
             let end = cursor + full
 
-            // ignore gaps on both sides
             let v0 = start + gap / 2
             let v1 = end - gap / 2
 
@@ -183,8 +215,43 @@ struct DonutChartView: View {
     private func normalized(_ input: [DonutChartSlice]) -> [DonutChartSlice] {
         let sum = input.reduce(0.0) { $0 + max(0, $1.fraction) }
         guard sum > 0 else { return [] }
+
         return input.map {
-            DonutChartSlice(id: $0.id, fraction: max(0, $0.fraction) / sum, color: $0.color)
+            DonutChartSlice(
+                id: $0.id,
+                fraction: max(0, $0.fraction) / sum,
+                color: $0.color
+            )
         }
+    }
+}
+
+// MARK: - Interaction Shape
+
+private struct DonutInteractionRingShape: Shape {
+    let innerRadiusRatio: Double
+
+    func path(in rect: CGRect) -> Path {
+        let outerRadius = min(rect.width, rect.height) / 2
+        let innerRadius = outerRadius * innerRadiusRatio
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+
+        var path = Path()
+        path.addArc(
+            center: center,
+            radius: outerRadius,
+            startAngle: .degrees(0),
+            endAngle: .degrees(360),
+            clockwise: false
+        )
+        path.addArc(
+            center: center,
+            radius: innerRadius,
+            startAngle: .degrees(360),
+            endAngle: .degrees(0),
+            clockwise: true
+        )
+        path.closeSubpath()
+        return path
     }
 }
