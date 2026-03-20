@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ImportedEventCardView: View {
-    let event: ExternalCalendarEvent
+    let row: PlannerImportedEventRowData
 
     var body: some View {
         PlannerCardView(model: model) {
@@ -17,7 +17,7 @@ struct ImportedEventCardView: View {
     }
 
     private var model: PlannerCardModel {
-        let mapped = TaskColor.closest(to: event.calendarColor)
+        let event = row.event
 
         let subtitleParts: [String] = [
             event.calendarTitle,
@@ -30,12 +30,13 @@ struct ImportedEventCardView: View {
             timeText: timeText,
             badgeText: nil,
             thumb: nil,
-            surfaceColor: mapped.surface(opacity: 1.0),
+            surfaceColor: row.mappedColor.surface(opacity: 1.0),
             isMuted: false
         )
     }
 
     private var timeText: String {
+        let event = row.event
         if event.isAllDay { return "All day" }
         return "\(event.startDate.formatted(date: .omitted, time: .shortened)) – \(event.endDate.formatted(date: .omitted, time: .shortened))"
     }

@@ -11,8 +11,12 @@ import SwiftData
 struct PlannerView: View {
     @StateObject var viewModel: PlannerViewModel
 
-    @Query(sort: [SortDescriptor(\TaskEntity.dayDate, order: .forward),
-                  SortDescriptor(\TaskEntity.startTime, order: .forward)])
+    @Query(
+        sort: [
+            SortDescriptor(\TaskEntity.dayDate, order: .forward),
+            SortDescriptor(\TaskEntity.startTime, order: .forward)
+        ]
+    )
     private var tasks: [TaskEntity]
 
     @State private var didTriggerSwipe = false
@@ -30,10 +34,12 @@ struct PlannerView: View {
     @State private var monthDirection: MonthNavDirection = .next
 
     var body: some View {
+        let snapshot = viewModel.snapshot
+
         List {
             Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                    calendarCard
+                    calendarCard(snapshot: snapshot)
                 }
                 .padding(.horizontal, DS.Spacing.lg)
                 .padding(.top, DS.Spacing.lg)
@@ -45,7 +51,7 @@ struct PlannerView: View {
 
             Section {
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    tasksHeader
+                    tasksHeader(snapshot: snapshot)
                 }
                 .padding(.horizontal, DS.Spacing.lg)
                 .padding(.top, DS.Spacing.sm)
@@ -55,9 +61,7 @@ struct PlannerView: View {
             .listRowBackground(Color.clear)
             .listRowSeparator(.hidden)
 
-            let dayItems = viewModel.itemsForSelectedDay(from: tasks)
-
-            if dayItems.isEmpty {
+            if snapshot.selectedDaySection.isEmpty {
                 Section {
                     EmptyTasksCardView(onTap: viewModel.openCreateTask)
                         .padding(.horizontal, DS.Spacing.lg)
@@ -68,80 +72,83 @@ struct PlannerView: View {
                 .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(dayItems) { item in
+                    ForEach(snapshot.selectedDaySection.items) { item in
                         switch item {
-                        case .task(let occ):
-                            let modelCompleted = occ.task.isCompleted(on: viewModel.selectedDay)
+                        case .task(let row):
+                            let occ = row.occurrence
                             let isVisuallyDone = viewModel.isVisuallyDone(
                                 taskId: occ.task.persistentModelID,
-                                modelCompleted: modelCompleted
+                                modelCompleted: row.modelCompleted
                             )
 
-                            TaskCardView(occurrence: occ, isVisuallyDone: isVisuallyDone)
-                                .padding(.horizontal, DS.Spacing.lg)
-                                .padding(.vertical, 6)
-                                .listRowInsets(.init())
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .onTapGesture {
-                                    viewModel.openEditTask(id: occ.task.persistentModelID)
+                            TaskCardView(
+                                occurrence: occ,
+                                isVisuallyDone: isVisuallyDone
+                            )
+                            .padding(.horizontal, DS.Spacing.lg)
+                            .padding(.vertical, 6)
+                            .listRowInsets(.init())
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .onTapGesture {
+                                viewModel.openEditTask(id: occ.task.persistentModelID)
+                            }
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button {
+                                    viewModel.toggleDoneTwoPhase(
+                                        taskId: occ.task.persistentModelID,
+                                        on: viewModel.selectedDay
+                                    )
+                                } label: {
+                                    Label(
+                                        row.modelCompleted ? "Undo" : "Done",
+                                        systemImage: row.modelCompleted
+                                        ? "arrow.uturn.backward.circle"
+                                        : "checkmark.circle.fill"
+                                    )
                                 }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
-                                        viewModel.toggleDoneTwoPhase(
-                                            taskId: occ.task.persistentModelID,
-                                            on: viewModel.selectedDay
-                                        )
-                                    } label: {
-                                        Label(
-                                            modelCompleted ? "Undo" : "Done",
-                                            systemImage: modelCompleted
-                                            ? "arrow.uturn.backward.circle"
-                                            : "checkmark.circle.fill"
-                                        )
-                                    }
-                                    .tint(DS.ColorToken.purple)
+                                .tint(DS.ColorToken.purple)
 
-                                    if occ.task.repeatRule != .none {
-                                        Menu {
-                                            Text("How to delete?")
-                                                .foregroundStyle(DS.ColorToken.textSecondary)
-                                                .disabled(true)
+                                if occ.task.repeatRule != .none {
+                                    Menu {
+                                        Text("How to delete?")
+                                            .foregroundStyle(DS.ColorToken.textSecondary)
+                                            .disabled(true)
 
-                                            Button(role: .destructive) {
-                                                viewModel.deleteOccurrence(
-                                                    taskId: occ.task.persistentModelID,
-                                                    occurrenceStartDay: occ.occurrenceStartDay,
-                                                    scope: .onlyThisDay
-                                                )
-                                            } label: {
-                                                Text("Only this day")
-                                            }
-
-                                            Button(role: .destructive) {
-                                                viewModel.deleteOccurrence(
-                                                    taskId: occ.task.persistentModelID,
-                                                    occurrenceStartDay: occ.occurrenceStartDay,
-                                                    scope: .allFutureDays
-                                                )
-                                            } label: {
-                                                Text("All future days")
-                                            }
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                        .tint(.red)
-                                    } else {
                                         Button(role: .destructive) {
-                                            viewModel.delete(taskId: occ.task.persistentModelID)
+                                            viewModel.deleteOccurrence(
+                                                taskId: occ.task.persistentModelID,
+                                                occurrenceStartDay: occ.occurrenceStartDay,
+                                                scope: .onlyThisDay
+                                            )
                                         } label: {
-                                            Label("Delete", systemImage: "trash")
+                                            Text("Only this day")
                                         }
+
+                                        Button(role: .destructive) {
+                                            viewModel.deleteOccurrence(
+                                                taskId: occ.task.persistentModelID,
+                                                occurrenceStartDay: occ.occurrenceStartDay,
+                                                scope: .allFutureDays
+                                            )
+                                        } label: {
+                                            Text("All future days")
+                                        }
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
+                                    }
+                                    .tint(.red)
+                                } else {
+                                    Button(role: .destructive) {
+                                        viewModel.delete(taskId: occ.task.persistentModelID)
+                                    } label: {
+                                        Label("Delete", systemImage: "trash")
                                     }
                                 }
+                            }
 
-                        case .imported(let ev):
-                            ImportedEventCardView(event: ev)
+                        case .imported(let row):
+                            ImportedEventCardView(row: row)
                                 .padding(.horizontal, DS.Spacing.lg)
                                 .padding(.vertical, 6)
                                 .listRowInsets(.init())
@@ -164,8 +171,12 @@ struct PlannerView: View {
             header
         }
         .onAppear {
+            viewModel.updateSourceTasks(tasks)
             viewModel.loadPreferences()
             viewModel.refreshExternalEvents()
+        }
+        .onChange(of: tasksInputFingerprint) { _ in
+            viewModel.updateSourceTasks(tasks)
         }
         .onReceive(NotificationCenter.default.publisher(for: .widgetPlannerDayRequested)) { note in
             guard let day = note.object as? Date else { return }
@@ -192,9 +203,9 @@ struct PlannerView: View {
         }
     }
 
-    private var calendarCard: some View {
+    private func calendarCard(snapshot: PlannerScreenSnapshot) -> some View {
         ZStack {
-            calendarContent
+            calendarContent(snapshot: snapshot)
                 .id(viewModel.monthAnchor)
                 .transition(monthSlideTransition)
         }
@@ -206,7 +217,7 @@ struct PlannerView: View {
         .animation(monthAnim, value: viewModel.monthAnchor)
     }
 
-    private var calendarContent: some View {
+    private func calendarContent(snapshot: PlannerScreenSnapshot) -> some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             MonthSwitcherView(
                 title: viewModel.monthAnchor.monthTitle(),
@@ -218,22 +229,12 @@ struct PlannerView: View {
                 todayTitle: "Today"
             )
 
-            WeekdaysRowView(
-                symbols: CalendarGridBuilder.weekdaySymbols(
-                    weekStartsOnMonday: viewModel.weekStartsOnMonday
-                )
-            )
+            WeekdaysRowView(symbols: snapshot.weekdaySymbols)
 
             CalendarGridView(
-                monthAnchor: viewModel.monthAnchor,
-                weekStartsOnMonday: viewModel.weekStartsOnMonday,
-                selectedDay: viewModel.selectedDay,
-                tasks: tasks,
-                indicatorColors: { date in
-                    viewModel.indicatorColors(for: date, tasks: tasks)
-                },
+                days: snapshot.monthDays,
                 onSelectDay: { day in
-                    viewModel.selectedDay = Calendar.current.startOfDay(for: day)
+                    viewModel.selectDay(day)
                 }
             )
         }
@@ -305,16 +306,16 @@ struct PlannerView: View {
         withAnimation(monthAnim) { viewModel.goToToday() }
     }
 
-    private var tasksHeader: some View {
+    private func tasksHeader(snapshot: PlannerScreenSnapshot) -> some View {
         HStack {
-            Text("Tasks for \(viewModel.selectedDay.dayTitle())")
+            Text("Tasks for \(snapshot.selectedDaySection.title)")
                 .font(DS.Typography.sectionTitle)
                 .foregroundColor(DS.ColorToken.textPrimary)
 
             Spacer()
 
             HStack(spacing: 10) {
-                Text("\(tasksForSelectedDay.count) tasks")
+                Text("\(snapshot.selectedDaySection.taskCount) tasks")
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(DS.ColorToken.purple)
 
@@ -333,7 +334,35 @@ struct PlannerView: View {
         }
     }
 
-    private var tasksForSelectedDay: [DayOccurrence] {
-        viewModel.tasksForDay(viewModel.selectedDay, from: tasks)
+    private var tasksInputFingerprint: Int {
+        var hasher = Hasher()
+        hasher.combine(tasks.count)
+
+        for task in tasks {
+            hasher.combine(String(describing: task.persistentModelID))
+            hasher.combine(task.title)
+            hasher.combine(task.notes ?? "")
+            hasher.combine(task.dayDate.timeIntervalSince1970.bitPattern)
+            hasher.combine(task.startTime.timeIntervalSince1970.bitPattern)
+            hasher.combine(task.endTime.timeIntervalSince1970.bitPattern)
+            hasher.combine(task.isAllDay)
+            hasher.combine(task.repeatRuleRaw)
+            hasher.combine(task.repeatIntervalDays ?? 0)
+            hasher.combine(task.statusRaw)
+            hasher.combine(task.colorRaw)
+            hasher.combine(task.categoryTitle ?? "")
+            hasher.combine(task.photoThumbData?.count ?? 0)
+            hasher.combine(task.completedDayKeysRaw)
+            hasher.combine(task.appleEventIdentifier ?? "")
+            hasher.combine(task.reminderEnabled)
+            hasher.combine(task.reminderOffsetMinutes)
+            hasher.combine(task.reminderAllDayTimeMinutes ?? -1)
+            hasher.combine(task.suppressedReminderKeysRaw ?? "")
+            hasher.combine(task.seriesSegmentsRaw ?? "")
+            hasher.combine(task.seriesOverridesRaw ?? "")
+            hasher.combine(task.seriesEndDay?.timeIntervalSince1970.bitPattern ?? 0)
+        }
+
+        return hasher.finalize()
     }
 }
