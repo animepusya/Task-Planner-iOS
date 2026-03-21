@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum StatisticsRange: String, CaseIterable, Identifiable {
+enum StatisticsRange: String, CaseIterable, Identifiable, Sendable {
     case day
     case week
     case month

@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct TaskStat: Identifiable, Hashable {
+struct TaskStat: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let minutes: Int

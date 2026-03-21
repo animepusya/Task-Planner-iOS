@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftData
+import SwiftUI
 import Combine
 
 @MainActor
@@ -15,25 +16,31 @@ final class StatisticsViewModel: ObservableObject {
     private let preferencesRepository: PreferencesRepository
     private let onOpenSettings: () -> Void
 
+    private let computationCache = StatisticsComputationCache()
+
+    private var taskSources: [StatisticsTaskSource] = []
+    private var refreshTask: Task<StatisticsComputedResult, Never>?
+    private var isUpdatingInputs = false
+    private var didScheduleInitialLoad = false
+
     @Published var range: StatisticsRange = .month {
         didSet {
-            normalizeAnchorDateForRange()
-            refresh()
+            guard isUpdatingInputs == false else { return }
+            handleInputChange()
         }
     }
 
     @Published var anchorDate: Date = Calendar.current.startOfDay(for: .now) {
-        didSet { refresh() }
+        didSet {
+            guard isUpdatingInputs == false else { return }
+            handleInputChange()
+        }
     }
 
     @Published var breakdown: StatisticsBreakdown = .category
-
-    @Published private(set) var displayedTitle: String = Calendar.current.startOfDay(for: .now).monthTitle()
-    @Published private(set) var totalMinutes: Int = 0
-    @Published private(set) var categoryStats: [CategoryStat] = []
-    @Published private(set) var taskStats: [TaskStat] = []
     @Published private(set) var weekStartsOnMonday: Bool = true
-
+    @Published private(set) var snapshot: StatisticsScreenSnapshot
+    
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
@@ -42,10 +49,284 @@ final class StatisticsViewModel: ObservableObject {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.onOpenSettings = onOpenSettings
+        
+        let initialWeekStartsOnMonday: Bool
+        do {
+            let prefs = try preferencesRepository.getOrCreate()
+            initialWeekStartsOnMonday = prefs.weekStartsOnMonday
+        } catch {
+            initialWeekStartsOnMonday = true
+        }
+        
+        self.weekStartsOnMonday = initialWeekStartsOnMonday
+        
+        let initialRange: StatisticsRange = .month
+        let initialAnchor = StatisticsViewModel.normalizedAnchorDate(
+            for: initialRange,
+            anchorDate: Calendar.current.startOfDay(for: .now),
+            weekStartsOnMonday: initialWeekStartsOnMonday
+        )
+        self.anchorDate = initialAnchor
+        
+        self.snapshot = .placeholder(
+            displayedTitle: StatisticsViewModel.makeDisplayedTitle(
+                for: initialRange,
+                anchorDate: initialAnchor,
+                weekStartsOnMonday: initialWeekStartsOnMonday
+            )
+        )
+        
+        self.range = initialRange
+        self.breakdown = .category
+    }
+
+    func onViewAppear() {
+        scheduleInitialLoadIfNeeded()
+    }
+
+    func handleModelContextDidSave() {
+        reloadStoreInputsAndRefresh(force: false)
+    }
+
+    func openSettings() {
+        onOpenSettings()
+    }
+
+    func goToPrevious() {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
+        switch range {
+        case .day:
+            anchorDate = calendar.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+
+        case .week:
+            anchorDate = calendar.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
+
+        case .month:
+            let previous = calendar.date(byAdding: .month, value: -1, to: anchorDate) ?? anchorDate
+            anchorDate = calendar.startOfMonth(for: previous)
+
+        case .year:
+            anchorDate = calendar.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
+        }
+    }
+
+    func goToNext() {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
+        switch range {
+        case .day:
+            anchorDate = calendar.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
+
+        case .week:
+            anchorDate = calendar.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
+
+        case .month:
+            let next = calendar.date(byAdding: .month, value: 1, to: anchorDate) ?? anchorDate
+            anchorDate = calendar.startOfMonth(for: next)
+
+        case .year:
+            anchorDate = calendar.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
+        }
+    }
+
+    private func scheduleInitialLoadIfNeeded() {
+        guard didScheduleInitialLoad == false else { return }
+        didScheduleInitialLoad = true
+
+        Task { [weak self] in
+            guard let self else { return }
+            self.reloadStoreInputsAndRefresh(force: true)
+        }
+    }
+
+    private func handleInputChange() {
+        let normalizedAnchor = Self.normalizedAnchorDate(
+            for: range,
+            anchorDate: anchorDate,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+
+        if normalizedAnchor != anchorDate {
+            isUpdatingInputs = true
+            anchorDate = normalizedAnchor
+            isUpdatingInputs = false
+        }
+
+        refresh()
+    }
+
+    private func reloadStoreInputsAndRefresh(force: Bool) {
+        let didChange = reloadStoreInputs()
+        guard force || didChange else { return }
+        refresh(force: true)
+    }
+
+    private func reloadStoreInputs() -> Bool {
+        let previousWeekStartsOnMonday = weekStartsOnMonday
+        let previousTaskSources = taskSources
 
         loadPreferences()
-        normalizeAnchorDateForRange()
-        refresh()
+
+        let normalizedAnchor = Self.normalizedAnchorDate(
+            for: range,
+            anchorDate: anchorDate,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+        if normalizedAnchor != anchorDate {
+            isUpdatingInputs = true
+            anchorDate = normalizedAnchor
+            isUpdatingInputs = false
+        }
+
+        let newTaskSources: [StatisticsTaskSource]
+        do {
+            newTaskSources = try taskRepository.fetchAll().map { StatisticsTaskSource(task: $0) }
+        } catch {
+            assertionFailure("Statistics fetch failed: \(error)")
+            newTaskSources = []
+        }
+
+        let didChange = previousWeekStartsOnMonday != weekStartsOnMonday || previousTaskSources != newTaskSources
+        if didChange {
+            taskSources = newTaskSources
+            computationCache.invalidateAll()
+        }
+
+        return didChange
+    }
+
+    private func refresh(force: Bool = false) {
+        let key = StatisticsComputationKey(
+            range: range,
+            anchorDate: anchorDate,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+        let displayedTitle = Self.makeDisplayedTitle(
+            for: key.range,
+            anchorDate: key.anchorDate,
+            weekStartsOnMonday: key.weekStartsOnMonday
+        )
+
+        if force == false, let cached = computationCache.value(for: key) {
+            apply(result: cached, displayedTitle: displayedTitle)
+            return
+        }
+
+        refreshTask?.cancel()
+        snapshot = .placeholder(displayedTitle: displayedTitle)
+
+        let taskSources = self.taskSources
+        let computeTask = Task.detached(priority: .userInitiated) {
+            StatisticsComputationBuilder.build(tasks: taskSources, key: key)
+        }
+        refreshTask = computeTask
+
+        Task { [weak self] in
+            let result = await computeTask.value
+            guard let self else { return }
+            guard computeTask.isCancelled == false else { return }
+
+            self.computationCache.insert(result, for: key)
+
+            let currentKey = StatisticsComputationKey(
+                range: self.range,
+                anchorDate: self.anchorDate,
+                weekStartsOnMonday: self.weekStartsOnMonday
+            )
+            guard currentKey == key else { return }
+
+            self.apply(result: result, displayedTitle: displayedTitle)
+        }
+    }
+
+    private func apply(result: StatisticsComputedResult, displayedTitle: String) {
+        let totalMinutesText = result.totalMinutes.formattedHoursMinutes()
+
+        snapshot = StatisticsScreenSnapshot(
+            displayedTitle: displayedTitle,
+            totalMinutes: result.totalMinutes,
+            totalMinutesText: totalMinutesText,
+            category: makeBreakdownSnapshot(
+                totalMinutes: result.totalMinutes,
+                rows: result.categoryStats.map {
+                    StatisticsBreakdownRowSource(
+                        id: $0.id,
+                        name: $0.name,
+                        minutes: $0.minutes,
+                        colorRaw: $0.colorRaw
+                    )
+                }
+            ),
+            task: makeBreakdownSnapshot(
+                totalMinutes: result.totalMinutes,
+                rows: result.taskStats.map {
+                    StatisticsBreakdownRowSource(
+                        id: $0.id,
+                        name: $0.title,
+                        minutes: $0.minutes,
+                        colorRaw: $0.colorRaw
+                    )
+                }
+            )
+        )
+    }
+
+    private func makeBreakdownSnapshot(
+        totalMinutes: Int,
+        rows: [StatisticsBreakdownRowSource]
+    ) -> StatisticsBreakdownSnapshot {
+        let totalMinutesText = totalMinutes.formattedHoursMinutes()
+        guard totalMinutes > 0, rows.isEmpty == false else {
+            return .empty(totalMinutesText: totalMinutesText)
+        }
+
+        let preparedRows = rows.map { row in
+            let percent = Double(row.minutes) / Double(totalMinutes)
+            let percentText = Self.percentText(percent)
+            let minutesText = row.minutes.formattedHoursMinutes()
+
+            return StatisticsTotalRowViewData(
+                id: row.id,
+                name: row.name,
+                minutes: row.minutes,
+                minutesText: minutesText,
+                percentText: percentText,
+                valueText: "\(minutesText) (\(percentText))",
+                color: Self.color(forRawValue: row.colorRaw)
+            )
+        }
+
+        let donutSlices = Self.normalizedDonutSlices(
+            preparedRows.map { row in
+                DonutChartSlice(
+                    id: row.id,
+                    fraction: Double(row.minutes),
+                    color: row.color
+                )
+            }
+        )
+
+        let centersBySliceID = Dictionary(uniqueKeysWithValues: preparedRows.map { row in
+            (
+                row.id,
+                StatisticsDonutCenterData(
+                    title: row.name,
+                    valueText: row.minutesText
+                )
+            )
+        })
+
+        return StatisticsBreakdownSnapshot(
+            rows: preparedRows,
+            donutSlices: donutSlices,
+            defaultCenter: StatisticsDonutCenterData(
+                title: "Total",
+                valueText: totalMinutesText
+            ),
+            emptyMessage: "Add some tasks to see totals.",
+            centersBySliceID: centersBySliceID
+        )
     }
 
     private func loadPreferences() {
@@ -57,292 +338,84 @@ final class StatisticsViewModel: ObservableObject {
         }
     }
 
-    func reloadPreferencesAndRefresh() {
-        loadPreferences()
-        normalizeAnchorDateForRange()
-        refresh()
+    private static func color(forRawValue rawValue: String) -> Color {
+        TaskColor(rawValue: rawValue)?.uiColor ?? DS.ColorToken.textSecondary
     }
 
-    func openSettings() {
-        onOpenSettings()
+    private static func normalizedDonutSlices(_ slices: [DonutChartSlice]) -> [DonutChartSlice] {
+        let total = slices.reduce(0.0) { $0 + max(0, $1.fraction) }
+        guard total > 0 else { return [] }
+
+        return slices.map { slice in
+            DonutChartSlice(
+                id: slice.id,
+                fraction: max(0, slice.fraction) / total,
+                color: slice.color
+            )
+        }
     }
 
-    func goToPrevious() {
-        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+    private static func percentText(_ value: Double) -> String {
+        "\(Int((value * 100).rounded()))%"
+    }
+
+    private static func normalizedAnchorDate(
+        for range: StatisticsRange,
+        anchorDate: Date,
+        weekStartsOnMonday: Bool
+    ) -> Date {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+
+        switch range {
+        case .day, .week:
+            return calendar.startOfDay(for: anchorDate)
+
+        case .month:
+            return calendar.startOfMonth(for: anchorDate)
+
+        case .year:
+            let year = calendar.component(.year, from: anchorDate)
+            return calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? anchorDate
+        }
+    }
+
+    private static func makeDisplayedTitle(
+        for range: StatisticsRange,
+        anchorDate: Date,
+        weekStartsOnMonday: Bool
+    ) -> String {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
 
         switch range {
         case .day:
-            anchorDate = cal.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
+            return anchorDate.dayTitle(using: calendar)
 
         case .week:
-            anchorDate = cal.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
+            let weekStart = calendar.date(
+                from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate)
+            ) ?? calendar.startOfDay(for: anchorDate)
+            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
+
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.dateFormat = "d MMM"
+            return "\(formatter.string(from: weekStart)) – \(formatter.string(from: weekEnd))"
 
         case .month:
-            let previous = cal.date(byAdding: .month, value: -1, to: anchorDate) ?? anchorDate
-            anchorDate = cal.startOfMonth(for: previous)
+            return anchorDate.monthTitle(using: calendar)
 
         case .year:
-            anchorDate = cal.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
+            let formatter = DateFormatter()
+            formatter.calendar = calendar
+            formatter.dateFormat = "yyyy"
+            return formatter.string(from: anchorDate)
         }
     }
+}
 
-    func goToNext() {
-        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            anchorDate = cal.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
-
-        case .week:
-            anchorDate = cal.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
-
-        case .month:
-            let next = cal.date(byAdding: .month, value: 1, to: anchorDate) ?? anchorDate
-            anchorDate = cal.startOfMonth(for: next)
-
-        case .year:
-            anchorDate = cal.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
-        }
-    }
-
-    func refresh() {
-        displayedTitle = makeDisplayedTitle()
-        computeStats()
-    }
-
-    func percent(for stat: CategoryStat) -> Double {
-        percent(forMinutes: stat.minutes)
-    }
-
-    func percent(for stat: TaskStat) -> Double {
-        percent(forMinutes: stat.minutes)
-    }
-
-    private func percent(forMinutes minutes: Int) -> Double {
-        guard totalMinutes > 0 else { return 0 }
-        return Double(minutes) / Double(totalMinutes)
-    }
-
-    private func normalizeAnchorDateForRange() {
-        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            let normalized = cal.startOfDay(for: anchorDate)
-            if normalized != anchorDate {
-                anchorDate = normalized
-            }
-
-        case .week:
-            let normalized = cal.startOfDay(for: anchorDate)
-            if normalized != anchorDate {
-                anchorDate = normalized
-            }
-
-        case .month:
-            let normalized = cal.startOfMonth(for: anchorDate)
-            if normalized != anchorDate {
-                anchorDate = normalized
-            }
-
-        case .year:
-            let year = cal.component(.year, from: anchorDate)
-            let normalized = cal.date(from: DateComponents(year: year, month: 1, day: 1)) ?? anchorDate
-            if normalized != anchorDate {
-                anchorDate = normalized
-            }
-        }
-    }
-
-    private func computeStats() {
-        do {
-            let allTasks = try taskRepository.fetchAll()
-            let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-            let (start, end) = dateRange(using: cal)
-
-            let candidates = allTasks.filter { task in
-                if task.repeatRule == .none {
-                    return task.dayDate <= end && task.endTime >= start
-                } else {
-                    return task.dayDate <= end
-                }
-            }
-
-            var perCategory: [String: (totalMinutes: Int, colorMinutes: [String: Int])] = [:]
-            var perTask: [String: (title: String, minutes: Int, colorRaw: String)] = [:]
-            var total = 0
-
-            for day in enumerateDays(from: start, to: end, calendar: cal) {
-                let occs = TaskDaySegment.occurrences(
-                    for: day,
-                    from: candidates,
-                    weekStartsOnMonday: weekStartsOnMonday
-                )
-
-                for occ in occs {
-                    let minutes = minutes(for: occ)
-                    guard minutes > 0 else { continue }
-
-                    total += minutes
-
-                    let categoryName = normalizedCategoryTitle(occ.categoryTitle)
-                    let colorRaw = occ.color.rawValue
-
-                    if var existing = perCategory[categoryName] {
-                        existing.totalMinutes += minutes
-                        existing.colorMinutes[colorRaw, default: 0] += minutes
-                        perCategory[categoryName] = existing
-                    } else {
-                        perCategory[categoryName] = (
-                            totalMinutes: minutes,
-                            colorMinutes: [colorRaw: minutes]
-                        )
-                    }
-
-                    let taskID = String(describing: occ.task.persistentModelID)
-                    let rawTitle = occ.title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let displayTitle = rawTitle.isEmpty ? "Untitled" : displayTitleOrUntitled(rawTitle)
-
-                    if var existingTask = perTask[taskID] {
-                        existingTask.minutes += minutes
-                        existingTask.title = displayTitle
-                        existingTask.colorRaw = colorRaw
-                        perTask[taskID] = existingTask
-                    } else {
-                        perTask[taskID] = (
-                            title: displayTitle,
-                            minutes: minutes,
-                            colorRaw: colorRaw
-                        )
-                    }
-                }
-            }
-
-            totalMinutes = total
-
-            categoryStats = perCategory
-                .map { (categoryName, payload) in
-                    let dominantColorRaw = payload.colorMinutes.max(by: { $0.value < $1.value })?.key ?? ""
-
-                    return CategoryStat(
-                        name: categoryName,
-                        minutes: payload.totalMinutes,
-                        colorRaw: dominantColorRaw
-                    )
-                }
-                .sorted { $0.minutes > $1.minutes }
-
-            taskStats = makeTopTasks(from: perTask)
-
-        } catch {
-            totalMinutes = 0
-            categoryStats = []
-            taskStats = []
-            assertionFailure("Statistics compute failed: \(error)")
-        }
-    }
-
-    private func minutes(for occurrence: DayOccurrence) -> Int {
-        guard occurrence.isAllDayOccurrence == false else { return 0 }
-
-        let delta = occurrence.displayEnd.timeIntervalSince(occurrence.displayStart)
-        guard delta > 0 else { return 0 }
-
-        return Int((delta / 60.0).rounded(.toNearestOrAwayFromZero))
-    }
-
-    private func makeTopTasks(from perTask: [String: (title: String, minutes: Int, colorRaw: String)]) -> [TaskStat] {
-        let sorted = perTask
-            .map { TaskStat(id: $0.key, title: $0.value.title, minutes: $0.value.minutes, colorRaw: $0.value.colorRaw) }
-            .sorted { $0.minutes > $1.minutes }
-
-        let topLimit = 10
-        guard sorted.count > topLimit else { return sorted }
-
-        let top = Array(sorted.prefix(topLimit))
-        let rest = sorted.dropFirst(topLimit)
-        let otherMinutes = rest.reduce(0) { $0 + $1.minutes }
-
-        if otherMinutes <= 0 { return top }
-
-        let other = TaskStat(id: "other", title: "Other", minutes: otherMinutes, colorRaw: "")
-        return top + [other]
-    }
-
-    private func enumerateDays(from start: Date, to end: Date, calendar: Calendar) -> [Date] {
-        let s = calendar.startOfDay(for: start)
-        let e = calendar.startOfDay(for: end)
-        guard s <= e else { return [] }
-
-        var result: [Date] = []
-        var cursor = s
-
-        while cursor <= e {
-            result.append(cursor)
-            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? cursor.addingTimeInterval(86400)
-        }
-
-        return result
-    }
-
-    private func dateRange(using cal: Calendar) -> (Date, Date) {
-        switch range {
-        case .day:
-            let day = cal.startOfDay(for: anchorDate)
-            return (day, day)
-
-        case .week:
-            let weekStart = cal.date(
-                from: cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate)
-            ) ?? cal.startOfDay(for: anchorDate)
-
-            let weekEnd = cal.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
-            return (cal.startOfDay(for: weekStart), cal.startOfDay(for: weekEnd))
-
-        case .month:
-            let start = cal.startOfMonth(for: anchorDate)
-            let end = cal.endOfMonth(for: anchorDate)
-            return (cal.startOfDay(for: start), cal.startOfDay(for: end))
-
-        case .year:
-            let comps = cal.dateComponents([.year], from: anchorDate)
-            let start = cal.date(from: comps) ?? cal.startOfDay(for: anchorDate)
-            let end = cal.date(byAdding: DateComponents(year: 1, day: -1), to: start) ?? start
-            return (cal.startOfDay(for: start), cal.startOfDay(for: end))
-        }
-    }
-
-    private func makeDisplayedTitle() -> String {
-        let cal = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            return anchorDate.dayTitle(using: cal)
-
-        case .week:
-            let (start, end) = dateRange(using: cal)
-            let f = DateFormatter()
-            f.calendar = cal
-            f.dateFormat = "d MMM"
-            return "\(f.string(from: start)) – \(f.string(from: end))"
-
-        case .month:
-            return anchorDate.monthTitle(using: cal)
-
-        case .year:
-            let f = DateFormatter()
-            f.calendar = cal
-            f.dateFormat = "yyyy"
-            return f.string(from: anchorDate)
-        }
-    }
-
-    private func normalizedCategoryTitle(_ raw: String?) -> String {
-        let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Work" : trimmed
-    }
-
-    private func displayTitleOrUntitled(_ rawTitle: String) -> String {
-        rawTitle.isEmpty ? "Untitled" : rawTitle
-    }
+private struct StatisticsBreakdownRowSource {
+    let id: String
+    let name: String
+    let minutes: Int
+    let colorRaw: String
 }

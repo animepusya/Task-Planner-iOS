@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct CategoryStat: Identifiable, Hashable {
+struct CategoryStat: Identifiable, Hashable, Sendable {
     let id: String
     let name: String
     let minutes: Int

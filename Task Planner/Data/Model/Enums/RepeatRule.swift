@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum RepeatRule: String, CaseIterable, Codable {
+enum RepeatRule: String, CaseIterable, Codable, Sendable {
     case none
     case daily
     case weekdays

@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum StatisticsBreakdown: String, CaseIterable, Identifiable {
+enum StatisticsBreakdown: String, CaseIterable, Identifiable, Sendable {
     case category
     case task
 

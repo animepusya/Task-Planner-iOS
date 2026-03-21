@@ -40,7 +40,7 @@ struct DonutChartView: View {
     }
 
     var body: some View {
-        let data = normalized(slices)
+        let data = slices
 
         Chart {
             ForEach(data) { s in
@@ -201,19 +201,6 @@ struct DonutChartView: View {
         }
 
         return nil
-    }
-
-    private func normalized(_ input: [DonutChartSlice]) -> [DonutChartSlice] {
-        let sum = input.reduce(0.0) { $0 + max(0, $1.fraction) }
-        guard sum > 0 else { return [] }
-
-        return input.map {
-            DonutChartSlice(
-                id: $0.id,
-                fraction: max(0, $0.fraction) / sum,
-                color: $0.color
-            )
-        }
     }
 }
 
