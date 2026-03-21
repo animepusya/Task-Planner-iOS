@@ -10,22 +10,20 @@ import SwiftUI
 struct SplashView: View {
     let onFinished: () -> Void
 
-    // timing
-    private let totalDuration: TimeInterval = 1.15
-    private let mainAnim: TimeInterval = 0.85
-    private let fadeOut: TimeInterval = 0.22
+    private let totalDuration: TimeInterval = 1.8
+    private let mainAnim: TimeInterval = 1.1
+    private let fadeOut: TimeInterval = 0.28
 
     @State private var appear = false
     @State private var glow = false
     @State private var fade = false
+    @State private var didStart = false
 
     var body: some View {
         ZStack {
-            // Full splash gradient (match LaunchScreen target)
             DS.GradientToken.splash
                 .ignoresSafeArea()
 
-            // subtle top "premium" veil
             LinearGradient(
                 colors: [
                     Color.white.opacity(0.30),
@@ -53,6 +51,8 @@ struct SplashView: View {
             .opacity(fade ? 0.0 : (appear ? 1.0 : 0.0))
         }
         .onAppear {
+            guard !didStart else { return }
+            didStart = true
             runAnimation()
         }
     }
@@ -82,24 +82,20 @@ struct SplashView: View {
     }
 
     private func runAnimation() {
-        // Main entrance
         withAnimation(.easeOut(duration: mainAnim)) {
             appear = true
         }
 
-        // Subtle breathing glow
-        withAnimation(.easeInOut(duration: 0.95).repeatForever(autoreverses: true)) {
+        withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
             glow = true
         }
 
-        // Fade out at the end
         DispatchQueue.main.asyncAfter(deadline: .now() + (totalDuration - fadeOut)) {
             withAnimation(.easeIn(duration: fadeOut)) {
                 fade = true
             }
         }
 
-        // Finish -> AppRootView
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
             onFinished()
         }
