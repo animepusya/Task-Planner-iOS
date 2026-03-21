@@ -10,7 +10,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel: SettingsViewModel
+    @StateObject private var viewModel: SettingsViewModel
     
     private let makeNotificationsView: () -> NotificationsView
     
@@ -22,6 +22,24 @@ struct SettingsView: View {
         makeNotificationsView: @escaping () -> NotificationsView
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.makeNotificationsView = makeNotificationsView
+    }
+
+    init(
+        preferencesRepository: PreferencesRepository,
+        taskRepository: TaskRepository,
+        categoryRepository: CategoryRepository,
+        calendarSync: CalendarSyncService,
+        makeNotificationsView: @escaping () -> NotificationsView
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: SettingsViewModel(
+                preferencesRepository: preferencesRepository,
+                taskRepository: taskRepository,
+                categoryRepository: categoryRepository,
+                calendarSync: calendarSync
+            )
+        )
         self.makeNotificationsView = makeNotificationsView
     }
     

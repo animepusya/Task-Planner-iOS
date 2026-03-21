@@ -10,11 +10,29 @@ import SwiftData
 
 struct RecurringTasksView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel: RecurringTasksViewModel
+    @StateObject private var viewModel: RecurringTasksViewModel
 
     @Query(sort: [SortDescriptor(\TaskEntity.title, order: .forward),
                   SortDescriptor(\TaskEntity.dayDate, order: .forward)])
     private var tasks: [TaskEntity]
+
+    init(viewModel: RecurringTasksViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        onOpenBaseRecurringEditor: @escaping (_ taskId: PersistentIdentifier, _ day: Date) -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: RecurringTasksViewModel(
+                taskRepository: taskRepository,
+                preferencesRepository: preferencesRepository,
+                onOpenBaseRecurringEditor: onOpenBaseRecurringEditor
+            )
+        )
+    }
 
     var body: some View {
         let sections = viewModel.sections(from: tasks)

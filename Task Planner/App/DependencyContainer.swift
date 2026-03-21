@@ -15,6 +15,10 @@ final class DependencyContainer {
         self.modelContainer = container
     }
 
+    func makeAppRootDependencies(context: ModelContext) -> AppRootDependencies {
+        AppRootDependencies(container: self, context: context)
+    }
+
     func makeTaskRepository(context: ModelContext) -> TaskRepository {
         let base = SwiftDataTaskRepository(context: context)
 

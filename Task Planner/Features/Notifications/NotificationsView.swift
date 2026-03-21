@@ -10,10 +10,32 @@ import SwiftData
 
 struct NotificationsView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel: NotificationsViewModel
+    @StateObject private var viewModel: NotificationsViewModel
 
     @Query(sort: [SortDescriptor(\TaskEntity.dayDate, order: .forward)])
     private var tasks: [TaskEntity]
+
+    init(viewModel: NotificationsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        notificationService: NotificationService,
+        notificationSync: NotificationSyncService,
+        onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: NotificationsViewModel(
+                taskRepository: taskRepository,
+                preferencesRepository: preferencesRepository,
+                notificationService: notificationService,
+                notificationSync: notificationSync,
+                onOpenTaskEditor: onOpenTaskEditor
+            )
+        )
+    }
 
     var body: some View {
         List {

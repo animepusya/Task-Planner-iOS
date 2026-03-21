@@ -9,9 +9,27 @@ import SwiftUI
 import SwiftData
 
 struct StatisticsView: View {
-    @StateObject var viewModel: StatisticsViewModel
+    @StateObject private var viewModel: StatisticsViewModel
     @State private var isRangeSheetPresented = false
     @State private var selectedSliceId: String? = nil
+
+    init(viewModel: StatisticsViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        onOpenSettings: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: StatisticsViewModel(
+                taskRepository: taskRepository,
+                preferencesRepository: preferencesRepository,
+                onOpenSettings: onOpenSettings
+            )
+        )
+    }
     
     var body: some View {
         ZStack {

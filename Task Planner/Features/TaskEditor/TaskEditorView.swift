@@ -10,7 +10,7 @@ import SwiftData
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject var viewModel: TaskEditorViewModel
+    @StateObject private var viewModel: TaskEditorViewModel
 
     let onOpenNotificationsCenter: () -> Void
 
@@ -22,6 +22,38 @@ struct TaskEditorView: View {
 
     private let fallbackCategories = ["Work", "Study", "Hobby"]
     @FocusState private var focusedField: TaskEditorField?
+
+    init(
+        viewModel: TaskEditorViewModel,
+        onOpenNotificationsCenter: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+        self.onOpenNotificationsCenter = onOpenNotificationsCenter
+    }
+
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        notificationService: NotificationService,
+        seriesService: TaskSeriesService,
+        taskId: PersistentIdentifier?,
+        preselectedDay: Date,
+        editMode: TaskEditorMode,
+        onOpenNotificationsCenter: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: TaskEditorViewModel(
+                taskRepository: taskRepository,
+                preferencesRepository: preferencesRepository,
+                notificationService: notificationService,
+                seriesService: seriesService,
+                taskId: taskId,
+                preselectedDay: preselectedDay,
+                editMode: editMode
+            )
+        )
+        self.onOpenNotificationsCenter = onOpenNotificationsCenter
+    }
 
     private var availableCategoryTitles: [String] {
         let list = categories

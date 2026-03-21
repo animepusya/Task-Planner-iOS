@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct PlannerView: View {
-    @StateObject var viewModel: PlannerViewModel
+    @StateObject private var viewModel: PlannerViewModel
 
     @Query(
         sort: [
@@ -32,6 +32,32 @@ struct PlannerView: View {
     }
 
     @State private var monthDirection: MonthNavDirection = .next
+
+    init(viewModel: PlannerViewModel) {
+        _viewModel = StateObject(wrappedValue: viewModel)
+    }
+
+    init(
+        taskRepository: TaskRepository,
+        preferencesRepository: PreferencesRepository,
+        calendarSync: CalendarSyncService,
+        seriesService: TaskSeriesService,
+        onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
+        onOpenNotifications: @escaping () -> Void,
+        onOpenRecurringBaseTasks: @escaping () -> Void
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: PlannerViewModel(
+                taskRepository: taskRepository,
+                preferencesRepository: preferencesRepository,
+                calendarSync: calendarSync,
+                seriesService: seriesService,
+                onOpenTaskEditor: onOpenTaskEditor,
+                onOpenNotifications: onOpenNotifications,
+                onOpenRecurringBaseTasks: onOpenRecurringBaseTasks
+            )
+        )
+    }
 
     var body: some View {
         let snapshot = viewModel.snapshot
