@@ -8,6 +8,8 @@
 import Foundation
 
 enum TaskDayOverlap {
+    static let maxOccurrenceLookbackDays = 14
+
 
     struct OccurrenceInterval {
         let start: Date
@@ -105,7 +107,7 @@ enum TaskDayOverlap {
 
         TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
 
-        let maxBackDays = 14
+        let maxBackDays = maxOccurrenceLookbackDays
 
         for back in 0...maxBackDays {
             guard let candidateStartDay = cal.date(byAdding: .day, value: -back, to: dayStart) else { continue }

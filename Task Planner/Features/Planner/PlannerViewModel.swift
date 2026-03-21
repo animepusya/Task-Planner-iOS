@@ -6,9 +6,9 @@
 //
 
 import Foundation
-import Combine
 import SwiftData
 import SwiftUI
+import Combine
 
 @MainActor
 final class PlannerViewModel: ObservableObject {
@@ -21,27 +21,18 @@ final class PlannerViewModel: ObservableObject {
     private let seriesService: TaskSeriesService
 
     private let snapshotBuilder = PlannerScreenSnapshotBuilder()
+    private let monthCache = PlannerMonthCache()
 
     private var sourceTasks: [TaskEntity] = []
-
-    @Published private(set) var selectedDay: Date
-    @Published private(set) var monthAnchor: Date
-    @Published private(set) var weekStartsOnMonday: Bool = true
-
-    @Published private(set) var externalEventsByDay: [Date: [ExternalCalendarEvent]] = [:] {
-        didSet { rebuildSnapshot() }
-    }
-
-    @Published private(set) var isOverlayEnabled: Bool = false {
-        didSet { rebuildSnapshot() }
-    }
+    private var weekStartsOnMonday = true
+    private var isOverlayEnabled = false
+    private var externalEventsByDay: [Date: [ExternalCalendarEvent]] = [:]
+    private var sortDoneOverride: [PersistentIdentifier: Bool] = [:]
+    private var selectedDayStorage: Date
+    private var monthAnchorStorage: Date
+    private var didAttachView = false
 
     @Published private(set) var visualDoneOverride: [PersistentIdentifier: Bool] = [:]
-
-    @Published private(set) var sortDoneOverride: [PersistentIdentifier: Bool] = [:] {
-        didSet { rebuildSnapshot() }
-    }
-
     @Published private(set) var snapshot: PlannerScreenSnapshot = .empty
 
     private var pendingToggleTasks: [PersistentIdentifier: Task<Void, Never>] = [:]
@@ -70,18 +61,26 @@ final class PlannerViewModel: ObservableObject {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
 
-        self.selectedDay = today
-        self.monthAnchor = calendar.startOfMonth(for: today)
+        self.selectedDayStorage = today
+        self.monthAnchorStorage = calendar.startOfMonth(for: today)
 
-        loadPreferences()
-        rebuildSnapshot()
-
-        Task { await loadExternalEventsForVisibleMonth() }
+        if !loadPreferences() {
+            refreshSnapshot()
+        }
     }
 
-    func updateSourceTasks(_ tasks: [TaskEntity]) {
-        sourceTasks = tasks
-        rebuildSnapshot()
+    var selectedDay: Date { selectedDayStorage }
+    var monthAnchor: Date { snapshot.month.monthAnchor }
+
+    func onViewAppear(tasks: [TaskEntity]) {
+        guard !didAttachView else { return }
+        didAttachView = true
+        updateSourceTasks(tasks)
+    }
+
+    func handleModelContextDidSave(tasks: [TaskEntity]) {
+        updateSourceTasks(tasks)
+        _ = loadPreferences()
     }
 
     func applyExternalSelectedDay(_ day: Date) {
@@ -89,116 +88,48 @@ final class PlannerViewModel: ObservableObject {
         let normalizedDay = calendar.startOfDay(for: day)
         let normalizedMonth = calendar.startOfMonth(for: normalizedDay)
 
-        selectedDay = normalizedDay
-        monthAnchor = normalizedMonth
-        rebuildSnapshot()
+        selectedDayStorage = normalizedDay
+        monthAnchorStorage = normalizedMonth
+        refreshSnapshot()
         refreshExternalEvents()
     }
 
     func selectDay(_ day: Date) {
         let normalizedDay = Calendar.current.startOfDay(for: day)
-        guard normalizedDay != selectedDay else { return }
-        selectedDay = normalizedDay
-        rebuildSnapshot()
+        guard normalizedDay != selectedDayStorage else { return }
+        selectedDayStorage = normalizedDay
+        refreshSnapshot()
     }
 
-    func loadPreferences() {
-        do {
-            let prefs = try preferencesRepository.getOrCreate()
-
-            weekStartsOnMonday = prefs.weekStartsOnMonday
-
-            let overlayEnabled = prefs.showAppleCalendarEventsInPlanner
-            isOverlayEnabled = overlayEnabled
-
-            if overlayEnabled {
-                refreshExternalEvents()
-            } else {
-                externalEventsByDay = [:]
-            }
-
-            rebuildSnapshot()
-        } catch {
-            weekStartsOnMonday = true
-            isOverlayEnabled = false
-            externalEventsByDay = [:]
-            rebuildSnapshot()
-        }
-    }
-
-    func refreshExternalEvents() {
-        externalMonthTask?.cancel()
-        externalMonthTask = Task { [weak self] in
-            guard let self else { return }
-            await self.loadExternalEventsForVisibleMonth()
-        }
-    }
-
-    private func loadExternalEventsForVisibleMonth() async {
-        guard isOverlayEnabled else {
-            externalEventsByDay = [:]
-            return
-        }
-
-        let cal = Calendar.current
-        let start = cal.startOfMonth(for: monthAnchor)
-        let end = cal.date(byAdding: .month, value: 1, to: start) ?? start.addingTimeInterval(30 * 86400)
-
-        do {
-            let events = try await calendarSync.fetchReadOnlyEvents(
-                start: start,
-                end: end,
-                excludeTaskPlannerCalendar: true
-            )
-            guard !Task.isCancelled else { return }
-
-            var grouped: [Date: [ExternalCalendarEvent]] = [:]
-            grouped.reserveCapacity(42)
-
-            for ev in events {
-                let dayKey = cal.startOfDay(for: ev.startDate)
-                grouped[dayKey, default: []].append(ev)
-            }
-
-            for key in grouped.keys {
-                grouped[key]?.sort { $0.startDate < $1.startDate }
-            }
-
-            externalEventsByDay = grouped
-        } catch {
-            externalEventsByDay = [:]
-        }
-    }
-
-    func openCreateTask() { onOpenTaskEditor(nil, selectedDay) }
-    func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDay) }
+    func openCreateTask() { onOpenTaskEditor(nil, selectedDayStorage) }
+    func openEditTask(id: PersistentIdentifier) { onOpenTaskEditor(id, selectedDayStorage) }
     func openNotifications() { onOpenNotifications() }
     func openRecurringBaseTasks() { onOpenRecurringBaseTasks() }
 
     func goToPreviousMonth() {
-        setMonthAnchor(monthAnchor.addingMonths(-1))
+        setMonthAnchor(monthAnchorStorage.addingMonths(-1))
     }
 
     func goToNextMonth() {
-        setMonthAnchor(monthAnchor.addingMonths(1))
+        setMonthAnchor(monthAnchorStorage.addingMonths(1))
     }
 
     func setMonthAnchor(_ date: Date) {
         let normalized = Calendar.current.startOfMonth(for: date)
-        guard normalized != monthAnchor else { return }
-        monthAnchor = normalized
-        rebuildSnapshot()
+        guard normalized != monthAnchorStorage else { return }
+        monthAnchorStorage = normalized
+        refreshSnapshot()
         refreshExternalEvents()
     }
 
     func goToToday() {
-        let cal = Calendar.current
-        let today = cal.startOfDay(for: .now)
-        let todayMonth = cal.startOfMonth(for: today)
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: .now)
+        let todayMonth = calendar.startOfMonth(for: today)
 
-        selectedDay = today
-        monthAnchor = todayMonth
-        rebuildSnapshot()
+        selectedDayStorage = today
+        monthAnchorStorage = todayMonth
+        refreshSnapshot()
         refreshExternalEvents()
     }
 
@@ -206,24 +137,12 @@ final class PlannerViewModel: ObservableObject {
         visualDoneOverride[taskId] ?? modelCompleted
     }
 
-    private func rebuildSnapshot() {
-        snapshot = snapshotBuilder.build(
-            tasks: sourceTasks,
-            selectedDay: selectedDay,
-            monthAnchor: monthAnchor,
-            weekStartsOnMonday: weekStartsOnMonday,
-            externalEventsByDay: externalEventsByDay,
-            isOverlayEnabled: isOverlayEnabled,
-            sortDoneOverride: sortDoneOverride
-        )
-    }
-
     func toggleDoneTwoPhase(taskId: PersistentIdentifier, on day: Date) {
         pendingToggleTasks[taskId]?.cancel()
 
         let dayKey = Calendar.current.startOfDay(for: day)
 
-        let t = Task { [weak self] in
+        let task = Task { [weak self] in
             guard let self else { return }
 
             do {
@@ -242,6 +161,8 @@ final class PlannerViewModel: ObservableObject {
 
                 withAnimation(self.moveAnim) {
                     self.sortDoneOverride[taskId] = targetCompleted
+                    self.invalidateMonthCache()
+                    self.refreshSnapshot()
                 }
 
                 taskEntity.toggleCompleted(on: dayKey)
@@ -249,20 +170,26 @@ final class PlannerViewModel: ObservableObject {
 
                 self.visualDoneOverride[taskId] = nil
                 self.sortDoneOverride[taskId] = nil
+                self.invalidateMonthCache()
+                self.refreshSnapshot()
             } catch {
                 assertionFailure("toggleDoneTwoPhase failed: \(error)")
                 self.visualDoneOverride[taskId] = nil
                 self.sortDoneOverride[taskId] = nil
+                self.invalidateMonthCache()
+                self.refreshSnapshot()
             }
         }
 
-        pendingToggleTasks[taskId] = t
+        pendingToggleTasks[taskId] = task
     }
 
     func delete(taskId: PersistentIdentifier) {
         pendingToggleTasks[taskId]?.cancel()
         visualDoneOverride[taskId] = nil
         sortDoneOverride[taskId] = nil
+        invalidateMonthCache()
+        refreshSnapshot()
 
         do {
             guard let task = try taskRepository.fetch(by: taskId) else {
@@ -283,6 +210,8 @@ final class PlannerViewModel: ObservableObject {
         pendingToggleTasks[taskId]?.cancel()
         visualDoneOverride[taskId] = nil
         sortDoneOverride[taskId] = nil
+        invalidateMonthCache()
+        refreshSnapshot()
 
         do {
             try seriesService.applyDelete(
@@ -293,5 +222,142 @@ final class PlannerViewModel: ObservableObject {
         } catch {
             assertionFailure("deleteOccurrence failed: \(error)")
         }
+    }
+
+    private func updateSourceTasks(_ tasks: [TaskEntity]) {
+        sourceTasks = tasks
+        invalidateMonthCache()
+        refreshSnapshot()
+    }
+
+    @discardableResult
+    private func loadPreferences() -> Bool {
+        let previousWeekStartsOnMonday = weekStartsOnMonday
+        let previousOverlayEnabled = isOverlayEnabled
+        let hadExternalEvents = !externalEventsByDay.isEmpty
+
+        do {
+            let prefs = try preferencesRepository.getOrCreate()
+            weekStartsOnMonday = prefs.weekStartsOnMonday
+            isOverlayEnabled = prefs.showAppleCalendarEventsInPlanner
+        } catch {
+            weekStartsOnMonday = true
+            isOverlayEnabled = false
+        }
+
+        if !isOverlayEnabled {
+            externalMonthTask?.cancel()
+            externalEventsByDay = [:]
+        }
+
+        let didChangeMonthInputs =
+            previousWeekStartsOnMonday != weekStartsOnMonday ||
+            previousOverlayEnabled != isOverlayEnabled ||
+            (hadExternalEvents && !isOverlayEnabled)
+
+        if didChangeMonthInputs {
+            invalidateMonthCache()
+            refreshSnapshot()
+        }
+
+        if isOverlayEnabled && (
+            previousWeekStartsOnMonday != weekStartsOnMonday ||
+            previousOverlayEnabled != isOverlayEnabled
+        ) {
+            refreshExternalEvents()
+        }
+
+        return didChangeMonthInputs
+    }
+
+    private func refreshExternalEvents() {
+        guard isOverlayEnabled else { return }
+
+        externalMonthTask?.cancel()
+        externalMonthTask = Task { [weak self] in
+            guard let self else { return }
+            await self.loadExternalEventsForVisibleMonth()
+        }
+    }
+
+    private func loadExternalEventsForVisibleMonth() async {
+        guard isOverlayEnabled else { return }
+
+        let calendar = Calendar.current
+        let start = calendar.startOfMonth(for: monthAnchorStorage)
+        let end = calendar.date(byAdding: .month, value: 1, to: start) ?? start.addingTimeInterval(30 * 86_400)
+
+        do {
+            let events = try await calendarSync.fetchReadOnlyEvents(
+                start: start,
+                end: end,
+                excludeTaskPlannerCalendar: true
+            )
+            guard !Task.isCancelled, isOverlayEnabled else { return }
+
+            var grouped: [Date: [ExternalCalendarEvent]] = [:]
+            grouped.reserveCapacity(42)
+
+            for event in events {
+                let dayKey = calendar.startOfDay(for: event.startDate)
+                grouped[dayKey, default: []].append(event)
+            }
+
+            for key in grouped.keys {
+                grouped[key]?.sort { $0.startDate < $1.startDate }
+            }
+
+            externalEventsByDay = grouped
+        } catch {
+            externalEventsByDay = [:]
+        }
+
+        invalidateMonthCache()
+        refreshSnapshot()
+    }
+
+    private func refreshSnapshot() {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let normalizedMonthAnchor = calendar.startOfMonth(for: monthAnchorStorage)
+
+        let monthKey = PlannerMonthBuildKey(
+            monthAnchor: normalizedMonthAnchor,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
+
+        let monthBuild: PlannerMonthBuildOutput
+        if let cached = monthCache.value(for: monthKey) {
+            monthBuild = cached
+        } else {
+            let built = snapshotBuilder.buildMonth(
+                tasks: sourceTasks,
+                monthAnchor: normalizedMonthAnchor,
+                weekStartsOnMonday: weekStartsOnMonday,
+                externalEventsByDay: externalEventsByDay,
+                isOverlayEnabled: isOverlayEnabled,
+                sortDoneOverride: sortDoneOverride
+            )
+            monthCache.insert(built, for: monthKey)
+            monthBuild = built
+        }
+
+        let selectedDaySnapshot = snapshotBuilder.buildSelectedDaySnapshot(
+            selectedDay: selectedDayStorage,
+            monthBuild: monthBuild,
+            tasks: sourceTasks,
+            weekStartsOnMonday: weekStartsOnMonday,
+            externalEventsByDay: externalEventsByDay,
+            isOverlayEnabled: isOverlayEnabled,
+            sortDoneOverride: sortDoneOverride
+        )
+
+        snapshot = PlannerScreenSnapshot(
+            month: monthBuild.monthSnapshot,
+            selectedDay: selectedDaySnapshot
+        )
+    }
+
+    private func invalidateMonthCache() {
+        monthCache.invalidateAll()
     }
 }

@@ -8,6 +8,25 @@
 import Foundation
 import SwiftUI
 
+struct PlannerMonthDaySnapshot: Identifiable, Hashable {
+    let id: String
+    let date: Date
+    let dayNumber: Int
+    let isInDisplayedMonth: Bool
+    let indicatorColors: [TaskColor]
+
+    func viewData(isSelected: Bool) -> PlannerMonthDayViewData {
+        PlannerMonthDayViewData(
+            id: id,
+            date: date,
+            dayNumber: dayNumber,
+            isInDisplayedMonth: isInDisplayedMonth,
+            isSelected: isSelected,
+            indicatorColors: indicatorColors
+        )
+    }
+}
+
 struct PlannerMonthDayViewData: Identifiable, Hashable {
     let id: String
     let date: Date
@@ -53,15 +72,38 @@ struct PlannerSelectedDaySectionData: Hashable {
     var isEmpty: Bool { items.isEmpty }
 }
 
-struct PlannerScreenSnapshot: Hashable {
+struct PlannerMonthSnapshot: Hashable {
+    let monthAnchor: Date
     let weekdaySymbols: [String]
-    let monthDays: [PlannerMonthDayViewData]
-    let selectedDaySection: PlannerSelectedDaySectionData
+    let days: [PlannerMonthDaySnapshot]
+
+    func viewDays(
+        selectedDay: Date,
+        calendar: Calendar = .current
+    ) -> [PlannerMonthDayViewData] {
+        let normalizedSelectedDay = calendar.startOfDay(for: selectedDay)
+
+        return days.map { day in
+            day.viewData(isSelected: calendar.isDate(day.date, inSameDayAs: normalizedSelectedDay))
+        }
+    }
+
+    static let empty = PlannerMonthSnapshot(
+        monthAnchor: Calendar.current.startOfMonth(for: .now),
+        weekdaySymbols: [],
+        days: []
+    )
+}
+
+typealias PlannerSelectedDaySnapshot = PlannerSelectedDaySectionData
+
+struct PlannerScreenSnapshot: Hashable {
+    let month: PlannerMonthSnapshot
+    let selectedDay: PlannerSelectedDaySnapshot
 
     static let empty = PlannerScreenSnapshot(
-        weekdaySymbols: [],
-        monthDays: [],
-        selectedDaySection: .init(
+        month: .empty,
+        selectedDay: .init(
             title: "",
             taskCount: 0,
             items: []

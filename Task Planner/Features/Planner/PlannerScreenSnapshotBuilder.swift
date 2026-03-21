@@ -9,123 +9,196 @@ import Foundation
 import SwiftData
 import SwiftUI
 
-struct PlannerScreenSnapshotBuilder {
+struct PlannerDayContent {
+    let taskRows: [PlannerTaskRowData]
+    let mergedItems: [PlannerSelectedDayItemViewData]
+    let indicatorColors: [TaskColor]
 
-    func build(
+    static let empty = PlannerDayContent(
+        taskRows: [],
+        mergedItems: [],
+        indicatorColors: []
+    )
+}
+
+struct PlannerMonthBuildOutput {
+    let monthSnapshot: PlannerMonthSnapshot
+    let dayContentByDay: [Date: PlannerDayContent]
+}
+
+struct PlannerScreenSnapshotBuilder {
+    func buildMonth(
         tasks: [TaskEntity],
-        selectedDay: Date,
         monthAnchor: Date,
         weekStartsOnMonday: Bool,
         externalEventsByDay: [Date: [ExternalCalendarEvent]],
         isOverlayEnabled: Bool,
         sortDoneOverride: [PersistentIdentifier: Bool]
-    ) -> PlannerScreenSnapshot {
+    ) -> PlannerMonthBuildOutput {
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-        let normalizedSelectedDay = calendar.startOfDay(for: selectedDay)
-
-        let gridItems = CalendarGridBuilder.makeMonthGrid(
+        guard let visibleRange = PlannerVisibleRangeBuilder.build(
             monthAnchor: monthAnchor,
             weekStartsOnMonday: weekStartsOnMonday,
             calendar: calendar
+        ) else {
+            return PlannerMonthBuildOutput(monthSnapshot: .empty, dayContentByDay: [:])
+        }
+
+        let occurrencesByDay = TaskDaySegment.occurrencesByDay(
+            for: visibleRange.visibleDays,
+            from: tasks,
+            weekStartsOnMonday: weekStartsOnMonday
         )
 
-        let visibleDays = Set(gridItems.map(\.date)).union([normalizedSelectedDay])
+        var dayContentByDay: [Date: PlannerDayContent] = [:]
+        dayContentByDay.reserveCapacity(visibleRange.visibleDays.count)
 
-        var indicatorColorsByDay: [Date: [TaskColor]] = [:]
-        indicatorColorsByDay.reserveCapacity(visibleDays.count)
-
-        var selectedDayItems: [PlannerSelectedDayItemViewData] = []
-        var selectedDayTaskCount = 0
-
-        for day in visibleDays {
+        for day in visibleRange.visibleDays {
             let dayKey = calendar.startOfDay(for: day)
-
-            let taskOccurrences = TaskDaySegment.occurrences(
-                for: dayKey,
-                from: tasks,
-                weekStartsOnMonday: weekStartsOnMonday
-            )
-
-            let sortedTaskRows: [PlannerTaskRowData] = taskOccurrences
-                .sorted { lhs, rhs in
-                    let lhsId = lhs.task.persistentModelID
-                    let rhsId = rhs.task.persistentModelID
-
-                    let lhsCompletedForSort = sortDoneOverride[lhsId] ?? lhs.task.isCompleted(on: dayKey)
-                    let rhsCompletedForSort = sortDoneOverride[rhsId] ?? rhs.task.isCompleted(on: dayKey)
-
-                    if lhsCompletedForSort != rhsCompletedForSort { return !lhsCompletedForSort }
-                    if lhs.displayStart != rhs.displayStart { return lhs.displayStart < rhs.displayStart }
-
-                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-                }
-                .map { occurrence in
-                    PlannerTaskRowData(
-                        occurrence: occurrence,
-                        modelCompleted: occurrence.task.isCompleted(on: dayKey)
-                    )
-                }
-
-            let importedRows: [PlannerImportedEventRowData] = {
-                guard isOverlayEnabled else { return [] }
-                let events = externalEventsByDay[dayKey] ?? []
-                return events.map {
-                    PlannerImportedEventRowData(
-                        event: $0,
-                        mappedColor: TaskColor.closest(to: $0.calendarColor)
-                    )
-                }
-            }()
-
-            let mergedItems = mergeItems(
-                taskRows: sortedTaskRows,
-                importedRows: importedRows,
-                dayKey: dayKey,
+            dayContentByDay[dayKey] = buildDayContent(
+                day: dayKey,
+                taskOccurrences: occurrencesByDay[dayKey] ?? [],
+                externalEventsByDay: externalEventsByDay,
+                isOverlayEnabled: isOverlayEnabled,
                 sortDoneOverride: sortDoneOverride
             )
-
-            let indicatorColors = mergedItems.compactMap { item -> TaskColor? in
-                switch item {
-                case .task(let row):
-                    let taskId = row.occurrence.task.persistentModelID
-                    let completedForSort = sortDoneOverride[taskId] ?? row.occurrence.task.isCompleted(on: dayKey)
-                    return completedForSort ? nil : row.occurrence.color
-
-                case .imported(let row):
-                    return row.mappedColor
-                }
-            }
-
-            indicatorColorsByDay[dayKey] = Array(indicatorColors.prefix(3))
-
-            if calendar.isDate(dayKey, inSameDayAs: normalizedSelectedDay) {
-                selectedDayItems = mergedItems
-                selectedDayTaskCount = sortedTaskRows.count
-            }
         }
 
-        let monthDays = gridItems.map { item in
-            PlannerMonthDayViewData(
-                id: item.id,
-                date: item.date,
-                dayNumber: item.dayNumber,
-                isInDisplayedMonth: item.isInDisplayedMonth,
-                isSelected: calendar.isDate(item.date, inSameDayAs: normalizedSelectedDay),
-                indicatorColors: indicatorColorsByDay[calendar.startOfDay(for: item.date)] ?? []
-            )
-        }
-
-        return PlannerScreenSnapshot(
+        let monthSnapshot = PlannerMonthSnapshot(
+            monthAnchor: calendar.startOfMonth(for: monthAnchor),
             weekdaySymbols: CalendarGridBuilder.weekdaySymbols(
                 weekStartsOnMonday: weekStartsOnMonday,
                 calendar: calendar
             ),
-            monthDays: monthDays,
-            selectedDaySection: PlannerSelectedDaySectionData(
-                title: normalizedSelectedDay.dayTitle(using: calendar),
-                taskCount: selectedDayTaskCount,
-                items: selectedDayItems
-            )
+            days: visibleRange.gridItems.map { item in
+                PlannerMonthDaySnapshot(
+                    id: item.id,
+                    date: item.date,
+                    dayNumber: item.dayNumber,
+                    isInDisplayedMonth: item.isInDisplayedMonth,
+                    indicatorColors: dayContentByDay[calendar.startOfDay(for: item.date)]?.indicatorColors ?? []
+                )
+            }
+        )
+
+        return PlannerMonthBuildOutput(
+            monthSnapshot: monthSnapshot,
+            dayContentByDay: dayContentByDay
+        )
+    }
+
+    func buildSelectedDaySnapshot(
+        selectedDay: Date,
+        monthBuild: PlannerMonthBuildOutput?,
+        tasks: [TaskEntity],
+        weekStartsOnMonday: Bool,
+        externalEventsByDay: [Date: [ExternalCalendarEvent]],
+        isOverlayEnabled: Bool,
+        sortDoneOverride: [PersistentIdentifier: Bool]
+    ) -> PlannerSelectedDaySnapshot {
+        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
+        let normalizedSelectedDay = calendar.startOfDay(for: selectedDay)
+
+        let dayContent = monthBuild?.dayContentByDay[normalizedSelectedDay] ?? buildSingleDayContent(
+            day: normalizedSelectedDay,
+            tasks: tasks,
+            weekStartsOnMonday: weekStartsOnMonday,
+            externalEventsByDay: externalEventsByDay,
+            isOverlayEnabled: isOverlayEnabled,
+            sortDoneOverride: sortDoneOverride
+        )
+
+        return PlannerSelectedDaySnapshot(
+            title: normalizedSelectedDay.dayTitle(using: calendar),
+            taskCount: dayContent.taskRows.count,
+            items: dayContent.mergedItems
+        )
+    }
+
+    private func buildSingleDayContent(
+        day: Date,
+        tasks: [TaskEntity],
+        weekStartsOnMonday: Bool,
+        externalEventsByDay: [Date: [ExternalCalendarEvent]],
+        isOverlayEnabled: Bool,
+        sortDoneOverride: [PersistentIdentifier: Bool]
+    ) -> PlannerDayContent {
+        let taskOccurrences = TaskDaySegment.occurrencesByDay(
+            for: [day],
+            from: tasks,
+            weekStartsOnMonday: weekStartsOnMonday
+        )[day] ?? []
+
+        return buildDayContent(
+            day: day,
+            taskOccurrences: taskOccurrences,
+            externalEventsByDay: externalEventsByDay,
+            isOverlayEnabled: isOverlayEnabled,
+            sortDoneOverride: sortDoneOverride
+        )
+    }
+
+    private func buildDayContent(
+        day: Date,
+        taskOccurrences: [DayOccurrence],
+        externalEventsByDay: [Date: [ExternalCalendarEvent]],
+        isOverlayEnabled: Bool,
+        sortDoneOverride: [PersistentIdentifier: Bool]
+    ) -> PlannerDayContent {
+        let sortedTaskRows: [PlannerTaskRowData] = taskOccurrences
+            .sorted { lhs, rhs in
+                let lhsId = lhs.task.persistentModelID
+                let rhsId = rhs.task.persistentModelID
+
+                let lhsCompletedForSort = sortDoneOverride[lhsId] ?? lhs.task.isCompleted(on: day)
+                let rhsCompletedForSort = sortDoneOverride[rhsId] ?? rhs.task.isCompleted(on: day)
+
+                if lhsCompletedForSort != rhsCompletedForSort { return !lhsCompletedForSort }
+                if lhs.displayStart != rhs.displayStart { return lhs.displayStart < rhs.displayStart }
+
+                return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+            }
+            .map { occurrence in
+                PlannerTaskRowData(
+                    occurrence: occurrence,
+                    modelCompleted: occurrence.task.isCompleted(on: day)
+                )
+            }
+
+        let importedRows: [PlannerImportedEventRowData] = {
+            guard isOverlayEnabled else { return [] }
+            let events = externalEventsByDay[day] ?? []
+            return events.map {
+                PlannerImportedEventRowData(
+                    event: $0,
+                    mappedColor: TaskColor.closest(to: $0.calendarColor)
+                )
+            }
+        }()
+
+        let mergedItems = mergeItems(
+            taskRows: sortedTaskRows,
+            importedRows: importedRows,
+            dayKey: day,
+            sortDoneOverride: sortDoneOverride
+        )
+
+        let indicatorColors = mergedItems.compactMap { item -> TaskColor? in
+            switch item {
+            case .task(let row):
+                let taskId = row.occurrence.task.persistentModelID
+                let completedForSort = sortDoneOverride[taskId] ?? row.occurrence.task.isCompleted(on: day)
+                return completedForSort ? nil : row.occurrence.color
+
+            case .imported(let row):
+                return row.mappedColor
+            }
+        }
+
+        return PlannerDayContent(
+            taskRows: sortedTaskRows,
+            mergedItems: mergedItems,
+            indicatorColors: Array(indicatorColors.prefix(3))
         )
     }
 
