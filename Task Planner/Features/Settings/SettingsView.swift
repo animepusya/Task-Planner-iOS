@@ -11,12 +11,12 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: SettingsViewModel
-    
+
     private let makeNotificationsView: () -> NotificationsView
-    
+
     @State private var showNotifications = false
     @State private var showClearAllAlert = false
-    
+
     init(
         viewModel: SettingsViewModel,
         makeNotificationsView: @escaping () -> NotificationsView
@@ -42,18 +42,18 @@ struct SettingsView: View {
         )
         self.makeNotificationsView = makeNotificationsView
     }
-    
+
     var body: some View {
         NavigationStack {
             ZStack {
                 AppBackgroundView(gradient: DS.GradientToken.splash)
-                
+
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(spacing: DS.Spacing.lg) {
                         SettingsScreenHeader {
                             dismiss()
                         }
-                        
+
                         VStack(spacing: DS.Spacing.lg) {
                             appSection
                             notificationsSection
@@ -83,29 +83,16 @@ struct SettingsView: View {
             viewModel.load()
         }
     }
-    
+
     // MARK: - Sections
-    
+
     private var appSection: some View {
         SettingsSection(title: "App") {
             SettingsCard {
-                SettingsRow(
-                    title: "Week starts on Monday",
-                    systemImage: "calendar"
-                ) {
-                    Toggle(
-                        "",
-                        isOn: Binding(
-                            get: { viewModel.weekStartsOnMonday },
-                            set: { viewModel.setWeekStartsOnMonday($0) }
-                        )
-                    )
-                    .labelsHidden()
-                    .tint(DS.ColorToken.purple)
-                }
-                
+                weekStartsOnRow
+
                 SettingsRowDivider()
-                
+
                 SettingsRow(
                     title: "Theme",
                     subtitle: "Prepared for future appearance support",
@@ -127,9 +114,9 @@ struct SettingsView: View {
                         rowValueLabel(viewModel.selectedTheme.title)
                     }
                 }
-                
+
                 SettingsRowDivider()
-                
+
                 SettingsRow(
                     title: "Localization",
                     subtitle: "UI is ready. App localization can be connected later",
@@ -154,7 +141,93 @@ struct SettingsView: View {
             }
         }
     }
-    
+
+    private var weekStartsOnRow: some View {
+        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+            Image(systemName: "calendar")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .frame(width: 22)
+
+            Text("Week starts on")
+                .font(DS.Typography.body)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+                .lineLimit(1)
+
+            Spacer(minLength: DS.Spacing.sm)
+
+            weekStartPicker
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, 14)
+        .contentShape(Rectangle())
+    }
+
+    private var weekStartPicker: some View {
+        HStack(spacing: 4) {
+            weekStartSegment(
+                title: "Monday",
+                isSelected: viewModel.weekStartsOnMonday,
+                action: {
+                    guard viewModel.weekStartsOnMonday == false else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                        viewModel.setWeekStartsOnMonday(true)
+                    }
+                }
+            )
+
+            weekStartSegment(
+                title: "Sunday",
+                isSelected: viewModel.weekStartsOnMonday == false,
+                action: {
+                    guard viewModel.weekStartsOnMonday else { return }
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.88)) {
+                        viewModel.setWeekStartsOnMonday(false)
+                    }
+                }
+            )
+        }
+        .padding(4)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.78))
+                .overlay(
+                    Capsule()
+                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                )
+        )
+        .shadow(color: DS.Shadow.soft, radius: 10, x: 0, y: 6)
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private func weekStartSegment(
+        title: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            ZStack {
+                if isSelected {
+                    Capsule()
+                        .fill(DS.GradientToken.brand)
+                }
+
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isSelected ? Color.white : DS.ColorToken.textSecondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+            }
+        }
+        .buttonStyle(.plain)
+        .contentShape(Capsule())
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+    }
+
     private var notificationsSection: some View {
         SettingsSection(title: "Notifications") {
             SettingsCard {
@@ -172,7 +245,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     private var calendarSection: some View {
         SettingsSection(
             title: "Calendar",
@@ -195,9 +268,9 @@ struct SettingsView: View {
                         .tint(DS.ColorToken.purple)
                     }
                 )
-                
+
                 SettingsRowDivider()
-                
+
                 SettingsRow(
                     title: "Show Apple Calendar events in Planner",
                     subtitle: "Read-only overlay, not saved in SwiftData",
@@ -214,9 +287,9 @@ struct SettingsView: View {
                         .tint(DS.ColorToken.purple)
                     }
                 )
-                
+
                 SettingsRowDivider()
-                
+
                 SettingsRow(
                     title: "Export now",
                     subtitle: "Force sync current tasks to Apple Calendar",
@@ -228,9 +301,9 @@ struct SettingsView: View {
                         EmptyView()
                     }
                 )
-                
+
                 SettingsRowDivider()
-                
+
                 SettingsRow(
                     title: "Remove exported events",
                     subtitle: "Delete all events created by Task Planner",
@@ -246,7 +319,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     private var categoriesSection: some View {
         SettingsSection(title: "Categories") {
             SettingsCard {
@@ -254,18 +327,18 @@ struct SettingsView: View {
                     title: $viewModel.newCategoryTitle,
                     onAdd: { viewModel.addCategory() }
                 )
-                
+
                 if !viewModel.categories.isEmpty {
                     SettingsRowDivider()
                 }
-                
+
                 ForEach(Array(viewModel.categories.enumerated()), id: \.element.id) { index, category in
                     CategoryListRow(
                         title: category.title,
                         isDeletable: viewModel.isDeletable(category),
                         onDelete: { viewModel.deleteCategory(category) }
                     )
-                    
+
                     if index < viewModel.categories.count - 1 {
                         SettingsRowDivider()
                     }
@@ -273,7 +346,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     private var dataSection: some View {
         SettingsSection(
             title: "Data",
@@ -295,29 +368,29 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     // MARK: - Helpers
-    
+
     private var footerTextForCalendar: String? {
         if let error = viewModel.calendarErrorText, !error.isEmpty {
             return error
         }
-        
+
         return viewModel.calendarStatusText.isEmpty ? nil : viewModel.calendarStatusText
     }
-    
+
     private var trailingChevron: some View {
         Image(systemName: "chevron.right")
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.9))
     }
-    
+
     private func rowValueLabel(_ value: String) -> some View {
         HStack(spacing: 6) {
             Text(value)
                 .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textSecondary)
-            
+
             Image(systemName: "chevron.up.chevron.down")
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
