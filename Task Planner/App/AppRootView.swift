@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import Combine
 
 struct AppRootView: View {
     let container: DependencyContainer
@@ -38,34 +37,30 @@ private struct AppRootContentView: View {
     }
 
     var body: some View {
-        ZStack {
-            AppBackgroundView(gradient: DS.GradientToken.splash)
+        TabView(selection: $selectedTab) {
+            PlannerView(
+                taskRepository: dependencies.taskRepository,
+                preferencesRepository: dependencies.preferencesRepository,
+                calendarSync: dependencies.calendarSyncService,
+                seriesService: dependencies.seriesService,
+                onOpenTaskEditor: { taskId, day in
+                    sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
+                },
+                onOpenNotifications: {
+                    sheet = .notifications
+                },
+                onOpenRecurringBaseTasks: {
+                    sheet = .recurringBaseTasks
+                }
+            )
+            .tag(AppTab.planner)
 
-            TabView(selection: $selectedTab) {
-                PlannerView(
-                    taskRepository: dependencies.taskRepository,
-                    preferencesRepository: dependencies.preferencesRepository,
-                    calendarSync: dependencies.calendarSyncService,
-                    seriesService: dependencies.seriesService,
-                    onOpenTaskEditor: { taskId, day in
-                        sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
-                    },
-                    onOpenNotifications: {
-                        sheet = .notifications
-                    },
-                    onOpenRecurringBaseTasks: {
-                        sheet = .recurringBaseTasks
-                    }
-                )
-                .tag(AppTab.planner)
-
-                StatisticsView(
-                    taskRepository: dependencies.taskRepository,
-                    preferencesRepository: dependencies.preferencesRepository,
-                    onOpenSettings: { sheet = .settings }
-                )
-                .tag(AppTab.statistics)
-            }
+            StatisticsView(
+                taskRepository: dependencies.taskRepository,
+                preferencesRepository: dependencies.preferencesRepository,
+                onOpenSettings: { sheet = .settings }
+            )
+            .tag(AppTab.statistics)
         }
         .toolbar(.hidden, for: .tabBar)
         .overlay(alignment: .bottom) {

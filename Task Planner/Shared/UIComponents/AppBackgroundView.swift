@@ -29,7 +29,6 @@ struct AppBackgroundView: View {
             gradient
                 .opacity(gradientOpacity)
                 .blur(radius: blurRadius)
-                .ignoresSafeArea()
 
             LinearGradient(
                 colors: [
@@ -39,8 +38,8 @@ struct AppBackgroundView: View {
                 startPoint: .top,
                 endPoint: .center
             )
-            .ignoresSafeArea()
         }
         .ignoresSafeArea()
+        .allowsHitTesting(false)
     }
 }

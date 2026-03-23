@@ -44,29 +44,30 @@ struct StatisticsView: View {
                 blurRadius: 22
             )
 
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                    periodCard(displayedTitle: snapshot.displayedTitle)
-                    donutCard(
-                        snapshot: breakdownSnapshot,
-                        totalMinutesText: snapshot.totalMinutesText
-                    )
-                    totalCard(
-                        snapshot: breakdownSnapshot,
-                        totalMinutesText: snapshot.totalMinutesText
-                    )
+            VStack(spacing: 0) {
+                header
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                        periodCard(displayedTitle: snapshot.displayedTitle)
+                        donutCard(
+                            snapshot: breakdownSnapshot,
+                            totalMinutesText: snapshot.totalMinutesText
+                        )
+                        totalCard(
+                            snapshot: breakdownSnapshot,
+                            totalMinutesText: snapshot.totalMinutesText
+                        )
+                    }
+                    .padding(.horizontal, DS.Spacing.lg)
+                    .padding(.top, DS.Spacing.lg)
+                    .padding(.bottom, 24)
                 }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, 24)
+                .background(Color.clear)
+                .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
             }
-            .background(Color.clear)
-            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         }
         .navigationBarHidden(true)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            header
-        }
         .onAppear {
             viewModel.onViewAppear()
         }

@@ -65,140 +65,141 @@ struct PlannerView: View {
         let monthSnapshot = snapshot.month
         let selectedDaySnapshot = snapshot.selectedDay
 
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                    calendarCard(snapshot: monthSnapshot)
-                }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, DS.Spacing.md)
-            }
-            .listRowInsets(.init())
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+        VStack(spacing: 0) {
+            header
 
-            Section {
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    tasksHeader(snapshot: selectedDaySnapshot)
-                }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.sm)
-                .padding(.bottom, DS.Spacing.xs)
-            }
-            .listRowInsets(.init())
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
-
-            if selectedDaySnapshot.isEmpty {
+            List {
                 Section {
-                    EmptyTasksCardView(onTap: viewModel.openCreateTask)
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.bottom, DS.Spacing.lg)
+                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                        calendarCard(snapshot: monthSnapshot)
+                    }
+                    .padding(.horizontal, DS.Spacing.lg)
+                    .padding(.top, DS.Spacing.lg)
+                    .padding(.bottom, DS.Spacing.md)
                 }
                 .listRowInsets(.init())
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
-            } else {
+
                 Section {
-                    ForEach(selectedDaySnapshot.items) { item in
-                        switch item {
-                        case .task(let row):
-                            let occurrence = row.occurrence
-                            let isVisuallyDone = viewModel.isVisuallyDone(
-                                taskId: occurrence.task.persistentModelID,
-                                modelCompleted: row.modelCompleted
-                            )
+                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                        tasksHeader(snapshot: selectedDaySnapshot)
+                    }
+                    .padding(.horizontal, DS.Spacing.lg)
+                    .padding(.top, DS.Spacing.sm)
+                    .padding(.bottom, DS.Spacing.xs)
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
-                            TaskCardView(
-                                occurrence: occurrence,
-                                isVisuallyDone: isVisuallyDone
-                            )
+                if selectedDaySnapshot.isEmpty {
+                    Section {
+                        EmptyTasksCardView(onTap: viewModel.openCreateTask)
                             .padding(.horizontal, DS.Spacing.lg)
-                            .padding(.vertical, 6)
-                            .listRowInsets(.init())
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                            .onTapGesture {
-                                viewModel.openEditTask(id: occurrence.task.persistentModelID)
-                            }
-                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                Button {
-                                    viewModel.toggleDoneTwoPhase(
-                                        taskId: occurrence.task.persistentModelID,
-                                        on: viewModel.selectedDay
-                                    )
-                                } label: {
-                                    Label(
-                                        row.modelCompleted ? "Undo" : "Done",
-                                        systemImage: row.modelCompleted
-                                        ? "arrow.uturn.backward.circle"
-                                        : "checkmark.circle.fill"
-                                    )
-                                }
-                                .tint(DS.ColorToken.purple)
+                            .padding(.bottom, DS.Spacing.lg)
+                    }
+                    .listRowInsets(.init())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                } else {
+                    Section {
+                        ForEach(selectedDaySnapshot.items) { item in
+                            switch item {
+                            case .task(let row):
+                                let occurrence = row.occurrence
+                                let isVisuallyDone = viewModel.isVisuallyDone(
+                                    taskId: occurrence.task.persistentModelID,
+                                    modelCompleted: row.modelCompleted
+                                )
 
-                                if occurrence.task.repeatRule != .none {
-                                    Menu {
-                                        Text("How to delete?")
-                                            .foregroundStyle(DS.ColorToken.textSecondary)
-                                            .disabled(true)
-
-                                        Button(role: .destructive) {
-                                            viewModel.deleteOccurrence(
-                                                taskId: occurrence.task.persistentModelID,
-                                                occurrenceStartDay: occurrence.occurrenceStartDay,
-                                                scope: .onlyThisDay
-                                            )
-                                        } label: {
-                                            Text("Only this day")
-                                        }
-
-                                        Button(role: .destructive) {
-                                            viewModel.deleteOccurrence(
-                                                taskId: occurrence.task.persistentModelID,
-                                                occurrenceStartDay: occurrence.occurrenceStartDay,
-                                                scope: .allFutureDays
-                                            )
-                                        } label: {
-                                            Text("All future days")
-                                        }
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                    .tint(.red)
-                                } else {
-                                    Button(role: .destructive) {
-                                        viewModel.delete(taskId: occurrence.task.persistentModelID)
-                                    } label: {
-                                        Label("Delete", systemImage: "trash")
-                                    }
-                                }
-                            }
-
-                        case .imported(let row):
-                            ImportedEventCardView(row: row)
+                                TaskCardView(
+                                    occurrence: occurrence,
+                                    isVisuallyDone: isVisuallyDone
+                                )
                                 .padding(.horizontal, DS.Spacing.lg)
                                 .padding(.vertical, 6)
                                 .listRowInsets(.init())
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
+                                .onTapGesture {
+                                    viewModel.openEditTask(id: occurrence.task.persistentModelID)
+                                }
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button {
+                                        viewModel.toggleDoneTwoPhase(
+                                            taskId: occurrence.task.persistentModelID,
+                                            on: viewModel.selectedDay
+                                        )
+                                    } label: {
+                                        Label(
+                                            row.modelCompleted ? "Undo" : "Done",
+                                            systemImage: row.modelCompleted
+                                            ? "arrow.uturn.backward.circle"
+                                            : "checkmark.circle.fill"
+                                        )
+                                    }
+                                    .tint(DS.ColorToken.purple)
+
+                                    if occurrence.task.repeatRule != .none {
+                                        Menu {
+                                            Text("How to delete?")
+                                                .foregroundStyle(DS.ColorToken.textSecondary)
+                                                .disabled(true)
+
+                                            Button(role: .destructive) {
+                                                viewModel.deleteOccurrence(
+                                                    taskId: occurrence.task.persistentModelID,
+                                                    occurrenceStartDay: occurrence.occurrenceStartDay,
+                                                    scope: .onlyThisDay
+                                                )
+                                            } label: {
+                                                Text("Only this day")
+                                            }
+
+                                            Button(role: .destructive) {
+                                                viewModel.deleteOccurrence(
+                                                    taskId: occurrence.task.persistentModelID,
+                                                    occurrenceStartDay: occurrence.occurrenceStartDay,
+                                                    scope: .allFutureDays
+                                                )
+                                            } label: {
+                                                Text("All future days")
+                                            }
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                        .tint(.red)
+                                    } else {
+                                        Button(role: .destructive) {
+                                            viewModel.delete(taskId: occurrence.task.persistentModelID)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
+                                }
+
+                            case .imported(let row):
+                                ImportedEventCardView(row: row)
+                                    .padding(.horizontal, DS.Spacing.lg)
+                                    .padding(.vertical, 6)
+                                    .listRowInsets(.init())
+                                    .listRowBackground(Color.clear)
+                                    .listRowSeparator(.hidden)
+                            }
                         }
                     }
+                    .listRowInsets(.init())
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
                 }
-                .listRowInsets(.init())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
-        .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         .navigationBarHidden(true)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            header
-        }
         .onAppear {
             viewModel.onViewAppear(tasks: tasks)
         }
