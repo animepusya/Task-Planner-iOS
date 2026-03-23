@@ -22,7 +22,7 @@ struct PlannerView: View {
 
     @State private var didTriggerSwipe = false
     private let swipeThreshold: CGFloat = 72
-    private let monthAnim: Animation = .easeInOut(duration: 0.2)
+    private let monthAnim = PlannerViewModel.monthTransitionAnimation
 
     private enum MonthNavDirection {
         case next
@@ -251,6 +251,7 @@ struct PlannerView: View {
             MonthSwitcherView(
                 title: snapshot.monthAnchor.monthTitle(),
                 monthAnchor: snapshot.monthAnchor,
+                isNavigationLocked: viewModel.isMonthTransitionLocked,
                 onPrev: handlePrevMonth,
                 onNext: handleNextMonth,
                 onSelectMonthAnchor: handleSelectMonthAnchor(_:),
@@ -287,8 +288,10 @@ struct PlannerView: View {
                 guard abs(dx) > abs(dy) else { return }
 
                 if dx <= -swipeThreshold {
+                    didTriggerSwipe = true
                     triggerMonthChange(next: true)
                 } else if dx >= swipeThreshold {
+                    didTriggerSwipe = true
                     triggerMonthChange(next: false)
                 }
             }
@@ -298,41 +301,42 @@ struct PlannerView: View {
     }
 
     private func triggerMonthChange(next: Bool) {
-        didTriggerSwipe = true
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-
-        monthDirection = next ? .next : .prev
-        withAnimation(monthAnim) {
-            if next {
-                viewModel.goToNextMonth()
-            } else {
-                viewModel.goToPreviousMonth()
-            }
+        performMonthNavigation(direction: next ? .next : .prev) {
+            next ? viewModel.goToNextMonth() : viewModel.goToPreviousMonth()
         }
     }
 
     private func handlePrevMonth() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        monthDirection = .prev
-        withAnimation(monthAnim) { viewModel.goToPreviousMonth() }
+        performMonthNavigation(direction: .prev, action: viewModel.goToPreviousMonth)
     }
 
     private func handleNextMonth() {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        monthDirection = .next
-        withAnimation(monthAnim) { viewModel.goToNextMonth() }
+        performMonthNavigation(direction: .next, action: viewModel.goToNextMonth)
     }
 
     private func handleSelectMonthAnchor(_ date: Date) {
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        monthDirection = .next
-        withAnimation(monthAnim) { viewModel.setMonthAnchor(date) }
+        performMonthNavigation(direction: .next) {
+            viewModel.setMonthAnchor(date)
+        }
     }
 
     private func handleToday() {
+        performMonthNavigation(direction: .next, action: viewModel.goToToday)
+    }
+
+    private func performMonthNavigation(
+        direction: MonthNavDirection,
+        action: () -> Bool
+    ) {
+        guard !viewModel.isMonthTransitionLocked else { return }
+
+        let didChangeMonth = withAnimation(monthAnim) {
+            monthDirection = direction
+            return action()
+        }
+
+        guard didChangeMonth else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        monthDirection = .next
-        withAnimation(monthAnim) { viewModel.goToToday() }
     }
 
     private func tasksHeader(snapshot: PlannerSelectedDaySnapshot) -> some View {

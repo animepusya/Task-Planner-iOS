@@ -10,6 +10,7 @@ import SwiftUI
 struct MonthSwitcherView: View {
     let title: String
     let monthAnchor: Date
+    let isNavigationLocked: Bool
 
     let onPrev: () -> Void
     let onNext: () -> Void
@@ -22,6 +23,7 @@ struct MonthSwitcherView: View {
     init(
         title: String,
         monthAnchor: Date,
+        isNavigationLocked: Bool = false,
         onPrev: @escaping () -> Void,
         onNext: @escaping () -> Void,
         onSelectMonthAnchor: @escaping (Date) -> Void,
@@ -30,6 +32,7 @@ struct MonthSwitcherView: View {
     ) {
         self.title = title
         self.monthAnchor = monthAnchor
+        self.isNavigationLocked = isNavigationLocked
         self.onPrev = onPrev
         self.onNext = onNext
         self.onSelectMonthAnchor = onSelectMonthAnchor
@@ -48,9 +51,12 @@ struct MonthSwitcherView: View {
             } label: {
                 Text(title)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(DS.ColorToken.textPrimary)
+                    .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .buttonStyle(.plain)
+            .disabled(isNavigationLocked)
+            .opacity(isNavigationLocked ? 0.58 : 1.0)
+            .animation(PlannerViewModel.monthTransitionAnimation, value: isNavigationLocked)
             .accessibilityLabel("Select month and year")
 
             Spacer()
@@ -103,12 +109,29 @@ struct MonthSwitcherView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DS.ColorToken.textSecondary)
+                .foregroundStyle(
+                    DS.ColorToken.textSecondary.opacity(isNavigationLocked ? 0.55 : 1.0)
+                )
                 .frame(width: 34, height: 34)
-                .background(Color.white.opacity(0.9))
-                .clipShape(Circle())
+                .background(
+                    Circle()
+                        .fill(Color.white.opacity(isNavigationLocked ? 0.58 : 0.9))
+                )
+                .overlay(
+                    Circle()
+                        .stroke(Color.black.opacity(isNavigationLocked ? 0.025 : 0.05), lineWidth: 1)
+                )
+                .shadow(
+                    color: DS.Shadow.soft.opacity(isNavigationLocked ? 0.3 : 0.85),
+                    radius: isNavigationLocked ? 5 : 9,
+                    x: 0,
+                    y: isNavigationLocked ? 2 : 5
+                )
+                .opacity(isNavigationLocked ? 0.72 : 1.0)
         }
         .buttonStyle(.plain)
+        .disabled(isNavigationLocked)
+        .animation(PlannerViewModel.monthTransitionAnimation, value: isNavigationLocked)
     }
 }
 
@@ -223,4 +246,3 @@ private struct MonthYearPickerSheet: View {
         return f.string(from: date)
     }
 }
-

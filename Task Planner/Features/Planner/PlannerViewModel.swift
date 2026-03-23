@@ -12,6 +12,9 @@ import Combine
 
 @MainActor
 final class PlannerViewModel: ObservableObject {
+    static let monthTransitionDuration: TimeInterval = 0.2
+    static let monthTransitionAnimation = Animation.easeInOut(duration: monthTransitionDuration)
+
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
     private let calendarSync: CalendarSyncService
@@ -34,9 +37,11 @@ final class PlannerViewModel: ObservableObject {
 
     @Published private(set) var visualDoneOverride: [PersistentIdentifier: Bool] = [:]
     @Published private(set) var snapshot: PlannerScreenSnapshot = .empty
+    @Published private(set) var isMonthTransitionLocked = false
 
     private var pendingToggleTasks: [PersistentIdentifier: Task<Void, Never>] = [:]
     private var externalMonthTask: Task<Void, Never>?
+    private var monthTransitionUnlockTask: Task<Void, Never>?
 
     private let donePhaseDelay: UInt64 = 800_000_000
     private let moveAnim: Animation = .easeInOut(duration: 0.8)
@@ -106,31 +111,51 @@ final class PlannerViewModel: ObservableObject {
     func openNotifications() { onOpenNotifications() }
     func openRecurringBaseTasks() { onOpenRecurringBaseTasks() }
 
-    func goToPreviousMonth() {
+    @discardableResult
+    func goToPreviousMonth() -> Bool {
         setMonthAnchor(monthAnchorStorage.addingMonths(-1))
     }
 
-    func goToNextMonth() {
+    @discardableResult
+    func goToNextMonth() -> Bool {
         setMonthAnchor(monthAnchorStorage.addingMonths(1))
     }
 
-    func setMonthAnchor(_ date: Date) {
+    @discardableResult
+    func setMonthAnchor(_ date: Date) -> Bool {
         let normalized = Calendar.current.startOfMonth(for: date)
-        guard normalized != monthAnchorStorage else { return }
+        guard normalized != monthAnchorStorage else { return false }
+        guard beginMonthTransitionLock() else { return false }
+
         monthAnchorStorage = normalized
         refreshSnapshot()
         refreshExternalEvents()
+        return true
     }
 
-    func goToToday() {
+    @discardableResult
+    func goToToday() -> Bool {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
         let todayMonth = calendar.startOfMonth(for: today)
+        let needsMonthChange = todayMonth != monthAnchorStorage
+        let needsDayChange = today != selectedDayStorage
+
+        guard needsMonthChange || needsDayChange else { return false }
+
+        if needsMonthChange {
+            guard beginMonthTransitionLock() else { return false }
+        }
 
         selectedDayStorage = today
         monthAnchorStorage = todayMonth
         refreshSnapshot()
-        refreshExternalEvents()
+
+        if needsMonthChange {
+            refreshExternalEvents()
+        }
+
+        return true
     }
 
     func isVisuallyDone(taskId: PersistentIdentifier, modelCompleted: Bool) -> Bool {
@@ -359,5 +384,30 @@ final class PlannerViewModel: ObservableObject {
 
     private func invalidateMonthCache() {
         monthCache.invalidateAll()
+    }
+
+    private func beginMonthTransitionLock() -> Bool {
+        guard !isMonthTransitionLocked else { return false }
+
+        isMonthTransitionLocked = true
+        monthTransitionUnlockTask?.cancel()
+
+        monthTransitionUnlockTask = Task { [weak self] in
+            guard let self else { return }
+
+            do {
+                try await Task.sleep(
+                    nanoseconds: UInt64(Self.monthTransitionDuration * 1_000_000_000)
+                )
+            } catch {
+                return
+            }
+
+            guard !Task.isCancelled else { return }
+            self.isMonthTransitionLocked = false
+            self.monthTransitionUnlockTask = nil
+        }
+
+        return true
     }
 }
