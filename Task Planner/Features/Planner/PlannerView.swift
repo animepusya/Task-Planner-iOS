@@ -109,7 +109,7 @@ struct PlannerView: View {
                             case .task(let row):
                                 let occurrence = row.occurrence
                                 let isVisuallyDone = viewModel.isVisuallyDone(
-                                    taskId: occurrence.task.persistentModelID,
+                                    taskKey: occurrence.taskKey,
                                     modelCompleted: row.modelCompleted
                                 )
 
@@ -123,12 +123,12 @@ struct PlannerView: View {
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                                 .onTapGesture {
-                                    viewModel.openEditTask(id: occurrence.task.persistentModelID)
+                                    viewModel.openEditTask(taskKey: occurrence.taskKey)
                                 }
                                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                     Button {
                                         viewModel.toggleDoneTwoPhase(
-                                            taskId: occurrence.task.persistentModelID,
+                                            taskKey: occurrence.taskKey,
                                             on: viewModel.selectedDay
                                         )
                                     } label: {
@@ -141,7 +141,7 @@ struct PlannerView: View {
                                     }
                                     .tint(DS.ColorToken.purple)
 
-                                    if occurrence.task.repeatRule != .none {
+                                    if occurrence.isRepeatingTask {
                                         Menu {
                                             Text("How to delete?")
                                                 .foregroundStyle(DS.ColorToken.textSecondary)
@@ -149,7 +149,7 @@ struct PlannerView: View {
 
                                             Button(role: .destructive) {
                                                 viewModel.deleteOccurrence(
-                                                    taskId: occurrence.task.persistentModelID,
+                                                    taskKey: occurrence.taskKey,
                                                     occurrenceStartDay: occurrence.occurrenceStartDay,
                                                     scope: .onlyThisDay
                                                 )
@@ -159,7 +159,7 @@ struct PlannerView: View {
 
                                             Button(role: .destructive) {
                                                 viewModel.deleteOccurrence(
-                                                    taskId: occurrence.task.persistentModelID,
+                                                    taskKey: occurrence.taskKey,
                                                     occurrenceStartDay: occurrence.occurrenceStartDay,
                                                     scope: .allFutureDays
                                                 )
@@ -172,7 +172,7 @@ struct PlannerView: View {
                                         .tint(.red)
                                     } else {
                                         Button(role: .destructive) {
-                                            viewModel.delete(taskId: occurrence.task.persistentModelID)
+                                            viewModel.delete(taskKey: occurrence.taskKey)
                                         } label: {
                                             Label("Delete", systemImage: "trash")
                                         }

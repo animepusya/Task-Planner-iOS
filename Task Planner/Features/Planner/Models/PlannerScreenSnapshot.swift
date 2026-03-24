@@ -8,7 +8,7 @@
 import Foundation
 import SwiftUI
 
-struct PlannerMonthDaySnapshot: Identifiable, Hashable {
+struct PlannerMonthDaySnapshot: Identifiable, Hashable, Sendable {
     let id: String
     let date: Date
     let dayNumber: Int
@@ -27,7 +27,7 @@ struct PlannerMonthDaySnapshot: Identifiable, Hashable {
     }
 }
 
-struct PlannerMonthDayViewData: Identifiable, Hashable {
+struct PlannerMonthDayViewData: Identifiable, Hashable, Sendable {
     let id: String
     let date: Date
     let dayNumber: Int
@@ -36,21 +36,36 @@ struct PlannerMonthDayViewData: Identifiable, Hashable {
     let indicatorColors: [TaskColor]
 }
 
-struct PlannerTaskRowData: Identifiable, Hashable {
-    let occurrence: DayOccurrence
+struct PlannerTaskRowData: Identifiable, Hashable, Sendable {
+    let occurrence: PlannerTaskOccurrence
     let modelCompleted: Bool
 
     var id: String { occurrence.id }
 }
 
-struct PlannerImportedEventRowData: Identifiable, Hashable {
-    let event: ExternalCalendarEvent
+struct PlannerImportedEventRowData: Identifiable, Hashable, Sendable {
+    let id: String
+    let title: String
+    let startDate: Date
+    let endDate: Date
+    let isAllDay: Bool
+    let calendarTitle: String
+    let location: String?
     let mappedColor: TaskColor
 
-    var id: String { event.id }
+    init(source: PlannerExternalEventSource) {
+        self.id = source.id
+        self.title = source.title
+        self.startDate = source.startDate
+        self.endDate = source.endDate
+        self.isAllDay = source.isAllDay
+        self.calendarTitle = source.calendarTitle
+        self.location = source.location
+        self.mappedColor = source.mappedColor
+    }
 }
 
-enum PlannerSelectedDayItemViewData: Identifiable, Hashable {
+enum PlannerSelectedDayItemViewData: Identifiable, Hashable, Sendable {
     case task(PlannerTaskRowData)
     case imported(PlannerImportedEventRowData)
 
@@ -64,7 +79,7 @@ enum PlannerSelectedDayItemViewData: Identifiable, Hashable {
     }
 }
 
-struct PlannerSelectedDaySectionData: Hashable {
+struct PlannerSelectedDaySectionData: Hashable, Sendable {
     let title: String
     let taskCount: Int
     let items: [PlannerSelectedDayItemViewData]
@@ -72,7 +87,7 @@ struct PlannerSelectedDaySectionData: Hashable {
     var isEmpty: Bool { items.isEmpty }
 }
 
-struct PlannerMonthSnapshot: Hashable {
+struct PlannerMonthSnapshot: Hashable, Sendable {
     let monthAnchor: Date
     let weekdaySymbols: [String]
     let days: [PlannerMonthDaySnapshot]
@@ -97,7 +112,7 @@ struct PlannerMonthSnapshot: Hashable {
 
 typealias PlannerSelectedDaySnapshot = PlannerSelectedDaySectionData
 
-struct PlannerScreenSnapshot: Hashable {
+struct PlannerScreenSnapshot: Hashable, Sendable {
     let month: PlannerMonthSnapshot
     let selectedDay: PlannerSelectedDaySnapshot
 

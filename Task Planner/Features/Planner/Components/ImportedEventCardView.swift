@@ -17,15 +17,13 @@ struct ImportedEventCardView: View {
     }
 
     private var model: PlannerCardModel {
-        let event = row.event
-
         let subtitleParts: [String] = [
-            event.calendarTitle,
-            (event.location?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
+            row.calendarTitle,
+            (row.location?.trimmingCharacters(in: .whitespacesAndNewlines)).flatMap { $0.isEmpty ? nil : $0 }
         ].compactMap { $0 }
 
         return .init(
-            title: event.title,
+            title: row.title,
             subtitle: subtitleParts.joined(separator: " • "),
             timeText: timeText,
             badgeText: nil,
@@ -36,8 +34,7 @@ struct ImportedEventCardView: View {
     }
 
     private var timeText: String {
-        let event = row.event
-        if event.isAllDay { return "All day" }
-        return "\(event.startDate.formatted(date: .omitted, time: .shortened)) – \(event.endDate.formatted(date: .omitted, time: .shortened))"
+        if row.isAllDay { return "All day" }
+        return "\(row.startDate.formatted(date: .omitted, time: .shortened)) – \(row.endDate.formatted(date: .omitted, time: .shortened))"
     }
 }

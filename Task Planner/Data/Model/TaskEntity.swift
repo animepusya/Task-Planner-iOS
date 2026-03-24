@@ -89,6 +89,9 @@ final class TaskEntity {
 
 // MARK: - Per-day completion helpers (visual-only)
 extension TaskEntity {
+    var plannerTaskKey: String {
+        String(describing: persistentModelID)
+    }
 
     static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
         let d = calendar.startOfDay(for: date)
@@ -120,6 +123,10 @@ extension TaskEntity {
     private var completedDayKeys: Set<String> {
         get { Set(Self.decodeStringArray(completedDayKeysRaw)) }
         set { completedDayKeysRaw = Self.encodeStringArray(Array(newValue).sorted()) }
+    }
+
+    var completedDayKeysSet: Set<String> {
+        completedDayKeys
     }
 
     func isCompleted(on day: Date, calendar: Calendar = .current) -> Bool {

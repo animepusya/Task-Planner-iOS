@@ -7,18 +7,23 @@
 
 import Foundation
 
-struct PlannerMonthBuildKey: Hashable {
+struct PlannerMonthBuildKey: Hashable, Sendable {
     let monthAnchor: Date
     let weekStartsOnMonday: Bool
+    let taskRevision: Int
+    let externalEventsRevision: Int
 }
 
 final class PlannerMonthCache {
     private var storage: [PlannerMonthBuildKey: PlannerMonthBuildOutput] = [:]
     private var accessOrder: [PlannerMonthBuildKey] = []
-    private let maxEntries = 6
+    private let maxEntries = 9
 
     func value(for key: PlannerMonthBuildKey) -> PlannerMonthBuildOutput? {
-        storage[key]
+        guard let value = storage[key] else { return nil }
+        accessOrder.removeAll { $0 == key }
+        accessOrder.append(key)
+        return value
     }
 
     func insert(_ value: PlannerMonthBuildOutput, for key: PlannerMonthBuildKey) {

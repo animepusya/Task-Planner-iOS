@@ -10,7 +10,7 @@ import SwiftData
 import UIKit
 
 struct TaskCardView: View {
-    let occurrence: DayOccurrence
+    let occurrence: PlannerTaskOccurrence
     let isVisuallyDone: Bool
 
     var body: some View {

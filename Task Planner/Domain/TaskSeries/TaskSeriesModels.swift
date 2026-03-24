@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Template stored inside segments/overrides
 
-struct TaskSeriesTemplate: Codable, Equatable {
+struct TaskSeriesTemplate: Codable, Equatable, Hashable, Sendable {
     var title: String
     var notes: String?
     var isAllDay: Bool
@@ -42,7 +42,7 @@ struct TaskSeriesTemplate: Codable, Equatable {
     }
 }
 
-struct TaskSeriesSegment: Codable, Identifiable, Equatable {
+struct TaskSeriesSegment: Codable, Identifiable, Equatable, Hashable, Sendable {
     var id: UUID
     var startDayKey: String
     var endDayKey: String?
@@ -58,7 +58,7 @@ struct TaskSeriesSegment: Codable, Identifiable, Equatable {
     }
 }
 
-struct TaskSeriesOverride: Codable, Identifiable, Equatable {
+struct TaskSeriesOverride: Codable, Identifiable, Equatable, Hashable, Sendable {
     var id: UUID
     var dayKey: String
     var isDeleted: Bool

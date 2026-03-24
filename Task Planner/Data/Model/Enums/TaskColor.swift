@@ -5,10 +5,11 @@
 //  Created by Руслан Меланин on 09.02.2026.
 //
 
-import SwiftUI
 import Foundation
+import SwiftUI
+import UIKit
 
-enum TaskColor: String, CaseIterable, Codable, Hashable {
+enum TaskColor: String, CaseIterable, Codable, Hashable, Sendable {
     case blue
     case purple
     case pink
@@ -51,5 +52,44 @@ enum TaskColor: String, CaseIterable, Codable, Hashable {
         default:
             return .white
         }
+    }
+}
+
+extension Color {
+    fileprivate func uiRGBA() -> (CGFloat, CGFloat, CGFloat, CGFloat)? {
+        let ui = UIColor(self)
+        var r: CGFloat = 0
+        var g: CGFloat = 0
+        var b: CGFloat = 0
+        var a: CGFloat = 0
+        guard ui.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+        return (r, g, b, a)
+    }
+}
+
+extension TaskColor {
+    var sortIndex: Int { TaskColor.allCases.firstIndex(of: self) ?? 0 }
+
+    static func closest(to external: Color) -> TaskColor {
+        guard let (er, eg, eb, _) = external.uiRGBA() else { return .blue }
+
+        var best: TaskColor = .blue
+        var bestDistance: CGFloat = .greatestFiniteMagnitude
+
+        for candidate in TaskColor.allCases {
+            guard let (r, g, b, _) = candidate.uiColor.uiRGBA() else { continue }
+
+            let dr = r - er
+            let dg = g - eg
+            let db = b - eb
+            let distance = dr * dr + dg * dg + db * db
+
+            if distance < bestDistance {
+                bestDistance = distance
+                best = candidate
+            }
+        }
+
+        return best
     }
 }
