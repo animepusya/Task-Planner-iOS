@@ -14,6 +14,7 @@ struct TaskEditorDateTimeSection: View {
     @Binding var endTime: Date
     @Binding var isAllDay: Bool
 
+    let isInvalid: Bool
     let timeValidationMessage: String?
     let onApplyDuration: (Int) -> Void
 
@@ -23,7 +24,7 @@ struct TaskEditorDateTimeSection: View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
             Text("Date & Time")
                 .font(DS.Typography.sectionTitle)
-                .foregroundStyle(DS.ColorToken.textPrimary)
+                .foregroundStyle(isInvalid ? .red : DS.ColorToken.textPrimary)
 
             Toggle(isOn: $isAllDay) {
                 Text("All day")
@@ -53,20 +54,27 @@ struct TaskEditorDateTimeSection: View {
             )
             .modifier(VerticalCollapsible(isCollapsed: isAllDay, anim: anim))
 
-            Group {
-                if let msg = timeValidationMessage {
-                    Text(msg)
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(.orange)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                } else {
-                    EmptyView()
-                }
+            if let msg = timeValidationMessage {
+                Text(msg)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .modifier(VerticalCollapsible(isCollapsed: isAllDay, anim: anim))
         }
         .dsCard()
+        .overlay {
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(isInvalid ? Color.red.opacity(0.35) : .clear, lineWidth: 1.25)
+        }
+        .shadow(
+            color: isInvalid ? Color.red.opacity(0.18) : .clear,
+            radius: isInvalid ? 12 : 0,
+            x: 0,
+            y: 8
+        )
         .animation(anim, value: isAllDay)
+        .animation(anim, value: isInvalid)
     }
 
 

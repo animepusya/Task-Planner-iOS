@@ -67,7 +67,7 @@ final class TaskEditorViewModel: ObservableObject {
         return isEditing ? "Edit Task" : "Create Task"
     }
 
-    var canSave: Bool { !isBusy && !form.isRepeatInvalid }
+    var canSave: Bool { !isBusy && !form.isTimeRangeInvalid && !form.isRepeatInvalid }
 
     init(
         taskRepository: TaskRepository,
@@ -111,6 +111,7 @@ final class TaskEditorViewModel: ObservableObject {
             reminderOffsetMinutes: ReminderPreset.default.minutes,
             reminderAllDayTimeMinutes: nil,
             timeValidationMessage: nil,
+            isTimeRangeInvalid: false,
             isRepeatInvalid: false,
             repeatValidationMessage: nil
         )
@@ -120,7 +121,7 @@ final class TaskEditorViewModel: ObservableObject {
                 await self?.loadExistingTask()
             }
         } else {
-            let validated = time.validateAndFix(
+            let validated = time.normalizeAndValidate(
                 dayDate: form.dayDate,
                 endDayDate: form.endDayDate,
                 startTime: form.startTime,
@@ -314,7 +315,7 @@ final class TaskEditorViewModel: ObservableObject {
             endTime: form.endTime
         )
 
-        let validated = time.validateAndFix(
+        let validated = time.normalizeAndValidate(
             dayDate: synced.dayDate,
             endDayDate: synced.endDayDate,
             startTime: synced.startTime,
@@ -390,7 +391,7 @@ final class TaskEditorViewModel: ObservableObject {
             endTime: form.endTime
         )
 
-        let validated = time.validateAndFix(
+        let validated = time.normalizeAndValidate(
             dayDate: synced.dayDate,
             endDayDate: synced.endDayDate,
             startTime: synced.startTime,
@@ -413,7 +414,7 @@ final class TaskEditorViewModel: ObservableObject {
             newStartTime: newValue
         )
 
-        let validated = time.validateAndFix(
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: result.endDayDate,
             startTime: result.startTime,
@@ -424,19 +425,12 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     func onEndDayChanged(triggerFeedback: Bool) {
-        let clamped = time.clampEndDayDateIfNeeded(
+        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: form.endDayDate, endTime: form.endTime)
+
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
-            endTime: form.endTime
-        )
-
-        let alignedEnd = time.alignEndTimeToEndDay(endDayDate: clamped.endDayDate, endTime: clamped.endTime)
-
-        let validated = time.validateAndFix(
-            dayDate: clamped.dayDate,
-            endDayDate: clamped.endDayDate,
-            startTime: clamped.startTime,
             endTime: alignedEnd
         )
 
@@ -450,7 +444,7 @@ final class TaskEditorViewModel: ObservableObject {
     private func onEndTimeChanged(to newValue: Date) {
         let alignedEnd = time.alignEndTimeToEndDay(endDayDate: form.endDayDate, endTime: newValue)
 
-        let validated = time.validateAndFix(
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
@@ -541,7 +535,7 @@ final class TaskEditorViewModel: ObservableObject {
                 setFormIfChanged(next)
                 reminderGate = nil
 
-                let validated = time.validateAndFix(
+                let validated = time.normalizeAndValidate(
                     dayDate: form.dayDate,
                     endDayDate: form.endDayDate,
                     startTime: form.startTime,
@@ -575,7 +569,7 @@ final class TaskEditorViewModel: ObservableObject {
             setFormIfChanged(next)
             reminderGate = nil
 
-            let validated = time.validateAndFix(
+            let validated = time.normalizeAndValidate(
                 dayDate: form.dayDate,
                 endDayDate: form.endDayDate,
                 startTime: form.startTime,
@@ -595,7 +589,7 @@ final class TaskEditorViewModel: ObservableObject {
             startTime: form.startTime
         )
 
-        let validated = time.validateAndFix(
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: result.endDayDate,
             startTime: result.startTime,
@@ -627,13 +621,17 @@ final class TaskEditorViewModel: ObservableObject {
             throw EditorError.taskNotFound
         }
 
-        let clamped = time.clampEndDayDateIfNeeded(
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
             endTime: form.endTime
         )
-        apply(clamped)
+        apply(validated)
+
+        if form.isTimeRangeInvalid {
+            throw EditorError.invalidTimeRange
+        }
 
         if form.isRepeatInvalid && form.repeatRule != .none {
             throw EditorError.repeatConflict
@@ -735,13 +733,17 @@ final class TaskEditorViewModel: ObservableObject {
     }
 
     private func saveInternalDirect() throws {
-        let clamped = time.clampEndDayDateIfNeeded(
+        let validated = time.normalizeAndValidate(
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
             endTime: form.endTime
         )
-        apply(clamped)
+        apply(validated)
+
+        if form.isTimeRangeInvalid {
+            throw EditorError.invalidTimeRange
+        }
 
         if form.isRepeatInvalid && form.repeatRule != .none {
             throw EditorError.repeatConflict
@@ -763,13 +765,6 @@ final class TaskEditorViewModel: ObservableObject {
             endTime: form.endTime
         )
 
-        let finalTimes = time.ensureNextDayIfSameDayEndBeforeOrEqualStart(
-            dayDate: form.dayDate,
-            start: normalizedTimes.start,
-            endDayDate: form.endDayDate,
-            end: normalizedTimes.end
-        )
-
         let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
         let reminderEnabled = form.reminderEnabled
@@ -788,8 +783,8 @@ final class TaskEditorViewModel: ObservableObject {
             existing.title = safeTitle
             existing.notes = normalizedNotes
             existing.dayDate = time.startOfDay(form.dayDate)
-            existing.startTime = finalTimes.start
-            existing.endTime = finalTimes.end
+            existing.startTime = normalizedTimes.start
+            existing.endTime = normalizedTimes.end
 
             existing.isAllDay = form.isAllDay
             existing.repeatRule = form.repeatRule
@@ -810,8 +805,8 @@ final class TaskEditorViewModel: ObservableObject {
                 title: safeTitle,
                 notes: normalizedNotes,
                 dayDate: time.startOfDay(form.dayDate),
-                startTime: finalTimes.start,
-                endTime: finalTimes.end,
+                startTime: normalizedTimes.start,
+                endTime: normalizedTimes.end,
                 isAllDay: form.isAllDay,
                 repeatRule: form.repeatRule,
                 repeatIntervalDays: intervalOrNil,
@@ -834,6 +829,7 @@ final class TaskEditorViewModel: ObservableObject {
         copy.endDayDate = result.endDayDate
         copy.startTime = result.startTime
         copy.endTime = result.endTime
+        copy.isTimeRangeInvalid = result.isInvalidRange
         copy.timeValidationMessage = result.message
 
         let (isInvalid, message) = computeRepeatConflict(
@@ -924,6 +920,7 @@ final class TaskEditorViewModel: ObservableObject {
         var reminderAllDayTimeMinutes: Int?
 
         var timeValidationMessage: String?
+        var isTimeRangeInvalid: Bool
 
         var isRepeatInvalid: Bool
         var repeatValidationMessage: String?
@@ -931,6 +928,7 @@ final class TaskEditorViewModel: ObservableObject {
 
     enum EditorError: LocalizedError {
         case taskNotFound
+        case invalidTimeRange
         case repeatConflict
         case repeatingTasksMustUseSeriesSave
 
@@ -938,6 +936,8 @@ final class TaskEditorViewModel: ObservableObject {
             switch self {
             case .taskNotFound:
                 return "The task was not found. It may have been deleted."
+            case .invalidTimeRange:
+                return "End date & time must be later than start date & time."
             case .repeatConflict:
                 return "Repeat unavailable: task overlaps the next occurrence."
             case .repeatingTasksMustUseSeriesSave:

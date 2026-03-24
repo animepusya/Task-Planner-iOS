@@ -13,6 +13,7 @@ struct TaskEditorTimeCoordinator {
         var endDayDate: Date
         var startTime: Date
         var endTime: Date
+        var isInvalidRange: Bool
         var message: String?
     }
 
@@ -43,23 +44,6 @@ struct TaskEditorTimeCoordinator {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
     }
 
-    func durationMinutes(
-        dayDate: Date,
-        endDayDate: Date,
-        startTime: Date,
-        endTime: Date
-    ) -> Int {
-        let normalized = normalizeForSave(
-            dayDate: dayDate,
-            endDayDate: endDayDate,
-            startTime: startTime,
-            endTime: endTime
-        )
-
-        let minutes = Int(normalized.end.timeIntervalSince(normalized.start) / 60)
-        return max(minDurationMinutes, minutes)
-    }
-
     // MARK: - Alignment
 
     func syncTimesToSelectedDay(
@@ -73,9 +57,7 @@ struct TaskEditorTimeCoordinator {
         let oldStartDay = calendar.startOfDay(for: startTime)
         let oldEndDay = calendar.startOfDay(for: endDayDate)
         let offset = calendar.dateComponents([.day], from: oldStartDay, to: oldEndDay).day ?? 0
-        let safeOffset = max(0, offset)
-
-        let newEndDay = calendar.date(byAdding: .day, value: safeOffset, to: newStart) ?? newStart
+        let newEndDay = calendar.date(byAdding: .day, value: offset, to: newStart) ?? newStart
 
         let alignedStartTime = combine(day: newStart, time: startTime)
         let alignedEndTime = combine(day: newEndDay, time: endTime)
@@ -85,6 +67,7 @@ struct TaskEditorTimeCoordinator {
             endDayDate: calendar.startOfDay(for: newEndDay),
             startTime: alignedStartTime,
             endTime: alignedEndTime,
+            isInvalidRange: false,
             message: nil
         )
     }
@@ -97,9 +80,9 @@ struct TaskEditorTimeCoordinator {
         combine(day: calendar.startOfDay(for: endDayDate), time: endTime)
     }
 
-    // MARK: - Hard rule: endDayDate >= dayDate
+    // MARK: - Validation
 
-    func clampEndDayDateIfNeeded(
+    func normalizeAndValidate(
         dayDate: Date,
         endDayDate: Date,
         startTime: Date,
@@ -107,84 +90,17 @@ struct TaskEditorTimeCoordinator {
     ) -> Result {
         let startDay = calendar.startOfDay(for: dayDate)
         let endDay = calendar.startOfDay(for: endDayDate)
-
-        guard endDay < startDay else {
-            return Result(
-                dayDate: startDay,
-                endDayDate: endDay,
-                startTime: combine(day: startDay, time: startTime),
-                endTime: combine(day: endDay, time: endTime),
-                message: nil
-            )
-        }
-
-        let fixedEndDay = startDay
-        return Result(
-            dayDate: startDay,
-            endDayDate: fixedEndDay,
-            startTime: combine(day: startDay, time: startTime),
-            endTime: combine(day: fixedEndDay, time: endTime),
-            message: "End date can’t be earlier than start date."
-        )
-    }
-
-    // MARK: - Validation (next day rule)
-
-    func validateAndFix(
-        dayDate: Date,
-        endDayDate: Date,
-        startTime: Date,
-        endTime: Date
-    ) -> Result {
-        let startDay = calendar.startOfDay(for: dayDate)
-        var endDay = calendar.startOfDay(for: endDayDate)
-
-        let start = combine(day: startDay, time: startTime)
-        var end = combine(day: endDay, time: endTime)
-
-        if endDay < startDay {
-            endDay = startDay
-            end = combine(day: endDay, time: endTime)
-            return Result(
-                dayDate: startDay,
-                endDayDate: endDay,
-                startTime: start,
-                endTime: end,
-                message: "End date can’t be earlier than start date."
-            )
-        }
-
-        if calendar.isDate(endDay, inSameDayAs: startDay), end < start {
-            let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
-            endDay = calendar.startOfDay(for: nextDay)
-            end = combine(day: endDay, time: endTime)
-            return Result(
-                dayDate: startDay,
-                endDayDate: endDay,
-                startTime: start,
-                endTime: end,
-                message: "Ends next day."
-            )
-        }
-
-        if calendar.isDate(endDay, inSameDayAs: startDay), end == start {
-            end = calendar.date(byAdding: .minute, value: minDurationMinutes, to: start) ?? start
-            endDay = calendar.startOfDay(for: end)
-            return Result(
-                dayDate: startDay,
-                endDayDate: endDay,
-                startTime: start,
-                endTime: end,
-                message: "Added \(minDurationMinutes) minutes."
-            )
-        }
+        let alignedStart = combine(day: startDay, time: startTime)
+        let alignedEnd = combine(day: endDay, time: endTime)
+        let message = validationMessage(start: alignedStart, end: alignedEnd)
 
         return Result(
             dayDate: startDay,
             endDayDate: endDay,
-            startTime: start,
-            endTime: end,
-            message: nil
+            startTime: alignedStart,
+            endTime: alignedEnd,
+            isInvalidRange: message != nil,
+            message: message
         )
     }
 
@@ -205,47 +121,13 @@ struct TaskEditorTimeCoordinator {
 
     func moveStartKeepingDuration(
         dayDate: Date,
-        newStartTime: Date,
-        currentEndDayDate: Date,
-        currentEndTime: Date
-    ) -> DurationResult {
-        let startDay = calendar.startOfDay(for: dayDate)
-        let alignedStart = combine(day: startDay, time: newStartTime)
-
-        let currentDurationMinutes = durationMinutes(
-            dayDate: dayDate,
-            endDayDate: currentEndDayDate,
-            startTime: combine(day: startDay, time: newStartTime == currentEndTime ? currentEndTime : newStartTime),
-            endTime: currentEndTime
-        )
-
-        let oldNormalized = normalizeForSave(
-            dayDate: dayDate,
-            endDayDate: currentEndDayDate,
-            startTime: combine(day: startDay, time: alignedStart),
-            endTime: currentEndTime
-        )
-
-        let actualMinutes = Int(oldNormalized.end.timeIntervalSince(oldNormalized.start) / 60)
-        let safeMinutes = max(minDurationMinutes, actualMinutes)
-
-        let newEnd = calendar.date(byAdding: .minute, value: safeMinutes, to: alignedStart) ?? alignedStart
-
-        return DurationResult(
-            startTime: alignedStart,
-            endTime: newEnd,
-            endDayDate: calendar.startOfDay(for: newEnd)
-        )
-    }
-
-    func moveStartKeepingDuration(
-        dayDate: Date,
         oldStartTime: Date,
         oldEndDayDate: Date,
         oldEndTime: Date,
         newStartTime: Date
     ) -> DurationResult {
         let startDay = calendar.startOfDay(for: dayDate)
+        let alignedStart = combine(day: startDay, time: newStartTime)
 
         let oldNormalized = normalizeForSave(
             dayDate: dayDate,
@@ -255,10 +137,16 @@ struct TaskEditorTimeCoordinator {
         )
 
         let actualMinutes = Int(oldNormalized.end.timeIntervalSince(oldNormalized.start) / 60)
-        let safeMinutes = max(minDurationMinutes, actualMinutes)
+        guard actualMinutes > 0 else {
+            let preservedEndDay = calendar.startOfDay(for: oldEndDayDate)
+            return DurationResult(
+                startTime: alignedStart,
+                endTime: combine(day: preservedEndDay, time: oldEndTime),
+                endDayDate: preservedEndDay
+            )
+        }
 
-        let alignedStart = combine(day: startDay, time: newStartTime)
-        let newEnd = calendar.date(byAdding: .minute, value: safeMinutes, to: alignedStart) ?? alignedStart
+        let newEnd = calendar.date(byAdding: .minute, value: actualMinutes, to: alignedStart) ?? alignedStart
 
         return DurationResult(
             startTime: alignedStart,
@@ -283,21 +171,25 @@ struct TaskEditorTimeCoordinator {
         return (start, end)
     }
 
-    func ensureNextDayIfSameDayEndBeforeOrEqualStart(
+    func isInvalidRange(
         dayDate: Date,
-        start: Date,
         endDayDate: Date,
-        end: Date
-    ) -> (start: Date, end: Date) {
-        let startDay = calendar.startOfDay(for: dayDate)
-        let endDay = calendar.startOfDay(for: endDayDate)
+        startTime: Date,
+        endTime: Date
+    ) -> Bool {
+        let normalized = normalizeForSave(
+            dayDate: dayDate,
+            endDayDate: endDayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
 
-        if calendar.isDate(endDay, inSameDayAs: startDay), end <= start {
-            let nextDay = calendar.date(byAdding: .day, value: 1, to: startDay) ?? startDay
-            let fixedEnd = combine(day: nextDay, time: end)
-            return (start, fixedEnd)
-        }
-        return (start, end)
+        return normalized.end <= normalized.start
+    }
+
+    func validationMessage(start: Date, end: Date) -> String? {
+        guard end <= start else { return nil }
+        return "End date & time must be later than start date & time."
     }
 }
 

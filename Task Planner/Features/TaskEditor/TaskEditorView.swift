@@ -208,6 +208,7 @@ struct TaskEditorView: View {
             startTime: viewModel.startTimeBinding,
             endTime: viewModel.endTimeBinding,
             isAllDay: viewModel.isAllDayBinding,
+            isInvalid: viewModel.form.isTimeRangeInvalid,
             timeValidationMessage: viewModel.form.timeValidationMessage,
             onApplyDuration: { minutes in
                 viewModel.applyDuration(minutes: minutes)
