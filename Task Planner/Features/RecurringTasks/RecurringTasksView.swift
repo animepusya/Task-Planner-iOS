@@ -43,17 +43,13 @@ struct RecurringTasksView: View {
                 onBack: { dismiss() }
             )
 
-            if sections.active.isEmpty && sections.past.isEmpty {
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        emptyState
-                    }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.md)
-                    .padding(.bottom, 28)
-                }
-            } else {
-                List {
+            List {
+                if sections.active.isEmpty && sections.past.isEmpty {
+                    emptyState
+                        .listRowInsets(.init(top: DS.Spacing.md, leading: DS.Spacing.lg, bottom: 28, trailing: DS.Spacing.lg))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                } else {
                     if !sections.active.isEmpty {
                         Section {
                             ForEach(sections.active) { task in
@@ -122,9 +118,9 @@ struct RecurringTasksView: View {
                         }
                     }
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear {
@@ -162,6 +158,7 @@ struct RecurringTasksView: View {
                 .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .dsCard()
     }
 }
