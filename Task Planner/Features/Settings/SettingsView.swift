@@ -9,7 +9,6 @@ import Foundation
 import SwiftUI
 
 struct SettingsView: View {
-    @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: SettingsViewModel
 
     private let makeNotificationsView: () -> NotificationsView
@@ -44,40 +43,34 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                AppBackgroundView(gradient: DS.GradientToken.splash)
+        ZStack {
+            AppBackgroundView(gradient: DS.GradientToken.splash)
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: DS.Spacing.lg) {
-                        SettingsScreenHeader {
-                            dismiss()
-                        }
-
-                        VStack(spacing: DS.Spacing.lg) {
-                            appSection
-                            notificationsSection
-                            calendarSection
-                            categoriesSection
-                            dataSection
-                        }
-                        .padding(.horizontal, DS.Spacing.md)
-                        .padding(.bottom, DS.Spacing.xl)
-                    }
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: DS.Spacing.lg) {
+                    appSection
+                    notificationsSection
+                    calendarSection
+                    categoriesSection
+                    dataSection
                 }
+                .padding(.horizontal, DS.Spacing.md)
+                .padding(.top, DS.Spacing.lg)
+                .padding(.bottom, DS.Spacing.xl)
             }
-            .navigationBarHidden(true)
-            .navigationDestination(isPresented: $showNotifications) {
-                makeNotificationsView()
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(isPresented: $showNotifications) {
+            makeNotificationsView()
+        }
+        .alert("Clear all tasks?", isPresented: $showClearAllAlert) {
+            Button("Cancel", role: .cancel) { }
+            Button("Clear", role: .destructive) {
+                viewModel.clearAllTasks()
             }
-            .alert("Clear all tasks?", isPresented: $showClearAllAlert) {
-                Button("Cancel", role: .cancel) { }
-                Button("Clear", role: .destructive) {
-                    viewModel.clearAllTasks()
-                }
-            } message: {
-                Text("This action will permanently remove all tasks from the app.")
-            }
+        } message: {
+            Text("This action will permanently remove all tasks from the app.")
         }
         .onAppear {
             viewModel.load()

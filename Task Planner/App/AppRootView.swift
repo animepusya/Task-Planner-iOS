@@ -27,6 +27,7 @@ private struct AppRootContentView: View {
     @StateObject private var dependencies: AppRootDependencies
 
     @State private var selectedTab: AppTab = .planner
+    @State private var statisticsNavigationPath: [AppRoute] = []
     @State private var sheet: SheetRoute?
     @State private var didBootstrap = false
 
@@ -34,6 +35,48 @@ private struct AppRootContentView: View {
         _dependencies = StateObject(
             wrappedValue: container.makeAppRootDependencies(context: modelContext)
         )
+    }
+
+    var body: some View {
+        AppRootTabShellView(
+            dependencies: dependencies,
+            selectedTab: $selectedTab,
+            statisticsNavigationPath: $statisticsNavigationPath,
+            sheet: $sheet
+        )
+        .task {
+            guard !didBootstrap else { return }
+            didBootstrap = true
+            dependencies.bootstrap()
+        }
+        .onOpenURL(perform: handleOpenURL)
+    }
+
+    private func handleOpenURL(_ url: URL) {
+        guard let route = WidgetRoute(url: url) else { return }
+        statisticsNavigationPath.removeAll()
+
+        switch route {
+        case .planner(let day):
+            sheet = nil
+            selectedTab = .planner
+            WidgetRouteCenter.postPlannerDay(day)
+
+        case .createTask(let day):
+            selectedTab = .planner
+            sheet = .taskEditor(taskId: nil, preselectedDay: day, mode: .standard)
+        }
+    }
+}
+
+private struct AppRootTabShellView: View {
+    let dependencies: AppRootDependencies
+    @Binding var selectedTab: AppTab
+    @Binding var statisticsNavigationPath: [AppRoute]
+    @Binding var sheet: SheetRoute?
+
+    private var showsTabBar: Bool {
+        selectedTab != .statistics || statisticsNavigationPath.isEmpty
     }
 
     var body: some View {
@@ -55,52 +98,42 @@ private struct AppRootContentView: View {
             )
             .tag(AppTab.planner)
 
-            StatisticsView(
-                taskRepository: dependencies.taskRepository,
-                preferencesRepository: dependencies.preferencesRepository,
-                onOpenSettings: { sheet = .settings }
-            )
+            NavigationStack(path: $statisticsNavigationPath) {
+                StatisticsView(
+                    taskRepository: dependencies.taskRepository,
+                    preferencesRepository: dependencies.preferencesRepository,
+                    onOpenSettings: openSettings
+                )
+                .navigationDestination(for: AppRoute.self, destination: destinationView)
+            }
             .tag(AppTab.statistics)
         }
         .toolbar(.hidden, for: .tabBar)
         .overlay(alignment: .bottom) {
-            CustomTabBar(
-                selected: selectedTab,
-                plannerTitle: Date.now.monthName(),
-                onSelectPlanner: { selectedTab = .planner },
-                onSelectStatistics: { selectedTab = .statistics }
-            )
-            .padding(.bottom, DS.Layout.tabBarBottomSpacing)
-            .ignoresSafeArea(.keyboard, edges: .bottom)
-            .zIndex(10)
+            if showsTabBar {
+                CustomTabBar(
+                    selected: selectedTab,
+                    plannerTitle: Date.now.monthName(),
+                    onSelectPlanner: { selectedTab = .planner },
+                    onSelectStatistics: { selectedTab = .statistics }
+                )
+                .padding(.bottom, DS.Layout.tabBarBottomSpacing)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+                .zIndex(10)
+            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .sheet(item: $sheet, content: sheetView)
-        .task {
-            guard !didBootstrap else { return }
-            didBootstrap = true
-            dependencies.bootstrap()
-        }
-        .onOpenURL(perform: handleOpenURL)
+    }
+
+    private func openSettings() {
+        guard statisticsNavigationPath.last != .settings else { return }
+        statisticsNavigationPath.append(.settings)
     }
 
     @ViewBuilder
-    private func sheetView(route: SheetRoute) -> some View {
+    private func destinationView(route: AppRoute) -> some View {
         switch route {
-        case .taskEditor(let taskId, let day, let mode):
-            TaskEditorView(
-                taskRepository: dependencies.taskRepository,
-                preferencesRepository: dependencies.preferencesRepository,
-                notificationService: dependencies.notificationService,
-                seriesService: dependencies.seriesService,
-                taskId: taskId,
-                preselectedDay: day,
-                editMode: mode,
-                onOpenNotificationsCenter: {
-                    sheet = .notifications
-                }
-            )
-
         case .settings:
             SettingsView(
                 preferencesRepository: dependencies.preferencesRepository,
@@ -117,6 +150,25 @@ private struct AppRootContentView: View {
                             sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
                         }
                     )
+                }
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func sheetView(route: SheetRoute) -> some View {
+        switch route {
+        case .taskEditor(let taskId, let day, let mode):
+            TaskEditorView(
+                taskRepository: dependencies.taskRepository,
+                preferencesRepository: dependencies.preferencesRepository,
+                notificationService: dependencies.notificationService,
+                seriesService: dependencies.seriesService,
+                taskId: taskId,
+                preselectedDay: day,
+                editMode: mode,
+                onOpenNotificationsCenter: {
+                    sheet = .notifications
                 }
             )
 
@@ -139,21 +191,6 @@ private struct AppRootContentView: View {
                     sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .baseRecurringIdentity)
                 }
             )
-        }
-    }
-
-    private func handleOpenURL(_ url: URL) {
-        guard let route = WidgetRoute(url: url) else { return }
-
-        switch route {
-        case .planner(let day):
-            sheet = nil
-            selectedTab = .planner
-            WidgetRouteCenter.postPlannerDay(day)
-
-        case .createTask(let day):
-            selectedTab = .planner
-            sheet = .taskEditor(taskId: nil, preselectedDay: day, mode: .standard)
         }
     }
 }

@@ -8,25 +8,19 @@
 import SwiftUI
 
 struct SettingsScreenHeader: View {
-    let onClose: () -> Void
+    let onBack: () -> Void
 
     var body: some View {
-        VStack(spacing: DS.Spacing.sm) {
-            Capsule()
-                .fill(Color.secondary.opacity(0.22))
-                .frame(width: 38, height: 5)
-
-            HStack(alignment: .center) {
-                Text("Settings")
-                    .font(DS.Typography.title)
-                    .foregroundStyle(DS.ColorToken.textPrimary)
-
-                Spacer()
-
-                IconCircleButton(systemName: "xmark") {
-                    onClose()
-                }
+        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+            IconCircleButton(systemName: "chevron.left") {
+                onBack()
             }
+
+            Text("Settings")
+                .font(DS.Typography.title)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+
+            Spacer()
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.top, DS.Spacing.sm)

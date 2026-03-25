@@ -10,7 +10,6 @@ import SwiftData
 
 enum SheetRoute: Identifiable {
     case taskEditor(taskId: PersistentIdentifier?, preselectedDay: Date, mode: TaskEditorMode)
-    case settings
     case notifications
     case recurringBaseTasks
 
@@ -19,8 +18,6 @@ enum SheetRoute: Identifiable {
         case .taskEditor(let taskId, let day, let mode):
             let taskKey = taskId.map { String(describing: $0) } ?? "new"
             return "taskEditor-\(taskKey)-\(Int(day.timeIntervalSince1970))-\(mode.rawValue)"
-        case .settings:
-            return "settings"
         case .notifications:
             return "notifications"
         case .recurringBaseTasks:
