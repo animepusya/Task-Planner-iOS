@@ -357,9 +357,11 @@ struct PlannerView: View {
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(width: 34, height: 34)
-                        .background(DS.GradientToken.brand)
-                        .clipShape(Circle())
-                        .shadow(color: DS.Shadow.soft, radius: 10, x: 0, y: 6)
+                        .dsSurface(
+                            Circle(),
+                            fill: DS.GradientToken.brand,
+                            stroke: DS.Border.inverted
+                        )
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Create Task")

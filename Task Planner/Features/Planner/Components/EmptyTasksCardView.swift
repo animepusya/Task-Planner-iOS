@@ -33,10 +33,7 @@ struct EmptyTasksCardView: View {
 
             Spacer(minLength: 0)
         }
-        .padding(DS.Spacing.md)
-        .background(Color.white)
-        .cornerRadius(DS.Radius.md)
-        .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
+        .dsCard()
         .contentShape(Rectangle())
     }
 }

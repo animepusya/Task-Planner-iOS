@@ -62,17 +62,11 @@ struct TaskEditorDateTimeSection: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .dsCard()
+        .dsCard(style: .outlined)
         .overlay {
-            RoundedRectangle(cornerRadius: DS.Radius.md)
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
                 .stroke(isInvalid ? Color.red.opacity(0.35) : .clear, lineWidth: 1.25)
         }
-        .shadow(
-            color: isInvalid ? Color.red.opacity(0.18) : .clear,
-            radius: isInvalid ? 12 : 0,
-            x: 0,
-            y: 8
-        )
         .animation(anim, value: isAllDay)
         .animation(anim, value: isInvalid)
     }

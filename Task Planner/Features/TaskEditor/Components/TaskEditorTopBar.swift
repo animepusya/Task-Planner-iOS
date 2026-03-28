@@ -24,9 +24,7 @@ struct TaskEditorTopBar: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(DS.ColorToken.textPrimary)
                     .frame(width: 40, height: 40)
-                    .background(.white)
-                    .clipShape(Circle())
-                    .shadow(color: DS.Shadow.soft, radius: 10, x: 0, y: 6)
+                    .dsSurface(Circle(), fill: DS.Surface.card)
             }
             .buttonStyle(.plain)
             .disabled(isBusy)

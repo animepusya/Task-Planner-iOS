@@ -37,11 +37,7 @@ struct CustomTabBar: View {
         .padding(10)
         .frame(maxWidth: .infinity)
         .frame(minHeight: DS.Layout.tabBarMinHeight)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.70))
-                .shadow(color: DS.Shadow.soft, radius: 16, x: 0, y: 10)
-        )
+        .dsSurface(Capsule(), fill: Color.white.opacity(0.70))
         .padding(.horizontal, DS.Spacing.lg)
         .accessibilityElement(children: .contain)
     }
@@ -71,27 +67,34 @@ struct CustomTabBar: View {
             .foregroundStyle(foreground(isActive: isActive, activeStyle: activeStyle))
             .frame(maxWidth: .infinity)
             .padding(.vertical, 12)
-            .background(background(isActive: isActive, activeStyle: activeStyle))
-            .clipShape(Capsule())
+            .dsSurface(
+                Capsule(),
+                fill: backgroundFill(isActive: isActive, activeStyle: activeStyle),
+                stroke: backgroundStroke(isActive: isActive)
+            )
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
     }
 
-    private func background(isActive: Bool, activeStyle: ActiveStyle) -> some View {
-        Group {
-            if isActive {
-                switch activeStyle {
-                case .planner:
-                    DS.ColorToken.purple
-                case .statistics:
-                    DS.GradientToken.brandPink
-                }
-            } else {
-                Color.white.opacity(0.95)
+    private func backgroundFill(
+        isActive: Bool,
+        activeStyle: ActiveStyle
+    ) -> AnyShapeStyle {
+        if isActive {
+            switch activeStyle {
+            case .planner:
+                return AnyShapeStyle(DS.ColorToken.purple)
+            case .statistics:
+                return AnyShapeStyle(DS.GradientToken.brandPink)
             }
+        } else {
+            return AnyShapeStyle(Color.white.opacity(0.95))
         }
-        .shadow(color: DS.Shadow.soft, radius: isActive ? 18 : 10, x: 0, y: isActive ? 10 : 6)
+    }
+
+    private func backgroundStroke(isActive: Bool) -> Color {
+        isActive ? DS.Border.inverted : DS.Border.subtle
     }
 
     private func foreground(isActive: Bool, activeStyle: ActiveStyle) -> some ShapeStyle {

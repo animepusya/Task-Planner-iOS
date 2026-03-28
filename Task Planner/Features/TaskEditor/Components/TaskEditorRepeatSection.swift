@@ -36,13 +36,11 @@ struct TaskEditorRepeatSection: View {
                     .padding(.top, 2)
             }
         }
-        .dsCard()
-        .shadow(
-            color: isInvalid ? Color.red.opacity(0.22) : .clear,
-            radius: isInvalid ? 12 : 0,
-            x: 0,
-            y: 8
-        )
+        .dsCard(style: .outlined)
+        .overlay {
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(isInvalid ? Color.red.opacity(0.28) : .clear, lineWidth: 1.25)
+        }
     }
 
     // MARK: - Interval row
@@ -146,12 +144,7 @@ private struct RepeatIntervalControl: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .frame(width: 30, height: 30)
-                .background(DS.ColorToken.cardBackground)
-                .clipShape(Circle())
-                .overlay(
-                    Circle().stroke(Color.black.opacity(0.06), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.05), radius: 6, x: 0, y: 3)
+                .dsSurface(Circle(), fill: DS.Surface.card)
         }
         .buttonStyle(.plain)
     }

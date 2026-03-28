@@ -18,6 +18,6 @@ struct TaskEditorColorSection: View {
 
             TaskColorPickerRow(selection: $color)
         }
-        .dsCard()
+        .dsCard(style: .outlined)
     }
 }

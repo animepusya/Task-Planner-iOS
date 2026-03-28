@@ -39,11 +39,10 @@ struct PlannerCardView<TopRight: View>: View {
                 thumbContainer(thumb)
             }
         }
-        .padding(DS.Spacing.md)
-        .background(model.surfaceColor.opacity(surfaceOpacity))
+        .dsCard(padding: DS.Spacing.md) {
+            model.surfaceColor.opacity(surfaceOpacity)
+        }
         .overlay(doneOverlay)
-        .cornerRadius(DS.Radius.md)
-        .shadow(color: DS.Shadow.soft, radius: 12, x: 0, y: 8)
         .saturation(model.isMuted ? 0.35 : 1.0)
         .grayscale(model.isMuted ? 0.25 : 0.0)
         .scaleEffect(model.isMuted ? 0.995 : 1.0)

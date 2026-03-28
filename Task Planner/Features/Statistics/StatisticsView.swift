@@ -128,9 +128,10 @@ struct StatisticsView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.95))
-        .cornerRadius(DS.Radius.md)
-        .shadow(color: DS.Shadow.soft, radius: 14, x: 0, y: 10)
+        .dsSurface(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous),
+            fill: Color.white.opacity(0.95)
+        )
     }
 
     private func navCircle(_ systemName: String, action: @escaping () -> Void) -> some View {
@@ -139,8 +140,7 @@ struct StatisticsView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundColor(DS.ColorToken.textSecondary)
                 .frame(width: 36, height: 36)
-                .background(Color.white.opacity(0.9))
-                .clipShape(Circle())
+                .dsSurface(Circle(), fill: DS.Surface.chrome)
         }
         .buttonStyle(.plain)
     }
@@ -172,8 +172,7 @@ struct StatisticsView: View {
             .padding(.top, 6)
             .padding(.bottom, 2)
         }
-        .dsCard(padding: DS.Spacing.lg)
-        .cornerRadius(DS.Radius.lg)
+        .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
 
     private func donut(
@@ -273,7 +272,6 @@ struct StatisticsView: View {
                 }
             }
         }
-        .dsCard(padding: DS.Spacing.lg)
-        .cornerRadius(DS.Radius.lg)
+        .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
 }

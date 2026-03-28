@@ -56,7 +56,7 @@ struct TaskEditorNameSection: View {
                 )
             }
         }
-        .dsCard()
+        .dsCard(style: .outlined)
         .onAppear {
             if hasNotes || !showsTitleAndCategory {
                 isNotesExpanded = true

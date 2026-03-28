@@ -98,7 +98,7 @@ struct TaskPhotoCropperView: View {
 
         return ZStack {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(DS.ColorToken.cardBackground)
+                .fill(DS.Surface.card)
 
             Image(uiImage: image)
                 .resizable()
@@ -110,9 +110,8 @@ struct TaskPhotoCropperView: View {
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                .stroke(DS.Border.subtle, lineWidth: 1)
         )
-        .shadow(color: DS.Shadow.soft, radius: 14, x: 0, y: 10)
         .highPriorityGesture(combined)
     }
 

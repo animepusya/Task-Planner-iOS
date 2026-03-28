@@ -26,7 +26,7 @@ struct TaskEditorPhotoSection: View {
 
             content
         }
-        .dsCard()
+        .dsCard(style: .outlined)
         .sheet(isPresented: $showCropper) {
             if let img = selectedUIImage {
                 TaskPhotoCropperView(

@@ -91,7 +91,7 @@ struct TaskEditorReminderSection: View {
                 .accessibilityHidden(!(reminderEnabled && reminderAllDayTimeMinutes != nil))
             }
         }
-        .dsCard()
+        .dsCard(style: .outlined)
         .animation(.easeInOut(duration: 0.18), value: gate != nil)
     }
 

@@ -8,6 +8,11 @@
 import SwiftUI
 
 enum DS {
+    enum CardStyle {
+        case solid
+        case outlined
+    }
+
     enum Spacing {
         static let xs: CGFloat = 6
         static let sm: CGFloat = 10
@@ -29,8 +34,10 @@ enum DS {
         static let pill: CGFloat = 999
     }
 
-    enum Shadow {
-        static let soft = Color.black.opacity(0.08)
+    enum Border {
+        static let subtle = Color.black.opacity(0.045)
+        static let muted = Color.black.opacity(0.025)
+        static let inverted = Color.white.opacity(0.18)
     }
 
     enum ColorToken {
@@ -45,6 +52,12 @@ enum DS {
 
         static let textPrimary = Color(red: 0.12, green: 0.12, blue: 0.16)
         static let textSecondary = Color(red: 0.45, green: 0.45, blue: 0.52)
+    }
+
+    enum Surface {
+        static let card = Color.white.opacity(0.94)
+        static let chrome = Color.white.opacity(0.90)
+        static let frosted = Color.white.opacity(0.78)
     }
 
     enum GradientToken {

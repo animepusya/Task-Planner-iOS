@@ -25,15 +25,7 @@ struct StatisticsBreakdownSegmentedControl: View {
             )
         }
         .padding(4)
-        .background(
-            Capsule()
-                .fill(Color.white.opacity(0.78))
-                .overlay(
-                    Capsule()
-                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
-                )
-        )
-        .shadow(color: DS.Shadow.soft, radius: 10, x: 0, y: 6)
+        .dsSurface(Capsule(), fill: DS.Surface.frosted)
         .accessibilityElement(children: .contain)
     }
 
