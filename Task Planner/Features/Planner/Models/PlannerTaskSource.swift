@@ -36,21 +36,58 @@ struct PlannerTaskSource: Sendable {
         and searchEnd: Date,
         calendar: Calendar = .current
     ) -> Bool {
-        if overrideByDay.keys.contains(where: { $0 >= searchStart && $0 <= searchEnd }) {
-            return true
+        let visibleStart = calendar.startOfDay(for: searchStart)
+        let visibleEnd = calendar.startOfDay(for: searchEnd)
+        let dayAfterVisibleEnd = calendar.date(byAdding: .day, value: 1, to: visibleEnd)
+            ?? visibleEnd.addingTimeInterval(86_400)
+
+        func intersectsVisibleRange(startDay: Date, template: TaskSeriesTemplate) -> Bool {
+            let interval = template.occurrenceInterval(startDay: startDay, calendar: calendar)
+            return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
         }
 
-        if let normalizedSeriesEnd = seriesEndDay.map({ calendar.startOfDay(for: $0) }),
-           normalizedSeriesEnd < searchStart {
-            return false
+        for (overrideDay, overrideValue) in overrideByDay {
+            guard overrideDay <= visibleEnd else { continue }
+            guard overrideValue.isDeleted == false, let template = overrideValue.template else { continue }
+
+            if intersectsVisibleRange(startDay: overrideDay, template: template) {
+                return true
+            }
         }
 
-        if seriesSegments.isEmpty && ownerRepeatRule == .none && overrideByDay.isEmpty {
-            return baseDay >= searchStart && baseDay <= searchEnd
+        if seriesSegments.isEmpty {
+            guard ownerRepeatRule == .none else { return false }
+            guard overrideByDay[baseDay]?.isDeleted != true else { return false }
+            return intersectsVisibleRange(startDay: baseDay, template: baseTemplate)
         }
 
-        let firstSegmentStart = seriesSegments.first.map { calendar.startOfDay(for: $0.startDay) } ?? baseDay
-        return firstSegmentStart <= searchEnd
+        for segment in seriesSegments {
+            let segmentStart = calendar.startOfDay(for: segment.startDay)
+            guard segmentStart <= visibleEnd else { break }
+
+            var candidates: [Date] = [visibleEnd]
+
+            if let segmentEnd = segment.endDay {
+                candidates.append(calendar.startOfDay(for: segmentEnd))
+            }
+
+            if let normalizedSeriesEnd = seriesEndDay {
+                candidates.append(calendar.startOfDay(for: normalizedSeriesEnd))
+            }
+
+            let effectiveEnd = candidates.min() ?? visibleEnd
+            let lookbackStart = calendar.date(
+                byAdding: .day,
+                value: -segment.template.overlapLookbackDays,
+                to: visibleStart
+            ) ?? visibleStart.addingTimeInterval(TimeInterval(-segment.template.overlapLookbackDays * 86_400))
+
+            if effectiveEnd >= max(segmentStart, lookbackStart) {
+                return true
+            }
+        }
+
+        return false
     }
 
     func withCompletedDayKeys(_ keys: Set<String>) -> PlannerTaskSource {

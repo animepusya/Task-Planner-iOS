@@ -40,6 +40,23 @@ struct TaskSeriesTemplate: Codable, Equatable, Hashable, Sendable {
         let minutes = max(1, totalEnd - totalStart)
         return TimeInterval(minutes * 60)
     }
+
+    var overlapLookbackDays: Int {
+        max(0, endDayOffset)
+    }
+
+    func occurrenceInterval(startDay: Date, calendar: Calendar) -> DateInterval {
+        let occurrenceStart = TimeMinutes.date(
+            on: calendar.startOfDay(for: startDay),
+            minutes: startMinutes,
+            calendar: calendar
+        )
+
+        return DateInterval(
+            start: occurrenceStart,
+            end: occurrenceStart.addingTimeInterval(durationSeconds)
+        )
+    }
 }
 
 struct TaskSeriesSegment: Codable, Identifiable, Equatable, Hashable, Sendable {

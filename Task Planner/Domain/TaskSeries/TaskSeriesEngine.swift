@@ -121,7 +121,7 @@ enum TaskSeriesEngine {
         guard let occ = TaskDayOverlap.occurrenceInterval(task: task, dayStart: dayStart, weekStartsOnMonday: weekStartsOnMonday) else {
             return nil
         }
-        return cal.startOfDay(for: occ.occurrenceStart)
+        return occ.occurrenceStartDay
     }
 
     static func nextOccurrenceStartDay(

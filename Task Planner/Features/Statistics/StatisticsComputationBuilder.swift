@@ -58,6 +58,7 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
     let isAllDay: Bool
     let startMinutes: Int
     let durationSeconds: TimeInterval
+    let overlapLookbackDays: Int
     let repeatRule: RepeatRule
     let repeatIntervalDays: Int?
     let colorRaw: String
@@ -68,6 +69,7 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
         self.isAllDay = template.isAllDay
         self.startMinutes = template.startMinutes
         self.durationSeconds = template.durationSeconds
+        self.overlapLookbackDays = template.overlapLookbackDays
         self.repeatRule = template.repeatRule
         self.repeatIntervalDays = template.repeatIntervalDays
         self.colorRaw = template.colorRaw
@@ -88,9 +90,23 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
         self.isAllDay = task.isAllDay
         self.startMinutes = startMinutes
         self.durationSeconds = TimeInterval(durationMinutes * 60)
+        self.overlapLookbackDays = max(0, endOffset)
         self.repeatRule = task.repeatRule
         self.repeatIntervalDays = task.repeatIntervalDays
         self.colorRaw = task.colorRaw
+    }
+
+    func occurrenceInterval(startDay: Date, calendar: Calendar) -> DateInterval {
+        let occurrenceStart = TimeMinutes.date(
+            on: calendar.startOfDay(for: startDay),
+            minutes: startMinutes,
+            calendar: calendar
+        )
+
+        return DateInterval(
+            start: occurrenceStart,
+            end: occurrenceStart.addingTimeInterval(durationSeconds)
+        )
     }
 }
 
@@ -159,6 +175,67 @@ struct StatisticsTaskSource: Equatable, Sendable {
     var hasSeriesState: Bool {
         baseTemplate.repeatRule != .none || !segments.isEmpty || !overridesByDayKey.isEmpty
     }
+
+    func hasRelevantStarts(
+        between searchStart: Date,
+        and searchEnd: Date,
+        calendar: Calendar = .current
+    ) -> Bool {
+        let visibleStart = calendar.startOfDay(for: searchStart)
+        let visibleEnd = calendar.startOfDay(for: searchEnd)
+        let dayAfterVisibleEnd = calendar.date(byAdding: .day, value: 1, to: visibleEnd)
+            ?? visibleEnd.addingTimeInterval(86_400)
+
+        func intersectsVisibleRange(startDay: Date, template: StatisticsTaskSeriesTemplateSource) -> Bool {
+            let interval = template.occurrenceInterval(startDay: startDay, calendar: calendar)
+            return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
+        }
+
+        for (dayKey, overrideValue) in overridesByDayKey {
+            let overrideDay = calendar.startOfDay(for: DayKey.parse(dayKey, calendar: calendar))
+            guard overrideDay <= visibleEnd else { continue }
+            guard overrideValue.isDeleted == false, let template = overrideValue.template else { continue }
+
+            if intersectsVisibleRange(startDay: overrideDay, template: template) {
+                return true
+            }
+        }
+
+        if segments.isEmpty {
+            guard overridesByDayKey[DayKey.format(baseDay, calendar: calendar)]?.isDeleted != true else {
+                return false
+            }
+            return intersectsVisibleRange(startDay: baseDay, template: baseTemplate)
+        }
+
+        for segment in segments {
+            let segmentStart = calendar.startOfDay(for: segment.startDay)
+            guard segmentStart <= visibleEnd else { break }
+
+            var candidates: [Date] = [visibleEnd]
+
+            if let segmentEnd = segment.endDay {
+                candidates.append(calendar.startOfDay(for: segmentEnd))
+            }
+
+            if let normalizedSeriesEnd = seriesEndDay {
+                candidates.append(calendar.startOfDay(for: normalizedSeriesEnd))
+            }
+
+            let effectiveEnd = candidates.min() ?? visibleEnd
+            let lookbackStart = calendar.date(
+                byAdding: .day,
+                value: -segment.template.overlapLookbackDays,
+                to: visibleStart
+            ) ?? visibleStart.addingTimeInterval(TimeInterval(-segment.template.overlapLookbackDays * 86_400))
+
+            if effectiveEnd >= max(segmentStart, lookbackStart) {
+                return true
+            }
+        }
+
+        return false
+    }
 }
 
 private extension StatisticsTaskSeriesSegmentSource {
@@ -186,21 +263,8 @@ enum StatisticsComputationBuilder {
             anchorDate: key.anchorDate,
             calendar: calendar
         )
-        let searchStart = calendar.date(
-            byAdding: .day,
-            value: -TaskDayOverlap.maxOccurrenceLookbackDays,
-            to: visibleStart
-        ) ?? visibleStart.addingTimeInterval(TimeInterval(-TaskDayOverlap.maxOccurrenceLookbackDays * 86_400))
-        let searchDays = enumerateDays(from: searchStart, to: visibleEnd, calendar: calendar)
-
-        let candidateTasks = tasks.filter { task in
-            guard task.baseDay <= visibleEnd else { return false }
-
-            if let seriesEndDay = task.seriesEndDay {
-                return seriesEndDay >= searchStart
-            }
-
-            return true
+        let candidateTasks = tasks.filter {
+            $0.hasRelevantStarts(between: visibleStart, and: visibleEnd, calendar: calendar)
         }
 
         var perCategory: [String: (totalMinutes: Int, colorMinutes: [String: Int])] = [:]
@@ -209,29 +273,16 @@ enum StatisticsComputationBuilder {
 
         for task in candidateTasks {
             guard !Task.isCancelled else { return .empty }
-
-            for occurrenceStartDay in searchDays {
-                guard !Task.isCancelled else { return .empty }
-                guard occursStartOn(task, on: occurrenceStartDay, weekStartsOnMonday: key.weekStartsOnMonday, calendar: calendar) else {
-                    continue
-                }
-
-                guard let template = template(for: task, startDay: occurrenceStartDay, calendar: calendar) else {
-                    continue
-                }
-
-                aggregateOccurrence(
-                    taskID: task.id,
-                    occurrenceStartDay: occurrenceStartDay,
-                    template: template,
-                    visibleStart: visibleStart,
-                    visibleEnd: visibleEnd,
-                    calendar: calendar,
-                    perCategory: &perCategory,
-                    perTask: &perTask,
-                    totalMinutes: &totalMinutes
-                )
-            }
+            aggregateTaskOccurrences(
+                for: task,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar,
+                weekStartsOnMonday: key.weekStartsOnMonday,
+                perCategory: &perCategory,
+                perTask: &perTask,
+                totalMinutes: &totalMinutes
+            )
         }
 
         let categoryStats = perCategory
@@ -331,6 +382,269 @@ enum StatisticsComputationBuilder {
         }
     }
 
+    private static func aggregateTaskOccurrences(
+        for task: StatisticsTaskSource,
+        visibleStart: Date,
+        visibleEnd: Date,
+        calendar: Calendar,
+        weekStartsOnMonday: Bool,
+        perCategory: inout [String: (totalMinutes: Int, colorMinutes: [String: Int])],
+        perTask: inout [String: (title: String, minutes: Int, colorRaw: String)],
+        totalMinutes: inout Int
+    ) {
+        let overrideDaysInRange = task.overridesByDayKey.keys
+            .compactMap { dayKey -> Date? in
+                let day = calendar.startOfDay(for: DayKey.parse(dayKey, calendar: calendar))
+                return day <= visibleEnd ? day : nil
+            }
+            .sorted()
+
+        var baseSuppressedDays = Set<Date>()
+        baseSuppressedDays.reserveCapacity(overrideDaysInRange.count)
+
+        for day in overrideDaysInRange {
+            let dayKey = DayKey.format(day, calendar: calendar)
+            guard let override = task.overridesByDayKey[dayKey] else { continue }
+
+            if override.isDeleted || override.template != nil {
+                baseSuppressedDays.insert(day)
+            }
+
+            guard override.isDeleted == false, let template = override.template else { continue }
+            guard statisticsOccurrenceIntersectsVisibleRange(
+                occurrenceStartDay: day,
+                template: template,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar
+            ) else {
+                continue
+            }
+
+            aggregateOccurrence(
+                taskID: task.id,
+                occurrenceStartDay: day,
+                template: template,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar,
+                perCategory: &perCategory,
+                perTask: &perTask,
+                totalMinutes: &totalMinutes
+            )
+        }
+
+        if task.segments.isEmpty {
+            guard baseSuppressedDays.contains(task.baseDay) == false else { return }
+            guard statisticsOccurrenceIntersectsVisibleRange(
+                occurrenceStartDay: task.baseDay,
+                template: task.baseTemplate,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar
+            ) else {
+                return
+            }
+
+            aggregateOccurrence(
+                taskID: task.id,
+                occurrenceStartDay: task.baseDay,
+                template: task.baseTemplate,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar,
+                perCategory: &perCategory,
+                perTask: &perTask,
+                totalMinutes: &totalMinutes
+            )
+            return
+        }
+
+        for segment in task.segments {
+            let segmentStart = calendar.startOfDay(for: segment.startDay)
+            guard segmentStart <= visibleEnd else { break }
+
+            let segmentEnd = effectiveSegmentEnd(
+                for: segment,
+                task: task,
+                searchEnd: visibleEnd,
+                calendar: calendar
+            )
+            guard let segmentEnd, segmentEnd >= segmentStart else { continue }
+
+            let lookbackStart = calendar.date(
+                byAdding: .day,
+                value: -segment.template.overlapLookbackDays,
+                to: visibleStart
+            ) ?? visibleStart.addingTimeInterval(TimeInterval(-segment.template.overlapLookbackDays * 86_400))
+
+            let rangeStart = max(segmentStart, lookbackStart)
+            let rangeEnd = min(segmentEnd, visibleEnd)
+            guard rangeStart <= rangeEnd else { continue }
+
+            aggregateStartDays(
+                for: task,
+                template: segment.template,
+                rangeStart: rangeStart,
+                rangeEnd: rangeEnd,
+                anchorDay: segmentStart,
+                suppressedDays: baseSuppressedDays,
+                calendar: calendar,
+                weekStartsOnMonday: weekStartsOnMonday,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                perCategory: &perCategory,
+                perTask: &perTask,
+                totalMinutes: &totalMinutes
+            )
+        }
+    }
+
+    private static func effectiveSegmentEnd(
+        for segment: StatisticsTaskSeriesSegmentSource,
+        task: StatisticsTaskSource,
+        searchEnd: Date,
+        calendar: Calendar
+    ) -> Date? {
+        var candidates: [Date] = [searchEnd]
+
+        if let segmentEnd = segment.endDay {
+            candidates.append(calendar.startOfDay(for: segmentEnd))
+        }
+
+        if let seriesEndDay = task.seriesEndDay {
+            candidates.append(calendar.startOfDay(for: seriesEndDay))
+        }
+
+        return candidates.min()
+    }
+
+    private static func statisticsOccurrenceIntersectsVisibleRange(
+        occurrenceStartDay: Date,
+        template: StatisticsTaskSeriesTemplateSource,
+        visibleStart: Date,
+        visibleEnd: Date,
+        calendar: Calendar
+    ) -> Bool {
+        let interval = template.occurrenceInterval(startDay: occurrenceStartDay, calendar: calendar)
+        let dayAfterVisibleEnd = calendar.date(byAdding: .day, value: 1, to: visibleEnd)
+            ?? visibleEnd.addingTimeInterval(86_400)
+
+        return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
+    }
+
+    private static func aggregateStartDays(
+        for task: StatisticsTaskSource,
+        template: StatisticsTaskSeriesTemplateSource,
+        rangeStart: Date,
+        rangeEnd: Date,
+        anchorDay: Date,
+        suppressedDays: Set<Date>,
+        calendar: Calendar,
+        weekStartsOnMonday: Bool,
+        visibleStart: Date,
+        visibleEnd: Date,
+        perCategory: inout [String: (totalMinutes: Int, colorMinutes: [String: Int])],
+        perTask: inout [String: (title: String, minutes: Int, colorRaw: String)],
+        totalMinutes: inout Int
+    ) {
+        func emit(_ day: Date) {
+            let normalizedDay = calendar.startOfDay(for: day)
+            guard normalizedDay >= rangeStart, normalizedDay <= rangeEnd else { return }
+            guard suppressedDays.contains(normalizedDay) == false else { return }
+
+            aggregateOccurrence(
+                taskID: task.id,
+                occurrenceStartDay: normalizedDay,
+                template: template,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar,
+                perCategory: &perCategory,
+                perTask: &perTask,
+                totalMinutes: &totalMinutes
+            )
+        }
+
+        switch template.repeatRule {
+        case .none:
+            emit(anchorDay)
+
+        case .daily:
+            for day in enumerateDays(from: rangeStart, to: rangeEnd, calendar: calendar) {
+                emit(day)
+            }
+
+        case .weekdays, .weekends:
+            for day in enumerateDays(from: rangeStart, to: rangeEnd, calendar: calendar) {
+                if calendar.isDate(day, inSameDayAs: anchorDay) {
+                    emit(day)
+                    continue
+                }
+
+                let matchesRule: Bool = {
+                    switch template.repeatRule {
+                    case .weekdays:
+                        return Workweek.isWeekday(day, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
+                    case .weekends:
+                        return Workweek.isWeekend(day, calendar: calendar, weekStartsOnMonday: weekStartsOnMonday)
+                    default:
+                        return false
+                    }
+                }()
+
+                if matchesRule {
+                    emit(day)
+                }
+            }
+
+        case .weekly:
+            let dayDelta = max(0, calendar.dateComponents([.day], from: anchorDay, to: rangeStart).day ?? 0)
+            let remainder = dayDelta % 7
+            let offset = remainder == 0 ? 0 : (7 - remainder)
+            let first = calendar.date(byAdding: .day, value: offset, to: rangeStart) ?? rangeStart
+
+            for day in strideDays(from: first, through: rangeEnd, step: 7, calendar: calendar) {
+                emit(day)
+            }
+
+        case .monthly:
+            let anchorDayNumber = calendar.component(.day, from: anchorDay)
+            var monthCursor = calendar.startOfMonth(for: rangeStart)
+            let endMonth = calendar.startOfMonth(for: rangeEnd)
+
+            while monthCursor <= endMonth {
+                let components = calendar.dateComponents([.year, .month], from: monthCursor)
+                var candidateComponents = DateComponents()
+                candidateComponents.calendar = calendar
+                candidateComponents.timeZone = calendar.timeZone
+                candidateComponents.year = components.year
+                candidateComponents.month = components.month
+                candidateComponents.day = anchorDayNumber
+
+                if let candidate = calendar.date(from: candidateComponents) {
+                    emit(candidate)
+                }
+
+                guard let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthCursor),
+                      nextMonth > monthCursor else {
+                    break
+                }
+                monthCursor = nextMonth
+            }
+
+        case .everyNDays:
+            let interval = max(1, template.repeatIntervalDays ?? 1)
+            let daysFromAnchor = max(0, calendar.dateComponents([.day], from: anchorDay, to: rangeStart).day ?? 0)
+            let firstStep = daysFromAnchor == 0 ? 0 : ((daysFromAnchor + interval - 1) / interval) * interval
+            let first = calendar.date(byAdding: .day, value: firstStep, to: anchorDay) ?? anchorDay
+
+            for day in strideDays(from: first, through: rangeEnd, step: interval, calendar: calendar) {
+                emit(day)
+            }
+        }
+    }
+
     private static func template(
         for task: StatisticsTaskSource,
         startDay: Date,
@@ -425,6 +739,26 @@ enum StatisticsComputationBuilder {
         }
 
         return segment.startDay
+    }
+
+    private static func strideDays(
+        from start: Date,
+        through end: Date,
+        step: Int,
+        calendar: Calendar
+    ) -> [Date] {
+        guard start <= end else { return [] }
+
+        var days: [Date] = []
+        var cursor = calendar.startOfDay(for: start)
+
+        while cursor <= end {
+            days.append(cursor)
+            cursor = calendar.date(byAdding: .day, value: step, to: cursor)
+                ?? cursor.addingTimeInterval(TimeInterval(step * 86_400))
+        }
+
+        return days
     }
 
     private static func enumerateDays(

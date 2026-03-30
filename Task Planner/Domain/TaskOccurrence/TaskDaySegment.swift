@@ -121,11 +121,6 @@ enum TaskDaySegment {
         }
 
         let visibleDaySet = Set(normalizedVisibleDays)
-        let searchStart = calendar.date(
-            byAdding: .day,
-            value: -TaskDayOverlap.maxOccurrenceLookbackDays,
-            to: visibleStart
-        ) ?? visibleStart.addingTimeInterval(TimeInterval(-TaskDayOverlap.maxOccurrenceLookbackDays * 86_400))
 
         var occurrencesByDay: [Date: [PlannerTaskOccurrence]] = [:]
         occurrencesByDay.reserveCapacity(normalizedVisibleDays.count)
@@ -135,14 +130,12 @@ enum TaskDaySegment {
         }
 
         let candidateTasks = tasks.filter {
-            $0.hasRelevantStarts(between: searchStart, and: visibleEnd, calendar: calendar)
+            $0.hasRelevantStarts(between: visibleStart, and: visibleEnd, calendar: calendar)
         }
 
         for task in candidateTasks {
             appendPlannerOccurrences(
                 for: task,
-                searchStart: searchStart,
-                searchEnd: visibleEnd,
                 visibleStart: visibleStart,
                 visibleEnd: visibleEnd,
                 visibleDaySet: visibleDaySet,
@@ -278,8 +271,6 @@ enum TaskDaySegment {
 
     private static func appendPlannerOccurrences(
         for task: PlannerTaskSource,
-        searchStart: Date,
-        searchEnd: Date,
         visibleStart: Date,
         visibleEnd: Date,
         visibleDaySet: Set<Date>,
@@ -288,7 +279,7 @@ enum TaskDaySegment {
         into result: inout [Date: [PlannerTaskOccurrence]]
     ) {
         let overrideDaysInRange = task.overrideByDay.keys
-            .filter { $0 >= searchStart && $0 <= searchEnd }
+            .filter { $0 <= visibleEnd }
             .sorted()
 
         var baseSuppressedDays = Set<Date>()
@@ -302,6 +293,15 @@ enum TaskDaySegment {
             }
 
             guard override.isDeleted == false, let template = override.template else { continue }
+            guard plannerOccurrenceIntersectsVisibleRange(
+                occurrenceStartDay: day,
+                template: template,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar
+            ) else {
+                continue
+            }
 
             appendPlannerOccurrence(
                 for: task,
@@ -317,8 +317,16 @@ enum TaskDaySegment {
 
         if task.seriesSegments.isEmpty {
             guard task.ownerRepeatRule == .none else { return }
-            guard task.baseDay >= searchStart, task.baseDay <= searchEnd else { return }
             guard baseSuppressedDays.contains(task.baseDay) == false else { return }
+            guard plannerOccurrenceIntersectsVisibleRange(
+                occurrenceStartDay: task.baseDay,
+                template: task.baseTemplate,
+                visibleStart: visibleStart,
+                visibleEnd: visibleEnd,
+                calendar: calendar
+            ) else {
+                return
+            }
 
             appendPlannerOccurrence(
                 for: task,
@@ -335,18 +343,24 @@ enum TaskDaySegment {
 
         for segment in task.seriesSegments {
             let segmentStart = calendar.startOfDay(for: segment.startDay)
-            guard segmentStart <= searchEnd else { break }
+            guard segmentStart <= visibleEnd else { break }
 
             let segmentEnd = effectivePlannerSegmentEnd(
                 for: segment,
                 task: task,
-                searchEnd: searchEnd,
+                searchEnd: visibleEnd,
                 calendar: calendar
             )
-            guard let segmentEnd, segmentEnd >= searchStart, segmentEnd >= segmentStart else { continue }
+            guard let segmentEnd, segmentEnd >= segmentStart else { continue }
 
-            let rangeStart = max(segmentStart, searchStart)
-            let rangeEnd = min(segmentEnd, searchEnd)
+            let lookbackStart = calendar.date(
+                byAdding: .day,
+                value: -segment.template.overlapLookbackDays,
+                to: visibleStart
+            ) ?? visibleStart.addingTimeInterval(TimeInterval(-segment.template.overlapLookbackDays * 86_400))
+
+            let rangeStart = max(segmentStart, lookbackStart)
+            let rangeEnd = min(segmentEnd, visibleEnd)
             guard rangeStart <= rangeEnd else { continue }
 
             appendPlannerStartDays(
@@ -383,6 +397,20 @@ enum TaskDaySegment {
         }
 
         return candidates.min()
+    }
+
+    private static func plannerOccurrenceIntersectsVisibleRange(
+        occurrenceStartDay: Date,
+        template: TaskSeriesTemplate,
+        visibleStart: Date,
+        visibleEnd: Date,
+        calendar: Calendar
+    ) -> Bool {
+        let interval = template.occurrenceInterval(startDay: occurrenceStartDay, calendar: calendar)
+        let dayAfterVisibleEnd = calendar.date(byAdding: .day, value: 1, to: visibleEnd)
+            ?? visibleEnd.addingTimeInterval(86_400)
+
+        return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
     }
 
     private static func appendPlannerStartDays(
