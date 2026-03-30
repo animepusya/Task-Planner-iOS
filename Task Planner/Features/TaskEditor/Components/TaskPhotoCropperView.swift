@@ -24,7 +24,10 @@ struct TaskPhotoCropperView: View {
     @State private var lastOffset: CGSize = .zero
 
     private let minScale: CGFloat = 1.0
-    private let maxScale: CGFloat = 4.0
+    private let maxScale: CGFloat = TaskPhotoProcessor.maximumZoomScale
+
+    @State private var isExporting = false
+    @State private var exportErrorMessage: String?
 
     var body: some View {
         NavigationStack {
@@ -42,19 +45,25 @@ struct TaskPhotoCropperView: View {
                 }
                 .padding(.horizontal, DS.Spacing.lg)
                 .padding(.bottom, DS.Spacing.lg)
+
+                if isExporting {
+                    processingOverlay(title: "Preparing Photo")
+                }
             }
-            .navigationTitle("Crop Photo")
+            .navigationTitle("Adjust Photo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { onCancel() }
+                        .disabled(isExporting)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Use") { use() }
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .disabled(isExporting)
                 }
             }
-            .interactiveDismissDisabled(true)
+            .interactiveDismissDisabled(isExporting)
             .onAppear {
                 scale = 1.0
                 lastScale = 1.0
@@ -63,6 +72,21 @@ struct TaskPhotoCropperView: View {
 
                 offset = clampOffset(offset, scale: scale)
                 lastOffset = offset
+            }
+            .alert(
+                "Couldn't Use Photo",
+                isPresented: Binding(
+                    get: { exportErrorMessage != nil },
+                    set: { isPresented in
+                        if !isPresented {
+                            exportErrorMessage = nil
+                        }
+                    }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(exportErrorMessage ?? "")
             }
         }
     }
@@ -112,6 +136,7 @@ struct TaskPhotoCropperView: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(DS.Border.subtle, lineWidth: 1)
         )
+        .allowsHitTesting(!isExporting)
         .highPriorityGesture(combined)
     }
 
@@ -147,20 +172,53 @@ struct TaskPhotoCropperView: View {
     }
 
     private func use() {
-        let result = TaskPhotoProcessor.makeThumbData(
-            source: image,
-            cropSidePoints: cropSide,
-            scale: scale,
-            offset: offset,
-            cornerRadius: cornerRadius,
-            outputPixels: outputPixelSize,
-            quality: 0.70
-        )
+        guard !isExporting else { return }
 
-        guard let data = result else {
-            onCancel()
-            return
+        let currentScale = scale
+        let currentOffset = offset
+
+        isExporting = true
+
+        Task {
+            let result = await TaskPhotoProcessor.makeThumbnailData(
+                source: image,
+                cropSidePoints: cropSide,
+                scale: currentScale,
+                offset: currentOffset,
+                outputPixels: outputPixelSize
+            )
+
+            await MainActor.run {
+                isExporting = false
+
+                guard let data = result else {
+                    exportErrorMessage = "Try a different crop or choose another photo."
+                    return
+                }
+
+                onUse(data)
+            }
         }
-        onUse(data)
+    }
+
+    private func processingOverlay(title: String) -> some View {
+        VStack(spacing: DS.Spacing.sm) {
+            ProgressView()
+                .scaleEffect(1.05)
+
+            Text(title)
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundStyle(DS.ColorToken.textPrimary)
+        }
+        .padding(.horizontal, DS.Spacing.lg)
+        .padding(.vertical, DS.Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .fill(DS.Surface.chrome)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                .stroke(DS.Border.subtle, lineWidth: 1)
+        )
     }
 }
