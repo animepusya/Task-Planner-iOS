@@ -9,7 +9,7 @@ import PhotosUI
 import SwiftUI
 
 struct TaskEditorPhotoSection: View {
-    @Binding var thumbData: Data?
+    @ObservedObject var state: TaskEditorViewModel.PhotoSectionState
 
     @Environment(\.displayScale) private var displayScale
 
@@ -19,6 +19,7 @@ struct TaskEditorPhotoSection: View {
     @State private var isLoadingPhoto = false
     @State private var loadErrorMessage: String?
     @State private var pickerLoadTask: Task<Void, Never>?
+    @State private var previewImage: UIImage?
 
     private let previewSide: CGFloat = 68
     private let thumbCornerRadius: CGFloat = DS.Radius.sm
@@ -45,7 +46,7 @@ struct TaskEditorPhotoSection: View {
                     draftPhoto = nil
                 },
                 onUse: { data in
-                    thumbData = data
+                    state.thumbDataBinding.wrappedValue = data
                     draftPhoto = nil
                 }
             )
@@ -64,6 +65,10 @@ struct TaskEditorPhotoSection: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text(loadErrorMessage ?? "")
+        }
+        .onAppear(perform: refreshPreviewImage)
+        .onChange(of: state.thumbData) { _, _ in
+            refreshPreviewImage()
         }
         .onChange(of: pickerItem) { _, newValue in
             pickerLoadTask?.cancel()
@@ -98,11 +103,6 @@ struct TaskEditorPhotoSection: View {
         } else {
             addPhotoButton
         }
-    }
-
-    private var previewImage: UIImage? {
-        guard let thumbData else { return nil }
-        return UIImage(data: thumbData)
     }
 
     private func attachedPhotoRow(image: UIImage) -> some View {
@@ -175,7 +175,6 @@ struct TaskEditorPhotoSection: View {
                     Text("Add photo")
                         .font(DS.Typography.body)
                         .foregroundStyle(DS.ColorToken.textPrimary)
-
                 }
 
                 Spacer(minLength: 0)
@@ -204,8 +203,18 @@ struct TaskEditorPhotoSection: View {
         pickerLoadTask?.cancel()
         pickerItem = nil
         draftPhoto = nil
-        thumbData = nil
+        previewImage = nil
+        state.thumbDataBinding.wrappedValue = nil
         isLoadingPhoto = false
+    }
+
+    private func refreshPreviewImage() {
+        guard let thumbData = state.thumbData else {
+            previewImage = nil
+            return
+        }
+
+        previewImage = UIImage(data: thumbData)
     }
 
     private func loadFromPicker(_ item: PhotosPickerItem) async {

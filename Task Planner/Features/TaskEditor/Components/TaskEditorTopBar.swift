@@ -8,11 +8,9 @@
 import SwiftUI
 
 struct TaskEditorTopBar: View {
-    let title: String
-    let isBusy: Bool
+    @ObservedObject var state: TaskEditorViewModel.ChromeState
+
     let onBack: () -> Void
-    let canSave: Bool
-    let showSaveScopeMenu: Bool
     let onSaveNormal: () -> Void
     let onSaveOnlyThisDay: () -> Void
     let onSaveAllFuture: () -> Void
@@ -22,16 +20,16 @@ struct TaskEditorTopBar: View {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(DS.ColorToken.textPrimary)
-                    .frame(width: 40, height: 40)
-                    .dsSurface(Circle(), fill: DS.Surface.card)
+                .foregroundStyle(DS.ColorToken.textPrimary)
+                .frame(width: 40, height: 40)
+                .dsSurface(Circle(), fill: DS.Surface.card)
             }
             .buttonStyle(.plain)
-            .disabled(isBusy)
+            .disabled(state.isBusy)
 
             Spacer()
 
-            Text(title)
+            Text(state.navigationTitle)
                 .font(.system(size: 16, weight: .semibold, design: .rounded))
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .lineLimit(1)
@@ -45,7 +43,7 @@ struct TaskEditorTopBar: View {
 
     private var saveControl: some View {
         Group {
-            if showSaveScopeMenu {
+            if state.showSaveScopeMenu {
                 Menu {
                     Text("How to apply changes?")
                         .foregroundStyle(DS.ColorToken.textSecondary)
@@ -56,22 +54,22 @@ struct TaskEditorTopBar: View {
                 } label: {
                     saveLabel
                 }
-                .disabled(!canSave)
-                .opacity(canSave ? 1.0 : 0.45)
+                .disabled(!state.canSave)
+                .opacity(state.canSave ? 1.0 : 0.45)
             } else {
                 Button(action: onSaveNormal) {
                     saveLabel
                 }
                 .buttonStyle(.plain)
-                .disabled(!canSave)
-                .opacity(canSave ? 1.0 : 0.45)
+                .disabled(!state.canSave)
+                .opacity(state.canSave ? 1.0 : 0.45)
             }
         }
     }
 
     private var saveLabel: some View {
         HStack(spacing: 8) {
-            if isBusy {
+            if state.isBusy {
                 ProgressView().scaleEffect(0.85).tint(.white)
             }
             Text("Save")

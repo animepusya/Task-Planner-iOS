@@ -5,13 +5,13 @@
 //  Created by Руслан Меланин on 09.02.2026.
 //
 
+import Combine
 import Foundation
 import SwiftData
 import SwiftUI
-import Combine
 
 @MainActor
-final class TaskEditorViewModel: ObservableObject {
+final class TaskEditorViewModel {
 
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
@@ -26,48 +26,33 @@ final class TaskEditorViewModel: ObservableObject {
     private let preselectedDay: Date
     private var occurrenceStartDay: Date?
 
-    @Published private(set) var isEditingRepeatingTask: Bool = false
-    @Published private(set) var isEditingRepeatingBaseOwner: Bool = false
-    @Published private(set) var isEditingRepeatingOccurrence: Bool = false
-
-    var isBaseRecurringIdentityMode: Bool {
-        editMode == .baseRecurringIdentity
-    }
-
-    var requiresScopeMenuOnSave: Bool {
-        editMode == .standard && isEditing && isEditingRepeatingTask && canSave
-    }
-
-    var showsNameSection: Bool { true }
-    var showsTitleAndCategory: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
-    var showsNotesEditor: Bool { !isBaseRecurringIdentityMode }
-    var showsDateTimeSection: Bool { !isBaseRecurringIdentityMode }
-    var showsReminderSection: Bool { !isBaseRecurringIdentityMode }
-    var showsColorSection: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
-    var showsRepeatSection: Bool { !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode }
-    var showsPhotoSection: Bool { !isBaseRecurringIdentityMode }
-
-    @Published var isBusy: Bool = false
-    @Published var alert: TaskEditorAlert?
-
-    @Published private(set) var form: FormState
-
     private var didBootstrap = false
     private var weekStartsOnMonday = true
+    private var defaultAllDayTimeMinutes: Int = 9 * 60
+    private var availableCategories: [String] = ["Work"]
+    private var form: FormState
 
-    @Published private(set) var defaultAllDayTimeMinutes: Int = 9 * 60
-    @Published private(set) var defaultReminderOffsetMinutes: Int = ReminderPreset.default.minutes
+    let chrome: ChromeState
+    let visibility: VisibilityState
+    let alertState: AlertState
 
-    @Published private(set) var reminderGate: ReminderGate?
+    let titleSection: TitleSectionState
+    let descriptionSection: DescriptionSectionState
+    let dateTimeSection: DateTimeSectionState
+    let reminderSection: ReminderSectionState
+    let repeatSection: RepeatSectionState
+    let colorSection: ColorSectionState
+    let photoSection: PhotoSectionState
 
     var isEditing: Bool { taskId != nil }
 
-    var navigationTitle: String {
-        if isBaseRecurringIdentityMode { return "Edit Recurring Task" }
-        return isEditing ? "Edit Task" : "Create Task"
+    private var isBaseRecurringIdentityMode: Bool {
+        editMode == .baseRecurringIdentity
     }
 
-    var canSave: Bool { !isBusy && !form.isTimeRangeInvalid && !form.isRepeatInvalid }
+    private var reminderGate: ReminderGate? = nil {
+        didSet { publishReminderState() }
+    }
 
     init(
         taskRepository: TaskRepository,
@@ -116,6 +101,21 @@ final class TaskEditorViewModel: ObservableObject {
             repeatValidationMessage: nil
         )
 
+        self.chrome = ChromeState(editMode: editMode, isEditing: taskId != nil)
+        self.visibility = VisibilityState(editMode: editMode)
+        self.alertState = AlertState()
+
+        self.titleSection = TitleSectionState()
+        self.descriptionSection = DescriptionSectionState()
+        self.dateTimeSection = DateTimeSectionState()
+        self.reminderSection = ReminderSectionState()
+        self.repeatSection = RepeatSectionState()
+        self.colorSection = ColorSectionState()
+        self.photoSection = PhotoSectionState()
+
+        wireSectionCallbacks()
+        publishAllState()
+
         if taskId != nil {
             Task { [weak self] in
                 await self?.loadExistingTask()
@@ -142,6 +142,16 @@ final class TaskEditorViewModel: ObservableObject {
         let action: Action
     }
 
+    var alert: TaskEditorAlert? {
+        get { alertState.alert }
+        set { alertState.alert = newValue }
+    }
+
+    var isBusy: Bool {
+        get { chrome.isBusy }
+        set { chrome.setBusy(newValue) }
+    }
+
     func openSystemSettings() {
         notificationService.openSystemSettings()
     }
@@ -156,121 +166,8 @@ final class TaskEditorViewModel: ObservableObject {
                 message: "Enable notifications in the app to use reminders",
                 action: .openNotificationsCenter
             )
-        } else {
-            if reminderGate?.action == .openNotificationsCenter {
-                reminderGate = nil
-            }
-        }
-    }
-
-    private func setReminderEnabledSilently(_ value: Bool) {
-        var copy = form
-        copy.reminderEnabled = value
-        setFormIfChanged(copy)
-    }
-
-    func binding<T>(_ keyPath: WritableKeyPath<FormState, T>) -> Binding<T> {
-        Binding(
-            get: { self.form[keyPath: keyPath] },
-            set: { newValue in
-                var copy = self.form
-                copy[keyPath: keyPath] = newValue
-                self.setFormIfChanged(copy)
-            }
-        )
-    }
-
-    var reminderEnabledBinding: Binding<Bool> {
-        Binding(
-            get: { self.form.reminderEnabled },
-            set: { [weak self] newValue in
-                guard let self else { return }
-                Task { await self.setReminderEnabledAttempt(newValue) }
-            }
-        )
-    }
-
-    var dayDateBinding: Binding<Date> {
-        Binding(get: { self.form.dayDate }, set: { [weak self] in self?.setDayDate($0) })
-    }
-
-    var startTimeBinding: Binding<Date> {
-        Binding(get: { self.form.startTime }, set: { [weak self] in self?.setStartTime($0) })
-    }
-
-    var endDayDateBinding: Binding<Date> {
-        Binding(get: { self.form.endDayDate }, set: { [weak self] in self?.setEndDayDate($0) })
-    }
-
-    var endTimeBinding: Binding<Date> {
-        Binding(get: { self.form.endTime }, set: { [weak self] in self?.setEndTime($0) })
-    }
-
-    var isAllDayBinding: Binding<Bool> {
-        Binding(get: { self.form.isAllDay }, set: { [weak self] in self?.setIsAllDay($0) })
-    }
-
-    var repeatRuleBinding: Binding<RepeatRule> {
-        Binding(get: { self.form.repeatRule }, set: { [weak self] in self?.setRepeatRule($0) })
-    }
-
-    var repeatIntervalDaysBinding: Binding<Int> {
-        Binding(get: { self.form.repeatIntervalDays }, set: { [weak self] in self?.setRepeatIntervalDays($0) })
-    }
-
-    private func setReminderEnabledAttempt(_ newValue: Bool) async {
-        if newValue == false {
+        } else if reminderGate?.action == .openNotificationsCenter {
             reminderGate = nil
-            setReminderEnabledSilently(false)
-            return
-        }
-
-        let prefs: AppPreferencesEntity
-        do {
-            prefs = try preferencesRepository.getOrCreate()
-        } catch {
-            reminderGate = ReminderGate(
-                message: "Enable notifications in the app to use reminders",
-                action: .openNotificationsCenter
-            )
-            setReminderEnabledSilently(false)
-            return
-        }
-
-        guard prefs.notificationsEnabled else {
-            reminderGate = ReminderGate(
-                message: "Enable notifications in the app to use reminders",
-                action: .openNotificationsCenter
-            )
-            setReminderEnabledSilently(false)
-            return
-        }
-
-        let status = await notificationService.getAuthorizationStatus()
-        switch status {
-        case .authorized:
-            reminderGate = nil
-            setReminderEnabledSilently(true)
-
-        case .notDetermined:
-            let granted = await notificationService.requestAuthorization()
-            if granted {
-                reminderGate = nil
-                setReminderEnabledSilently(true)
-            } else {
-                reminderGate = ReminderGate(
-                    message: "Allow notifications in Settings to use reminders",
-                    action: .openSystemSettings
-                )
-                setReminderEnabledSilently(false)
-            }
-
-        case .denied:
-            reminderGate = ReminderGate(
-                message: "Allow notifications in Settings to use reminders",
-                action: .openSystemSettings
-            )
-            setReminderEnabledSilently(false)
         }
     }
 
@@ -284,29 +181,22 @@ final class TaskEditorViewModel: ObservableObject {
             defaultAllDayTimeMinutes = prefs.defaultAllDayTimeMinutes
 
             let normalizedDefaultOffset = ReminderPreset.normalizeOffsetMinutes(prefs.defaultReminderOffsetMinutes)
-            defaultReminderOffsetMinutes = normalizedDefaultOffset
 
             if prefs.defaultReminderOffsetMinutes != normalizedDefaultOffset {
                 prefs.defaultReminderOffsetMinutes = normalizedDefaultOffset
                 try? preferencesRepository.save()
             }
 
-            if taskId == nil {
-                var copy = form
-                copy.reminderOffsetMinutes = normalizedDefaultOffset
-                setFormIfChanged(copy)
-            } else {
-                var copy = form
-                copy.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(copy.reminderOffsetMinutes)
-                setFormIfChanged(copy)
-            }
+            form.reminderOffsetMinutes = taskId == nil
+                ? normalizedDefaultOffset
+                : ReminderPreset.normalizeOffsetMinutes(form.reminderOffsetMinutes)
         } catch {
             weekStartsOnMonday = true
             defaultAllDayTimeMinutes = 9 * 60
-            defaultReminderOffsetMinutes = ReminderPreset.default.minutes
         }
 
         ensureCategoryIsValid(available: availableCategories)
+        publishReminderState()
 
         let synced = time.syncTimesToSelectedDay(
             newStartDay: form.dayDate,
@@ -325,14 +215,22 @@ final class TaskEditorViewModel: ObservableObject {
         apply(validated)
     }
 
+    func ensureCategoryIsValid(available: [String]) {
+        availableCategories = available
+
+        let fixed = category.ensureCategoryIsValid(current: form.categoryTitle, available: available)
+        if fixed != form.categoryTitle {
+            form.categoryTitle = fixed
+        }
+
+        publishTitleState()
+    }
+
     func setDayDate(_ newValue: Date) {
         let newDay = time.startOfDay(newValue)
         guard !Calendar.current.isDate(newDay, inSameDayAs: form.dayDate) else { return }
 
-        var copy = form
-        copy.dayDate = newDay
-        setFormIfChanged(copy)
-
+        form.dayDate = newDay
         onStartDayChanged()
     }
 
@@ -345,10 +243,7 @@ final class TaskEditorViewModel: ObservableObject {
         let newDay = time.startOfDay(newValue)
         guard !Calendar.current.isDate(newDay, inSameDayAs: form.endDayDate) else { return }
 
-        var copy = form
-        copy.endDayDate = newDay
-        setFormIfChanged(copy)
-
+        form.endDayDate = newDay
         onEndDayChanged(triggerFeedback: true)
     }
 
@@ -359,27 +254,20 @@ final class TaskEditorViewModel: ObservableObject {
 
     func setIsAllDay(_ newValue: Bool) {
         guard newValue != form.isAllDay else { return }
-        var copy = form
-        copy.isAllDay = newValue
-        setFormIfChanged(copy)
+        form.isAllDay = newValue
+        publishDateTimeState()
     }
 
     func setRepeatRule(_ newValue: RepeatRule) {
         guard newValue != form.repeatRule else { return }
-        var copy = form
-        copy.repeatRule = newValue
-        setFormIfChanged(copy)
-
+        form.repeatRule = newValue
         recalcRepeatConflictAndPublishIfNeeded()
     }
 
     func setRepeatIntervalDays(_ newValue: Int) {
         let safe = max(1, newValue)
         guard safe != form.repeatIntervalDays else { return }
-        var copy = form
-        copy.repeatIntervalDays = safe
-        setFormIfChanged(copy)
-
+        form.repeatIntervalDays = safe
         recalcRepeatConflictAndPublishIfNeeded()
     }
 
@@ -454,20 +342,11 @@ final class TaskEditorViewModel: ObservableObject {
         apply(validated)
     }
 
-    func ensureCategoryIsValid(available: [String]) {
-        let fixed = category.ensureCategoryIsValid(current: form.categoryTitle, available: available)
-        guard fixed != form.categoryTitle else { return }
-
-        var copy = form
-        copy.categoryTitle = fixed
-        setFormIfChanged(copy)
-    }
-
     func loadExistingTask() async {
         guard let taskId else { return }
 
-        isBusy = true
-        defer { isBusy = false }
+        chrome.setBusy(true)
+        defer { chrome.setBusy(false) }
 
         do {
             do {
@@ -478,13 +357,12 @@ final class TaskEditorViewModel: ObservableObject {
             }
 
             guard let existing = try taskRepository.fetch(by: taskId) else {
-                alert = .init(title: "Task not found", message: "This task no longer exists.")
+                alertState.alert = .init(title: "Task not found", message: "This task no longer exists.")
                 return
             }
 
-            isEditingRepeatingTask = existing.repeatRule != .none
-            isEditingRepeatingBaseOwner = false
-            isEditingRepeatingOccurrence = false
+            let isEditingRepeatingTask = existing.repeatRule != .none
+            chrome.setRepeatingTaskEditing(isEditingRepeatingTask)
 
             if existing.repeatRule != .none {
                 TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
@@ -503,37 +381,33 @@ final class TaskEditorViewModel: ObservableObject {
                     ?? ownerDay
 
                 occurrenceStartDay = isBaseRecurringIdentityMode ? ownerDay : occStart
-                isEditingRepeatingBaseOwner = isBaseRecurringIdentityMode
-                isEditingRepeatingOccurrence = !isBaseRecurringIdentityMode
+                visibility.setEditingRepeatingOccurrence(!isBaseRecurringIdentityMode)
 
                 let tpl = TaskSeriesEngine.template(for: existing, startDay: occurrenceStartDay ?? ownerDay, calendar: .current)
                     ?? TaskSeriesEngine.templateFromTask(existing, dayStart: ownerDay, calendar: .current)
 
-                var next = form
-                next.title = tpl.title
-                next.notes = tpl.notes ?? ""
-                next.dayDate = occurrenceStartDay ?? ownerDay
+                form.title = tpl.title
+                form.notes = tpl.notes ?? ""
+                form.dayDate = occurrenceStartDay ?? ownerDay
 
-                let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: next.dayDate) ?? next.dayDate
-                next.endDayDate = endDay
+                let endDay = Calendar.current.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: form.dayDate) ?? form.dayDate
+                form.endDayDate = endDay
 
-                next.startTime = TimeMinutes.date(on: next.dayDate, minutes: tpl.startMinutes, calendar: .current)
-                next.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: .current)
+                form.startTime = TimeMinutes.date(on: form.dayDate, minutes: tpl.startMinutes, calendar: .current)
+                form.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: .current)
 
-                next.isAllDay = tpl.isAllDay
-                next.repeatRule = tpl.repeatRule
-                next.repeatIntervalDays = tpl.repeatIntervalDays ?? 2
+                form.isAllDay = tpl.isAllDay
+                form.repeatRule = tpl.repeatRule
+                form.repeatIntervalDays = tpl.repeatIntervalDays ?? 2
+                form.color = TaskColor(rawValue: tpl.colorRaw) ?? existing.color
+                form.categoryTitle = tpl.categoryTitle ?? (existing.categoryTitle ?? CategorySystem.uncategorizedTitle)
+                form.photoThumbData = tpl.photoThumbData
+                form.reminderEnabled = tpl.reminderEnabled
+                form.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(tpl.reminderOffsetMinutes)
+                form.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
 
-                next.color = TaskColor(rawValue: tpl.colorRaw) ?? existing.color
-                next.categoryTitle = tpl.categoryTitle ?? (existing.categoryTitle ?? CategorySystem.uncategorizedTitle)
-                next.photoThumbData = tpl.photoThumbData
-
-                next.reminderEnabled = tpl.reminderEnabled
-                next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(tpl.reminderOffsetMinutes)
-                next.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
-
-                setFormIfChanged(next)
                 reminderGate = nil
+                publishAllState()
 
                 let validated = time.normalizeAndValidate(
                     dayDate: form.dayDate,
@@ -546,28 +420,26 @@ final class TaskEditorViewModel: ObservableObject {
             }
 
             occurrenceStartDay = nil
+            visibility.setEditingRepeatingOccurrence(false)
 
-            var next = form
-            next.title = existing.title
-            next.notes = existing.notes ?? ""
+            form.title = existing.title
+            form.notes = existing.notes ?? ""
+            form.dayDate = time.startOfDay(existing.dayDate)
+            form.startTime = existing.startTime
+            form.endTime = existing.endTime
+            form.endDayDate = time.startOfDay(existing.endTime)
+            form.isAllDay = existing.isAllDay
+            form.repeatRule = existing.repeatRule
+            form.repeatIntervalDays = existing.repeatIntervalDays ?? 2
+            form.color = existing.color
+            form.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
+            form.photoThumbData = existing.photoThumbData
+            form.reminderEnabled = existing.reminderEnabled
+            form.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
+            form.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
 
-            next.dayDate = time.startOfDay(existing.dayDate)
-            next.startTime = existing.startTime
-            next.endTime = existing.endTime
-            next.endDayDate = time.startOfDay(existing.endTime)
-
-            next.isAllDay = existing.isAllDay
-            next.repeatRule = existing.repeatRule
-            next.repeatIntervalDays = existing.repeatIntervalDays ?? 2
-            next.color = existing.color
-            next.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
-            next.photoThumbData = existing.photoThumbData
-            next.reminderEnabled = existing.reminderEnabled
-            next.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
-            next.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
-
-            setFormIfChanged(next)
             reminderGate = nil
+            publishAllState()
 
             let validated = time.normalizeAndValidate(
                 dayDate: form.dayDate,
@@ -578,7 +450,7 @@ final class TaskEditorViewModel: ObservableObject {
             apply(validated)
 
         } catch {
-            alert = .init(title: "Failed to load", message: error.localizedDescription)
+            alertState.alert = .init(title: "Failed to load", message: error.localizedDescription)
         }
     }
 
@@ -609,7 +481,7 @@ final class TaskEditorViewModel: ObservableObject {
             return
         }
 
-        if requiresScopeMenuOnSave {
+        if chrome.showSaveScopeMenu {
             try saveWithScope(.allFutureDays)
         } else {
             try saveInternalDirect()
@@ -823,27 +695,190 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
+    private func wireSectionCallbacks() {
+        titleSection.onTitleChange = { [weak self] in
+            self?.updateTitle($0)
+        }
+        titleSection.onCategoryChange = { [weak self] in
+            self?.updateCategoryTitle($0)
+        }
+
+        descriptionSection.onNotesChange = { [weak self] in
+            self?.updateNotes($0)
+        }
+
+        dateTimeSection.onDayDateChange = { [weak self] in
+            self?.setDayDate($0)
+        }
+        dateTimeSection.onEndDayDateChange = { [weak self] in
+            self?.setEndDayDate($0)
+        }
+        dateTimeSection.onStartTimeChange = { [weak self] in
+            self?.setStartTime($0)
+        }
+        dateTimeSection.onEndTimeChange = { [weak self] in
+            self?.setEndTime($0)
+        }
+        dateTimeSection.onIsAllDayChange = { [weak self] in
+            self?.setIsAllDay($0)
+        }
+
+        reminderSection.onReminderEnabledChange = { [weak self] newValue in
+            guard let self else { return }
+            Task { await self.setReminderEnabledAttempt(newValue) }
+        }
+        reminderSection.onReminderOffsetChange = { [weak self] in
+            self?.updateReminderOffsetMinutes($0)
+        }
+        reminderSection.onReminderAllDayTimeChange = { [weak self] in
+            self?.updateReminderAllDayTimeMinutes($0)
+        }
+
+        repeatSection.onRepeatRuleChange = { [weak self] in
+            self?.setRepeatRule($0)
+        }
+        repeatSection.onRepeatIntervalDaysChange = { [weak self] in
+            self?.setRepeatIntervalDays($0)
+        }
+
+        colorSection.onColorChange = { [weak self] in
+            self?.updateColor($0)
+        }
+        photoSection.onThumbDataChange = { [weak self] in
+            self?.updatePhotoThumbData($0)
+        }
+    }
+
+    private func updateTitle(_ newValue: String) {
+        guard newValue != form.title else { return }
+        form.title = newValue
+    }
+
+    private func updateCategoryTitle(_ newValue: String) {
+        guard newValue != form.categoryTitle else { return }
+        form.categoryTitle = newValue
+    }
+
+    private func updateNotes(_ newValue: String) {
+        guard newValue != form.notes else { return }
+        form.notes = newValue
+    }
+
+    private func updateReminderOffsetMinutes(_ newValue: Int) {
+        let normalized = ReminderPreset.normalizeOffsetMinutes(newValue)
+        guard normalized != form.reminderOffsetMinutes else { return }
+
+        form.reminderOffsetMinutes = normalized
+        publishReminderState()
+    }
+
+    private func updateReminderAllDayTimeMinutes(_ newValue: Int?) {
+        guard newValue != form.reminderAllDayTimeMinutes else { return }
+        form.reminderAllDayTimeMinutes = newValue
+        publishReminderState()
+    }
+
+    private func updateColor(_ newValue: TaskColor) {
+        guard newValue != form.color else { return }
+        form.color = newValue
+    }
+
+    private func updatePhotoThumbData(_ newValue: Data?) {
+        guard newValue != form.photoThumbData else { return }
+        form.photoThumbData = newValue
+    }
+
+    private func setReminderEnabledAttempt(_ newValue: Bool) async {
+        if newValue == false {
+            reminderGate = nil
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        let prefs: AppPreferencesEntity
+        do {
+            prefs = try preferencesRepository.getOrCreate()
+        } catch {
+            reminderGate = ReminderGate(
+                message: "Enable notifications in the app to use reminders",
+                action: .openNotificationsCenter
+            )
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        guard prefs.notificationsEnabled else {
+            reminderGate = ReminderGate(
+                message: "Enable notifications in the app to use reminders",
+                action: .openNotificationsCenter
+            )
+            setReminderEnabledSilently(false)
+            return
+        }
+
+        let status = await notificationService.getAuthorizationStatus()
+        switch status {
+        case .authorized:
+            reminderGate = nil
+            setReminderEnabledSilently(true)
+
+        case .notDetermined:
+            let granted = await notificationService.requestAuthorization()
+            if granted {
+                reminderGate = nil
+                setReminderEnabledSilently(true)
+            } else {
+                reminderGate = ReminderGate(
+                    message: "Allow notifications in Settings to use reminders",
+                    action: .openSystemSettings
+                )
+                setReminderEnabledSilently(false)
+            }
+
+        case .denied:
+            reminderGate = ReminderGate(
+                message: "Allow notifications in Settings to use reminders",
+                action: .openSystemSettings
+            )
+            setReminderEnabledSilently(false)
+        }
+    }
+
+    private func setReminderEnabledSilently(_ value: Bool) {
+        guard value != form.reminderEnabled else {
+            publishReminderState()
+            return
+        }
+
+        form.reminderEnabled = value
+        publishReminderState()
+    }
+
     private func apply(_ result: TaskEditorTimeCoordinator.Result) {
-        var copy = form
-        copy.dayDate = result.dayDate
-        copy.endDayDate = result.endDayDate
-        copy.startTime = result.startTime
-        copy.endTime = result.endTime
-        copy.isTimeRangeInvalid = result.isInvalidRange
-        copy.timeValidationMessage = result.message
+        form.dayDate = result.dayDate
+        form.endDayDate = result.endDayDate
+        form.startTime = result.startTime
+        form.endTime = result.endTime
+        form.isTimeRangeInvalid = result.isInvalidRange
+        form.timeValidationMessage = result.message
 
         let (isInvalid, message) = computeRepeatConflict(
-            dayDate: copy.dayDate,
-            endDayDate: copy.endDayDate,
-            startTime: copy.startTime,
-            endTime: copy.endTime,
-            repeatRule: copy.repeatRule,
-            repeatIntervalDays: copy.repeatIntervalDays
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime,
+            repeatRule: form.repeatRule,
+            repeatIntervalDays: form.repeatIntervalDays
         )
-        copy.isRepeatInvalid = isInvalid
-        copy.repeatValidationMessage = message
+        form.isRepeatInvalid = isInvalid
+        form.repeatValidationMessage = message
 
-        setFormIfChanged(copy)
+        publishDateTimeState()
+        publishRepeatState()
+        chrome.updateValidation(
+            timeRangeInvalid: form.isTimeRangeInvalid,
+            repeatInvalid: form.isRepeatInvalid
+        )
     }
 
     private func recalcRepeatConflictAndPublishIfNeeded() {
@@ -856,12 +891,19 @@ final class TaskEditorViewModel: ObservableObject {
             repeatIntervalDays: form.repeatIntervalDays
         )
 
-        guard isInvalid != form.isRepeatInvalid || message != form.repeatValidationMessage else { return }
+        guard isInvalid != form.isRepeatInvalid || message != form.repeatValidationMessage else {
+            publishRepeatState()
+            return
+        }
 
-        var copy = form
-        copy.isRepeatInvalid = isInvalid
-        copy.repeatValidationMessage = message
-        setFormIfChanged(copy)
+        form.isRepeatInvalid = isInvalid
+        form.repeatValidationMessage = message
+
+        publishRepeatState()
+        chrome.updateValidation(
+            timeRangeInvalid: form.isTimeRangeInvalid,
+            repeatInvalid: form.isRepeatInvalid
+        )
     }
 
     private func computeRepeatConflict(
@@ -891,9 +933,61 @@ final class TaskEditorViewModel: ObservableObject {
         }
     }
 
-    private func setFormIfChanged(_ newValue: FormState) {
-        guard newValue != form else { return }
-        form = newValue
+    private func publishAllState() {
+        publishTitleState()
+        publishDescriptionState()
+        publishDateTimeState()
+        publishReminderState()
+        publishRepeatState()
+        colorSection.render(color: form.color)
+        photoSection.render(thumbData: form.photoThumbData)
+        chrome.updateValidation(
+            timeRangeInvalid: form.isTimeRangeInvalid,
+            repeatInvalid: form.isRepeatInvalid
+        )
+    }
+
+    private func publishTitleState() {
+        titleSection.render(
+            title: form.title,
+            categoryTitle: form.categoryTitle,
+            availableCategories: availableCategories
+        )
+    }
+
+    private func publishDescriptionState() {
+        descriptionSection.render(notes: form.notes)
+    }
+
+    private func publishDateTimeState() {
+        dateTimeSection.render(
+            dayDate: form.dayDate,
+            endDayDate: form.endDayDate,
+            startTime: form.startTime,
+            endTime: form.endTime,
+            isAllDay: form.isAllDay,
+            isInvalid: form.isTimeRangeInvalid,
+            timeValidationMessage: form.timeValidationMessage
+        )
+    }
+
+    private func publishReminderState() {
+        reminderSection.render(
+            reminderEnabled: form.reminderEnabled,
+            reminderOffsetMinutes: form.reminderOffsetMinutes,
+            reminderAllDayTimeMinutes: form.reminderAllDayTimeMinutes,
+            defaultAllDayTimeMinutes: defaultAllDayTimeMinutes,
+            gate: reminderGate
+        )
+    }
+
+    private func publishRepeatState() {
+        repeatSection.render(
+            repeatRule: form.repeatRule,
+            repeatIntervalDays: form.repeatIntervalDays,
+            isInvalid: form.isRepeatInvalid,
+            validationMessage: form.repeatValidationMessage
+        )
     }
 
     struct FormState: Equatable {
@@ -943,6 +1037,460 @@ final class TaskEditorViewModel: ObservableObject {
             case .repeatingTasksMustUseSeriesSave:
                 return "Repeating tasks must be saved through the series model."
             }
+        }
+    }
+}
+
+extension TaskEditorViewModel {
+    @MainActor
+    final class ChromeState: ObservableObject {
+        let navigationTitle: String
+
+        @Published private(set) var isBusy = false
+        @Published private(set) var canSave = true
+        @Published private(set) var showSaveScopeMenu = false
+
+        private let editMode: TaskEditorMode
+        private let isEditing: Bool
+
+        private var isEditingRepeatingTask = false
+        private var isTimeRangeInvalid = false
+        private var isRepeatInvalid = false
+
+        init(editMode: TaskEditorMode, isEditing: Bool) {
+            self.editMode = editMode
+            self.isEditing = isEditing
+            self.navigationTitle = editMode == .baseRecurringIdentity
+                ? "Edit Recurring Task"
+                : (isEditing ? "Edit Task" : "Create Task")
+            refresh()
+        }
+
+        func setBusy(_ value: Bool) {
+            guard value != isBusy else { return }
+            isBusy = value
+            refresh()
+        }
+
+        func setRepeatingTaskEditing(_ value: Bool) {
+            guard value != isEditingRepeatingTask else { return }
+            isEditingRepeatingTask = value
+            refresh()
+        }
+
+        func updateValidation(timeRangeInvalid: Bool, repeatInvalid: Bool) {
+            let needsUpdate = timeRangeInvalid != isTimeRangeInvalid || repeatInvalid != isRepeatInvalid
+            guard needsUpdate else { return }
+
+            isTimeRangeInvalid = timeRangeInvalid
+            isRepeatInvalid = repeatInvalid
+            refresh()
+        }
+
+        private func refresh() {
+            let nextCanSave = !isBusy && !isTimeRangeInvalid && !isRepeatInvalid
+            if nextCanSave != canSave {
+                canSave = nextCanSave
+            }
+
+            let nextShowSaveScopeMenu = editMode == .standard && isEditing && isEditingRepeatingTask && nextCanSave
+            if nextShowSaveScopeMenu != showSaveScopeMenu {
+                showSaveScopeMenu = nextShowSaveScopeMenu
+            }
+        }
+    }
+
+    @MainActor
+    final class VisibilityState: ObservableObject {
+        struct Content: Equatable {
+            let showsNameSection: Bool
+            let showsTitleAndCategory: Bool
+            let showsNotesEditor: Bool
+            let showsDateTimeSection: Bool
+            let showsReminderSection: Bool
+            let showsColorSection: Bool
+            let showsRepeatSection: Bool
+            let showsPhotoSection: Bool
+        }
+
+        @Published private(set) var content: Content
+
+        private let editMode: TaskEditorMode
+        private var isEditingRepeatingOccurrence = false
+
+        init(editMode: TaskEditorMode) {
+            self.editMode = editMode
+            self.content = Self.makeContent(
+                editMode: editMode,
+                isEditingRepeatingOccurrence: false
+            )
+        }
+
+        func setEditingRepeatingOccurrence(_ value: Bool) {
+            guard value != isEditingRepeatingOccurrence else { return }
+            isEditingRepeatingOccurrence = value
+            content = Self.makeContent(
+                editMode: editMode,
+                isEditingRepeatingOccurrence: value
+            )
+        }
+
+        private static func makeContent(
+            editMode: TaskEditorMode,
+            isEditingRepeatingOccurrence: Bool
+        ) -> Content {
+            let isBaseRecurringIdentityMode = editMode == .baseRecurringIdentity
+
+            return Content(
+                showsNameSection: true,
+                showsTitleAndCategory: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
+                showsNotesEditor: !isBaseRecurringIdentityMode,
+                showsDateTimeSection: !isBaseRecurringIdentityMode,
+                showsReminderSection: !isBaseRecurringIdentityMode,
+                showsColorSection: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
+                showsRepeatSection: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
+                showsPhotoSection: !isBaseRecurringIdentityMode
+            )
+        }
+    }
+
+    @MainActor
+    final class AlertState: ObservableObject {
+        @Published var alert: TaskEditorAlert?
+    }
+
+    @MainActor
+    final class TitleSectionState: ObservableObject {
+        @Published private(set) var title = ""
+        @Published private(set) var categoryTitle = "Work"
+        @Published private(set) var availableCategories: [String] = []
+
+        var onTitleChange: ((String) -> Void)?
+        var onCategoryChange: ((String) -> Void)?
+
+        var titleBinding: Binding<String> {
+            Binding(
+                get: { self.title },
+                set: { [weak self] in self?.setTitleFromUI($0) }
+            )
+        }
+
+        var categoryTitleBinding: Binding<String> {
+            Binding(
+                get: { self.categoryTitle },
+                set: { [weak self] in self?.setCategoryTitleFromUI($0) }
+            )
+        }
+
+        func render(title: String, categoryTitle: String, availableCategories: [String]) {
+            if self.title != title {
+                self.title = title
+            }
+            if self.categoryTitle != categoryTitle {
+                self.categoryTitle = categoryTitle
+            }
+            if self.availableCategories != availableCategories {
+                self.availableCategories = availableCategories
+            }
+        }
+
+        private func setTitleFromUI(_ newValue: String) {
+            guard newValue != title else { return }
+            title = newValue
+            onTitleChange?(newValue)
+        }
+
+        private func setCategoryTitleFromUI(_ newValue: String) {
+            guard newValue != categoryTitle else { return }
+            categoryTitle = newValue
+            onCategoryChange?(newValue)
+        }
+    }
+
+    @MainActor
+    final class DescriptionSectionState: ObservableObject {
+        @Published private(set) var notes = ""
+        @Published private(set) var hasNotes = false
+
+        var onNotesChange: ((String) -> Void)?
+
+        var notesBinding: Binding<String> {
+            Binding(
+                get: { self.notes },
+                set: { [weak self] in self?.setNotesFromUI($0) }
+            )
+        }
+
+        func render(notes: String) {
+            if self.notes != notes {
+                self.notes = notes
+            }
+
+            let nextHasNotes = Self.containsMeaningfulText(notes)
+            if nextHasNotes != hasNotes {
+                hasNotes = nextHasNotes
+            }
+        }
+
+        private func setNotesFromUI(_ newValue: String) {
+            guard newValue != notes else { return }
+            notes = newValue
+            hasNotes = Self.containsMeaningfulText(newValue)
+            onNotesChange?(newValue)
+        }
+
+        private static func containsMeaningfulText(_ value: String) -> Bool {
+            !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
+    @MainActor
+    final class DateTimeSectionState: ObservableObject {
+        @Published private(set) var dayDate: Date = .now
+        @Published private(set) var endDayDate: Date = .now
+        @Published private(set) var startTime: Date = .now
+        @Published private(set) var endTime: Date = .now
+        @Published private(set) var isAllDay = false
+        @Published private(set) var isInvalid = false
+        @Published private(set) var timeValidationMessage: String?
+
+        var onDayDateChange: ((Date) -> Void)?
+        var onEndDayDateChange: ((Date) -> Void)?
+        var onStartTimeChange: ((Date) -> Void)?
+        var onEndTimeChange: ((Date) -> Void)?
+        var onIsAllDayChange: ((Bool) -> Void)?
+
+        var dayDateBinding: Binding<Date> {
+            Binding(
+                get: { self.dayDate },
+                set: { [weak self] in self?.onDayDateChange?($0) }
+            )
+        }
+
+        var endDayDateBinding: Binding<Date> {
+            Binding(
+                get: { self.endDayDate },
+                set: { [weak self] in self?.onEndDayDateChange?($0) }
+            )
+        }
+
+        var startTimeBinding: Binding<Date> {
+            Binding(
+                get: { self.startTime },
+                set: { [weak self] in self?.onStartTimeChange?($0) }
+            )
+        }
+
+        var endTimeBinding: Binding<Date> {
+            Binding(
+                get: { self.endTime },
+                set: { [weak self] in self?.onEndTimeChange?($0) }
+            )
+        }
+
+        var isAllDayBinding: Binding<Bool> {
+            Binding(
+                get: { self.isAllDay },
+                set: { [weak self] in self?.onIsAllDayChange?($0) }
+            )
+        }
+
+        func render(
+            dayDate: Date,
+            endDayDate: Date,
+            startTime: Date,
+            endTime: Date,
+            isAllDay: Bool,
+            isInvalid: Bool,
+            timeValidationMessage: String?
+        ) {
+            if self.dayDate != dayDate {
+                self.dayDate = dayDate
+            }
+            if self.endDayDate != endDayDate {
+                self.endDayDate = endDayDate
+            }
+            if self.startTime != startTime {
+                self.startTime = startTime
+            }
+            if self.endTime != endTime {
+                self.endTime = endTime
+            }
+            if self.isAllDay != isAllDay {
+                self.isAllDay = isAllDay
+            }
+            if self.isInvalid != isInvalid {
+                self.isInvalid = isInvalid
+            }
+            if self.timeValidationMessage != timeValidationMessage {
+                self.timeValidationMessage = timeValidationMessage
+            }
+        }
+    }
+
+    @MainActor
+    final class ReminderSectionState: ObservableObject {
+        @Published private(set) var reminderEnabled = false
+        @Published private(set) var reminderOffsetMinutes = ReminderPreset.default.minutes
+        @Published private(set) var reminderAllDayTimeMinutes: Int?
+        @Published private(set) var defaultAllDayTimeMinutes = 9 * 60
+        @Published private(set) var gate: ReminderGate?
+
+        var onReminderEnabledChange: ((Bool) -> Void)?
+        var onReminderOffsetChange: ((Int) -> Void)?
+        var onReminderAllDayTimeChange: ((Int?) -> Void)?
+
+        var reminderEnabledBinding: Binding<Bool> {
+            Binding(
+                get: { self.reminderEnabled },
+                set: { [weak self] in self?.onReminderEnabledChange?($0) }
+            )
+        }
+
+        var reminderOffsetMinutesBinding: Binding<Int> {
+            Binding(
+                get: { self.reminderOffsetMinutes },
+                set: { [weak self] in self?.setReminderOffsetFromUI($0) }
+            )
+        }
+
+        var reminderAllDayTimeMinutesBinding: Binding<Int?> {
+            Binding(
+                get: { self.reminderAllDayTimeMinutes },
+                set: { [weak self] in self?.setReminderAllDayTimeFromUI($0) }
+            )
+        }
+
+        func render(
+            reminderEnabled: Bool,
+            reminderOffsetMinutes: Int,
+            reminderAllDayTimeMinutes: Int?,
+            defaultAllDayTimeMinutes: Int,
+            gate: ReminderGate?
+        ) {
+            if self.reminderEnabled != reminderEnabled {
+                self.reminderEnabled = reminderEnabled
+            }
+            if self.reminderOffsetMinutes != reminderOffsetMinutes {
+                self.reminderOffsetMinutes = reminderOffsetMinutes
+            }
+            if self.reminderAllDayTimeMinutes != reminderAllDayTimeMinutes {
+                self.reminderAllDayTimeMinutes = reminderAllDayTimeMinutes
+            }
+            if self.defaultAllDayTimeMinutes != defaultAllDayTimeMinutes {
+                self.defaultAllDayTimeMinutes = defaultAllDayTimeMinutes
+            }
+            if self.gate != gate {
+                self.gate = gate
+            }
+        }
+
+        private func setReminderOffsetFromUI(_ newValue: Int) {
+            let normalized = ReminderPreset.normalizeOffsetMinutes(newValue)
+            guard normalized != reminderOffsetMinutes else { return }
+            reminderOffsetMinutes = normalized
+            onReminderOffsetChange?(normalized)
+        }
+
+        private func setReminderAllDayTimeFromUI(_ newValue: Int?) {
+            guard newValue != reminderAllDayTimeMinutes else { return }
+            reminderAllDayTimeMinutes = newValue
+            onReminderAllDayTimeChange?(newValue)
+        }
+    }
+
+    @MainActor
+    final class RepeatSectionState: ObservableObject {
+        @Published private(set) var repeatRule: RepeatRule = .none
+        @Published private(set) var repeatIntervalDays = 2
+        @Published private(set) var isInvalid = false
+        @Published private(set) var validationMessage: String?
+
+        var onRepeatRuleChange: ((RepeatRule) -> Void)?
+        var onRepeatIntervalDaysChange: ((Int) -> Void)?
+
+        var repeatRuleBinding: Binding<RepeatRule> {
+            Binding(
+                get: { self.repeatRule },
+                set: { [weak self] in self?.onRepeatRuleChange?($0) }
+            )
+        }
+
+        var repeatIntervalDaysBinding: Binding<Int> {
+            Binding(
+                get: { self.repeatIntervalDays },
+                set: { [weak self] in self?.onRepeatIntervalDaysChange?($0) }
+            )
+        }
+
+        func render(
+            repeatRule: RepeatRule,
+            repeatIntervalDays: Int,
+            isInvalid: Bool,
+            validationMessage: String?
+        ) {
+            if self.repeatRule != repeatRule {
+                self.repeatRule = repeatRule
+            }
+            if self.repeatIntervalDays != repeatIntervalDays {
+                self.repeatIntervalDays = repeatIntervalDays
+            }
+            if self.isInvalid != isInvalid {
+                self.isInvalid = isInvalid
+            }
+            if self.validationMessage != validationMessage {
+                self.validationMessage = validationMessage
+            }
+        }
+    }
+
+    @MainActor
+    final class ColorSectionState: ObservableObject {
+        @Published private(set) var color: TaskColor = .purple
+
+        var onColorChange: ((TaskColor) -> Void)?
+
+        var colorBinding: Binding<TaskColor> {
+            Binding(
+                get: { self.color },
+                set: { [weak self] in self?.setColorFromUI($0) }
+            )
+        }
+
+        func render(color: TaskColor) {
+            guard self.color != color else { return }
+            self.color = color
+        }
+
+        private func setColorFromUI(_ newValue: TaskColor) {
+            guard newValue != color else { return }
+            color = newValue
+            onColorChange?(newValue)
+        }
+    }
+
+    @MainActor
+    final class PhotoSectionState: ObservableObject {
+        @Published private(set) var thumbData: Data?
+
+        var onThumbDataChange: ((Data?) -> Void)?
+
+        var thumbDataBinding: Binding<Data?> {
+            Binding(
+                get: { self.thumbData },
+                set: { [weak self] in self?.setThumbDataFromUI($0) }
+            )
+        }
+
+        func render(thumbData: Data?) {
+            guard self.thumbData != thumbData else { return }
+            self.thumbData = thumbData
+        }
+
+        private func setThumbDataFromUI(_ newValue: Data?) {
+            guard newValue != thumbData else { return }
+            thumbData = newValue
+            onThumbDataChange?(newValue)
         }
     }
 }

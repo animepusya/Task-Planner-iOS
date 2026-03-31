@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct TaskEditorColorSection: View {
-    @Binding var color: TaskColor
+    @ObservedObject var state: TaskEditorViewModel.ColorSectionState
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -16,7 +16,7 @@ struct TaskEditorColorSection: View {
                 .font(DS.Typography.sectionTitle)
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
-            TaskColorPickerRow(selection: $color)
+            TaskColorPickerRow(selection: state.colorBinding)
         }
         .dsCard(style: .outlined)
     }

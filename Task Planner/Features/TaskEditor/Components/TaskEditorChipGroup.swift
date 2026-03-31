@@ -9,9 +9,15 @@ import SwiftUI
 
 struct TaskEditorChipGroup: View {
     struct Chip: Identifiable {
-        let id = UUID()
+        let id: String
         let title: String
         let action: () -> Void
+
+        init(id: String? = nil, title: String, action: @escaping () -> Void) {
+            self.id = id ?? title
+            self.title = title
+            self.action = action
+        }
     }
 
     let title: String

@@ -8,80 +8,81 @@
 import SwiftUI
 
 struct TaskEditorNameSection: View {
-    @Binding var title: String
-    @Binding var categoryTitle: String
-    @Binding var notes: String
-
-    let availableCategories: [String]
+    let titleState: TaskEditorViewModel.TitleSectionState
+    let descriptionState: TaskEditorViewModel.DescriptionSectionState
     let fixedCategoryChipWidth: CGFloat
 
     @FocusState.Binding var focusedField: TaskEditorField?
     let showsTitleAndCategory: Bool
     let showsNotesEditor: Bool
 
-    @State private var isNotesExpanded = false
-
-    private var hasNotes: Bool {
-        !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             if showsTitleAndCategory {
-                Text("Task Name")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-
-                HStack(spacing: 10) {
-                    TextField("Enter task name", text: $title)
-                        .font(DS.Typography.body)
-                        .textInputAutocapitalization(.sentences)
-                        .disableAutocorrection(false)
-                        .submitLabel(.done)
-                        .focused($focusedField, equals: .title)
-                        .onSubmit {
-                            focusedField = nil
-                        }
-
-                    categoryMenuChip
-                }
-                .padding(.vertical, 4)
+                TaskEditorTitleRow(
+                    state: titleState,
+                    fixedCategoryChipWidth: fixedCategoryChipWidth,
+                    focusedField: $focusedField
+                )
             }
 
             if showsNotesEditor {
                 TaskEditorDescriptionEditor(
-                    notes: $notes,
-                    isExpanded: $isNotesExpanded,
-                    focusedField: $focusedField
+                    state: descriptionState,
+                    focusedField: $focusedField,
+                    expandsByDefault: !showsTitleAndCategory
                 )
             }
         }
         .dsCard(style: .outlined)
-        .onAppear {
-            if hasNotes || !showsTitleAndCategory {
-                isNotesExpanded = true
+    }
+}
+
+private struct TaskEditorTitleRow: View {
+    @ObservedObject var state: TaskEditorViewModel.TitleSectionState
+
+    let fixedCategoryChipWidth: CGFloat
+    @FocusState.Binding var focusedField: TaskEditorField?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+            Text("Task Name")
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+
+            HStack(spacing: 10) {
+                TextField("Enter task name", text: state.titleBinding)
+                    .font(DS.Typography.body)
+                    .textInputAutocapitalization(.sentences)
+                    .disableAutocorrection(false)
+                    .submitLabel(.done)
+                    .focused($focusedField, equals: .title)
+                    .onSubmit {
+                        focusedField = nil
+                    }
+
+                categoryMenuChip
             }
-        }
-        .onChange(of: notes) { _, newValue in
-            if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                isNotesExpanded = true
-            }
+            .padding(.vertical, 4)
         }
     }
 
     private var categoryMenuChip: some View {
         Menu {
-            ForEach(availableCategories, id: \.self) { c in
+            ForEach(state.availableCategories, id: \.self) { category in
                 Button {
-                    withAnimation(.none) { categoryTitle = c }
+                    state.categoryTitleBinding.wrappedValue = category
                 } label: {
-                    if categoryTitle == c { Label(c, systemImage: "checkmark") }
-                    else { Text(c) }
+                    if state.categoryTitle == category {
+                        Label(category, systemImage: "checkmark")
+                    } else {
+                        Text(category)
+                    }
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(categoryTitle)
+                Text(state.categoryTitle)
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -98,6 +99,5 @@ struct TaskEditorNameSection: View {
             .cornerRadius(DS.Radius.pill)
         }
         .buttonStyle(.plain)
-        .animation(nil, value: categoryTitle)
     }
 }

@@ -8,14 +8,8 @@
 import SwiftUI
 
 struct TaskEditorReminderSection: View {
-    @Binding var reminderEnabled: Bool
-    @Binding var reminderOffsetMinutes: Int
-    @Binding var reminderAllDayTimeMinutes: Int?
-
-    let isAllDay: Bool
-    let defaultAllDayTimeMinutes: Int
-
-    let gate: TaskEditorViewModel.ReminderGate?
+    @ObservedObject var state: TaskEditorViewModel.ReminderSectionState
+    @ObservedObject var dateTimeState: TaskEditorViewModel.DateTimeSectionState
 
     let onOpenNotificationsCenter: (() -> Void)?
     let onOpenSystemSettings: (() -> Void)?
@@ -29,16 +23,15 @@ struct TaskEditorReminderSection: View {
                 .font(DS.Typography.sectionTitle)
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
-            Toggle(isOn: $reminderEnabled) {
+            Toggle(isOn: state.reminderEnabledBinding) {
                 Text("Reminder")
                     .font(DS.Typography.body)
                     .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .tint(DS.ColorToken.lavender)
 
-            if let gate {
+            if let gate = state.gate {
                 gateInline(gate)
-                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
 
             DSRowMenu(
@@ -47,36 +40,36 @@ struct TaskEditorReminderSection: View {
             ) {
                 ForEach(ReminderPreset.allCases) { preset in
                     Button {
-                        reminderOffsetMinutes = preset.minutes
+                        state.reminderOffsetMinutesBinding.wrappedValue = preset.minutes
                     } label: {
                         HStack(spacing: 10) {
                             Text(preset.displayName)
                             Spacer(minLength: 12)
-                            if preset.minutes == reminderOffsetMinutes {
+                            if preset.minutes == state.reminderOffsetMinutes {
                                 Image(systemName: "checkmark")
                             }
                         }
                     }
                 }
             }
-            .disabled(!reminderEnabled)
-            .opacity(reminderEnabled ? 1.0 : 0.55)
+            .disabled(!state.reminderEnabled)
+            .opacity(state.reminderEnabled ? 1.0 : 0.55)
 
-            if isAllDay {
+            if dateTimeState.isAllDay {
                 DSRowButton(
                     title: "Time",
-                    value: TimeOfDayMinutes.format(reminderAllDayTimeMinutes ?? defaultAllDayTimeMinutes),
+                    value: TimeOfDayMinutes.format(state.reminderAllDayTimeMinutes ?? state.defaultAllDayTimeMinutes),
                     onTap: openAllDayPopover
                 )
-                .disabled(!reminderEnabled)
-                .opacity(reminderEnabled ? 1.0 : 0.55)
+                .disabled(!state.reminderEnabled)
+                .opacity(state.reminderEnabled ? 1.0 : 0.55)
                 .popover(isPresented: $showAllDayTimePopover) {
                     allDayTimePopoverContent
                         .presentationCompactAdaptation(.popover)
                 }
 
                 Button {
-                    reminderAllDayTimeMinutes = nil
+                    state.reminderAllDayTimeMinutesBinding.wrappedValue = nil
                 } label: {
                     Text("Use default time")
                         .font(DS.Typography.caption)
@@ -84,18 +77,15 @@ struct TaskEditorReminderSection: View {
                         .padding(.top, 2)
                 }
                 .buttonStyle(.plain)
-                .disabled(!reminderEnabled || reminderAllDayTimeMinutes == nil)
-                .opacity((reminderEnabled && reminderAllDayTimeMinutes != nil) ? 1.0 : 0.0)
-                .frame(height: (reminderEnabled && reminderAllDayTimeMinutes != nil) ? nil : 0)
+                .disabled(!state.reminderEnabled || state.reminderAllDayTimeMinutes == nil)
+                .opacity((state.reminderEnabled && state.reminderAllDayTimeMinutes != nil) ? 1.0 : 0.0)
+                .frame(height: (state.reminderEnabled && state.reminderAllDayTimeMinutes != nil) ? nil : 0)
                 .clipped()
-                .accessibilityHidden(!(reminderEnabled && reminderAllDayTimeMinutes != nil))
+                .accessibilityHidden(!(state.reminderEnabled && state.reminderAllDayTimeMinutes != nil))
             }
         }
         .dsCard(style: .outlined)
-        .animation(.easeInOut(duration: 0.18), value: gate != nil)
     }
-
-    // MARK: - Inline gate UI
 
     @ViewBuilder
     private func gateInline(_ gate: TaskEditorViewModel.ReminderGate) -> some View {
@@ -136,15 +126,13 @@ struct TaskEditorReminderSection: View {
         .padding(.top, 2)
     }
 
-    // MARK: - Helpers
-
     private var offsetTitle: String {
-        ReminderPreset(rawValue: reminderOffsetMinutes)?.displayName
+        ReminderPreset(rawValue: state.reminderOffsetMinutes)?.displayName
         ?? ReminderPreset.default.displayName
     }
 
     private func openAllDayPopover() {
-        let minutes = reminderAllDayTimeMinutes ?? defaultAllDayTimeMinutes
+        let minutes = state.reminderAllDayTimeMinutes ?? state.defaultAllDayTimeMinutes
         let today = Calendar.current.startOfDay(for: .now)
         allDayTempDate = TimeOfDayMinutes.date(on: today, minutes: minutes)
         showAllDayTimePopover = true
@@ -170,7 +158,7 @@ struct TaskEditorReminderSection: View {
         .background(DS.ColorToken.appBackground)
         .onChange(of: allDayTempDate) { _, newValue in
             let minutes = TimeOfDayMinutes.minutes(from: newValue)
-            reminderAllDayTimeMinutes = minutes
+            state.reminderAllDayTimeMinutesBinding.wrappedValue = minutes
         }
     }
 }

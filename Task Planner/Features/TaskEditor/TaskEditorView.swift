@@ -5,12 +5,16 @@
 //  Created by Руслан Меланин on 09.02.2026.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var viewModel: TaskEditorViewModel
+
+    @State private var viewModel: TaskEditorViewModel
+    @StateObject private var chrome: TaskEditorViewModel.ChromeState
+    @StateObject private var visibility: TaskEditorViewModel.VisibilityState
+    @StateObject private var alertState: TaskEditorViewModel.AlertState
 
     let onOpenNotificationsCenter: () -> Void
 
@@ -21,13 +25,17 @@ struct TaskEditorView: View {
     private var preferences: [AppPreferencesEntity]
 
     private let fallbackCategories = ["Work", "Study", "Hobby"]
+
     @FocusState private var focusedField: TaskEditorField?
 
     init(
         viewModel: TaskEditorViewModel,
         onOpenNotificationsCenter: @escaping () -> Void
     ) {
-        _viewModel = StateObject(wrappedValue: viewModel)
+        _viewModel = State(initialValue: viewModel)
+        _chrome = StateObject(wrappedValue: viewModel.chrome)
+        _visibility = StateObject(wrappedValue: viewModel.visibility)
+        _alertState = StateObject(wrappedValue: viewModel.alertState)
         self.onOpenNotificationsCenter = onOpenNotificationsCenter
     }
 
@@ -41,26 +49,29 @@ struct TaskEditorView: View {
         editMode: TaskEditorMode,
         onOpenNotificationsCenter: @escaping () -> Void
     ) {
-        _viewModel = StateObject(
-            wrappedValue: TaskEditorViewModel(
-                taskRepository: taskRepository,
-                preferencesRepository: preferencesRepository,
-                notificationService: notificationService,
-                seriesService: seriesService,
-                taskId: taskId,
-                preselectedDay: preselectedDay,
-                editMode: editMode
-            )
+        let wrappedViewModel = TaskEditorViewModel(
+            taskRepository: taskRepository,
+            preferencesRepository: preferencesRepository,
+            notificationService: notificationService,
+            seriesService: seriesService,
+            taskId: taskId,
+            preselectedDay: preselectedDay,
+            editMode: editMode
         )
+
+        _viewModel = State(initialValue: wrappedViewModel)
+        _chrome = StateObject(wrappedValue: wrappedViewModel.chrome)
+        _visibility = StateObject(wrappedValue: wrappedViewModel.visibility)
+        _alertState = StateObject(wrappedValue: wrappedViewModel.alertState)
         self.onOpenNotificationsCenter = onOpenNotificationsCenter
     }
 
     private var availableCategoryTitles: [String] {
-        let list = categories
+        let titles = categories
             .filter { $0.id != CategorySystem.uncategorizedId }
-            .map { $0.title }
+            .map(\.title)
 
-        return list.isEmpty ? fallbackCategories : list
+        return titles.isEmpty ? fallbackCategories : titles
     }
 
     private var appNotificationsEnabled: Bool {
@@ -69,20 +80,15 @@ struct TaskEditorView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let pad = adaptiveHorizontalPadding(for: proxy.size.width)
-            let contentWidth = max(0, proxy.size.width - pad * 2)
-            let isCompact = proxy.size.width < 375
+            let layout = TaskEditorLayoutMetrics(width: proxy.size.width)
 
             VStack(spacing: 0) {
                 TaskEditorTopBar(
-                    title: viewModel.navigationTitle,
-                    isBusy: viewModel.isBusy,
+                    state: chrome,
                     onBack: {
                         dismissKeyboard()
                         dismiss()
                     },
-                    canSave: viewModel.canSave,
-                    showSaveScopeMenu: viewModel.requiresScopeMenuOnSave,
                     onSaveNormal: {
                         dismissKeyboard()
                         saveNormal()
@@ -96,56 +102,20 @@ struct TaskEditorView: View {
                         saveScoped(.allFutureDays)
                     }
                 )
-                .frame(width: contentWidth)
-                .padding(.horizontal, pad)
+                .frame(width: layout.contentWidth)
+                .padding(.horizontal, layout.horizontalPadding)
                 .padding(.vertical, 10)
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        if viewModel.showsNameSection {
-                            nameSection
-                        }
-
-                        if viewModel.showsDateTimeSection {
-                            dateTimeSection(isCompact: isCompact)
-                        }
-
-                        if viewModel.showsReminderSection {
-                            TaskEditorReminderSection(
-                                reminderEnabled: viewModel.reminderEnabledBinding,
-                                reminderOffsetMinutes: viewModel.binding(\.reminderOffsetMinutes),
-                                reminderAllDayTimeMinutes: viewModel.binding(\.reminderAllDayTimeMinutes),
-                                isAllDay: viewModel.form.isAllDay,
-                                defaultAllDayTimeMinutes: viewModel.defaultAllDayTimeMinutes,
-                                gate: viewModel.reminderGate,
-                                onOpenNotificationsCenter: {
-                                    dismissKeyboard()
-                                    onOpenNotificationsCenter()
-                                },
-                                onOpenSystemSettings: {
-                                    viewModel.openSystemSettings()
-                                }
-                            )
-                        }
-
-                        if viewModel.showsColorSection {
-                            TaskEditorColorSection(color: viewModel.binding(\.color))
-                        }
-
-                        if viewModel.showsRepeatSection {
-                            repeatSection
-                        }
-
-                        if viewModel.showsPhotoSection {
-                            TaskEditorPhotoSection(thumbData: viewModel.binding(\.photoThumbData))
-                        }
+                TaskEditorContentView(
+                    layout: layout,
+                    visibility: visibility.content,
+                    viewModel: viewModel,
+                    focusedField: $focusedField,
+                    onOpenNotificationsCenter: {
+                        dismissKeyboard()
+                        onOpenNotificationsCenter()
                     }
-                    .frame(width: contentWidth, alignment: .leading)
-                    .padding(.horizontal, pad)
-                    .padding(.top, DS.Spacing.lg)
-                    .padding(.bottom, 28)
-                }
-                .scrollDismissesKeyboard(.interactively)
+                )
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
@@ -162,7 +132,7 @@ struct TaskEditorView: View {
                     }
                 }
             }
-            .alert(item: $viewModel.alert) { alert in
+            .alert(item: $alertState.alert) { alert in
                 Alert(
                     title: Text(alert.title),
                     message: Text(alert.message),
@@ -173,56 +143,13 @@ struct TaskEditorView: View {
                 viewModel.onAppear(availableCategories: availableCategoryTitles)
                 viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
             }
-            .onChange(of: categories.count) { _, _ in
-                viewModel.ensureCategoryIsValid(available: availableCategoryTitles)
+            .onChange(of: availableCategoryTitles) { _, newValue in
+                viewModel.ensureCategoryIsValid(available: newValue)
             }
             .onChange(of: appNotificationsEnabled) { _, newValue in
                 viewModel.onAppNotificationsEnabledChanged(newValue)
             }
         }
-    }
-
-    private func adaptiveHorizontalPadding(for width: CGFloat) -> CGFloat {
-        if width < 375 { return DS.Spacing.md }
-        if width < 430 { return DS.Spacing.lg }
-        return DS.Spacing.xl
-    }
-
-    private var nameSection: some View {
-        TaskEditorNameSection(
-            title: viewModel.binding(\.title),
-            categoryTitle: viewModel.binding(\.categoryTitle),
-            notes: viewModel.binding(\.notes),
-            availableCategories: availableCategoryTitles,
-            fixedCategoryChipWidth: 132,
-            focusedField: $focusedField,
-            showsTitleAndCategory: viewModel.showsTitleAndCategory,
-            showsNotesEditor: viewModel.showsNotesEditor
-        )
-    }
-
-    private func dateTimeSection(isCompact: Bool) -> some View {
-        TaskEditorDateTimeSection(
-            dayDate: viewModel.dayDateBinding,
-            endDayDate: viewModel.endDayDateBinding,
-            startTime: viewModel.startTimeBinding,
-            endTime: viewModel.endTimeBinding,
-            isAllDay: viewModel.isAllDayBinding,
-            isInvalid: viewModel.form.isTimeRangeInvalid,
-            timeValidationMessage: viewModel.form.timeValidationMessage,
-            onApplyDuration: { minutes in
-                viewModel.applyDuration(minutes: minutes)
-            }
-        )
-    }
-
-    private var repeatSection: some View {
-        TaskEditorRepeatSection(
-            repeatRule: viewModel.repeatRuleBinding,
-            repeatIntervalDays: viewModel.repeatIntervalDaysBinding,
-            isInvalid: viewModel.form.isRepeatInvalid,
-            validationMessage: viewModel.form.repeatValidationMessage
-        )
     }
 
     private func dismissKeyboard() {
@@ -237,12 +164,12 @@ struct TaskEditorView: View {
         do {
             try viewModel.saveNormal()
             dismiss()
-        } catch let e as TaskEditorViewModel.EditorError {
-            switch e {
+        } catch let error as TaskEditorViewModel.EditorError {
+            switch error {
             case .repeatConflict:
                 return
             default:
-                viewModel.alert = .init(title: "Can't save", message: e.localizedDescription)
+                viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
             }
         } catch {
             viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
@@ -256,15 +183,91 @@ struct TaskEditorView: View {
         do {
             try viewModel.saveWithScope(scope)
             dismiss()
-        } catch let e as TaskEditorViewModel.EditorError {
-            switch e {
+        } catch let error as TaskEditorViewModel.EditorError {
+            switch error {
             case .repeatConflict:
                 return
             default:
-                viewModel.alert = .init(title: "Can't save", message: e.localizedDescription)
+                viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
             }
         } catch {
             viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
         }
+    }
+}
+
+private struct TaskEditorContentView: View {
+    let layout: TaskEditorLayoutMetrics
+    let visibility: TaskEditorViewModel.VisibilityState.Content
+    let viewModel: TaskEditorViewModel
+
+    @FocusState.Binding var focusedField: TaskEditorField?
+
+    let onOpenNotificationsCenter: () -> Void
+
+    var body: some View {
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                if visibility.showsNameSection {
+                    TaskEditorNameSection(
+                        titleState: viewModel.titleSection,
+                        descriptionState: viewModel.descriptionSection,
+                        fixedCategoryChipWidth: 132,
+                        focusedField: $focusedField,
+                        showsTitleAndCategory: visibility.showsTitleAndCategory,
+                        showsNotesEditor: visibility.showsNotesEditor
+                    )
+                }
+
+                if visibility.showsDateTimeSection {
+                    TaskEditorDateTimeSection(
+                        state: viewModel.dateTimeSection,
+                        onApplyDuration: viewModel.applyDuration(minutes:)
+                    )
+                }
+
+                if visibility.showsReminderSection {
+                    TaskEditorReminderSection(
+                        state: viewModel.reminderSection,
+                        dateTimeState: viewModel.dateTimeSection,
+                        onOpenNotificationsCenter: onOpenNotificationsCenter,
+                        onOpenSystemSettings: viewModel.openSystemSettings
+                    )
+                }
+
+                if visibility.showsColorSection {
+                    TaskEditorColorSection(state: viewModel.colorSection)
+                }
+
+                if visibility.showsRepeatSection {
+                    TaskEditorRepeatSection(state: viewModel.repeatSection)
+                }
+
+                if visibility.showsPhotoSection {
+                    TaskEditorPhotoSection(state: viewModel.photoSection)
+                }
+            }
+            .frame(width: layout.contentWidth, alignment: .leading)
+            .padding(.horizontal, layout.horizontalPadding)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, 28)
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+}
+
+private struct TaskEditorLayoutMetrics {
+    let horizontalPadding: CGFloat
+    let contentWidth: CGFloat
+
+    init(width: CGFloat) {
+        horizontalPadding = Self.horizontalPadding(for: width)
+        contentWidth = max(0, width - horizontalPadding * 2)
+    }
+
+    private static func horizontalPadding(for width: CGFloat) -> CGFloat {
+        if width < 375 { return DS.Spacing.md }
+        if width < 430 { return DS.Spacing.lg }
+        return DS.Spacing.xl
     }
 }

@@ -8,13 +8,11 @@
 import SwiftUI
 
 struct TaskEditorRepeatSection: View {
-    @Binding var repeatRule: RepeatRule
-    @Binding var repeatIntervalDays: Int
+    @ObservedObject var state: TaskEditorViewModel.RepeatSectionState
 
-    let isInvalid: Bool
-    let validationMessage: String?
-
-    private var showsInterval: Bool { repeatRule == .everyNDays }
+    private var showsInterval: Bool {
+        state.repeatRule == .everyNDays
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
@@ -28,7 +26,7 @@ struct TaskEditorRepeatSection: View {
                 intervalRow
             }
 
-            if isInvalid, let validationMessage {
+            if state.isInvalid, let validationMessage = state.validationMessage {
                 Text(validationMessage)
                     .font(DS.Typography.caption)
                     .foregroundStyle(.red)
@@ -39,16 +37,14 @@ struct TaskEditorRepeatSection: View {
         .dsCard(style: .outlined)
         .overlay {
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                .stroke(isInvalid ? Color.red.opacity(0.28) : .clear, lineWidth: 1.25)
+                .stroke(state.isInvalid ? Color.red.opacity(0.28) : .clear, lineWidth: 1.25)
         }
     }
 
-    // MARK: - Interval row
-
     private var intervalRow: some View {
         HStack(alignment: .center, spacing: DS.Spacing.sm) {
-            Text("Every \(repeatIntervalDays) days")
-                .font(DS.Typography.body)                // больше не caption
+            Text("Every \(state.repeatIntervalDays) days")
+                .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -56,20 +52,18 @@ struct TaskEditorRepeatSection: View {
 
             Spacer(minLength: DS.Spacing.sm)
 
-            RepeatIntervalControl(value: $repeatIntervalDays, range: 1...365)
+            RepeatIntervalControl(value: state.repeatIntervalDaysBinding, range: 1...365)
         }
         .padding(.top, 4)
     }
-
-    // MARK: - Repeat pill (Menu)
 
     private var repeatPill: some View {
         Menu {
             ForEach(RepeatRule.allCases, id: \.self) { rule in
                 Button {
-                    repeatRule = rule
+                    state.repeatRuleBinding.wrappedValue = rule
                 } label: {
-                    if repeatRule == rule {
+                    if state.repeatRule == rule {
                         Label(rule.displayName, systemImage: "checkmark")
                     } else {
                         Text(rule.displayName)
@@ -83,7 +77,7 @@ struct TaskEditorRepeatSection: View {
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .frame(width: 18, alignment: .center)
 
-                Text(repeatRule.displayName)
+                Text(state.repeatRule.displayName)
                     .font(DS.Typography.body)
                     .foregroundStyle(DS.ColorToken.textPrimary)
                     .lineLimit(1)
@@ -98,7 +92,7 @@ struct TaskEditorRepeatSection: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
-            .frame(minHeight: 44) // комфортный tap target + меньше “прыжков”
+            .frame(minHeight: 44)
             .background(Color.black.opacity(0.04))
             .cornerRadius(DS.Radius.pill)
             .contentShape(Rectangle())
@@ -106,8 +100,6 @@ struct TaskEditorRepeatSection: View {
         .buttonStyle(.plain)
     }
 }
-
-// MARK: - Premium +/- control (compact)
 
 private struct RepeatIntervalControl: View {
     @Binding var value: Int
