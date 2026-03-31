@@ -32,7 +32,7 @@ enum WidgetSnapshotBuilder {
             let rows = occurrences.map { occ in
                 PlannerWidgetTaskSnapshot(
                     id: widgetTaskId(for: occ, day: dayKey),
-                    title: occ.title,
+                    title: LocalizedDisplayText.taskTitle(occ.title),
                     subtitle: subtitle(for: occ),
                     timeText: timeText(for: occ),
                     isCompleted: occ.task.isCompleted(on: dayKey, calendar: calendar),
@@ -67,12 +67,12 @@ enum WidgetSnapshotBuilder {
            !notes.isEmpty {
             return notes
         }
-        return occurrence.categoryTitle ?? CategorySystem.uncategorizedTitle
+        return CategorySystem.localizedDisplayTitle(for: occurrence.categoryTitle)
     }
 
     private static func timeText(for occurrence: DayOccurrence) -> String {
         if occurrence.isAllDaySegment {
-            return "All day"
+            return String(localized: "All day")
         }
 
         let start = occurrence.displayStart.formatted(date: .omitted, time: .shortened)

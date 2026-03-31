@@ -40,7 +40,7 @@ struct TaskEditorDateTimeSection: View {
 
             if !state.isAllDay {
                 TaskEditorChipGroup(
-                    title: "Duration",
+                    title: String(localized: "Duration"),
                     chips: Self.durationOptions.map { option in
                         .init(id: option.title, title: option.title) {
                             onApplyDuration(option.minutes)
@@ -67,7 +67,7 @@ struct TaskEditorDateTimeSection: View {
     private var pickerRows: some View {
         VStack(spacing: DS.Spacing.md) {
             HStack(spacing: DS.Spacing.md) {
-                TaskEditorPillField(title: "Start", icon: "calendar", trailingWidth: 110) {
+                TaskEditorPillField(title: String(localized: "Start"), icon: "calendar", trailingWidth: 110) {
                     DatePicker("", selection: state.dayDateBinding, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.compact)
@@ -77,7 +77,7 @@ struct TaskEditorDateTimeSection: View {
             }
 
             HStack(spacing: DS.Spacing.md) {
-                TaskEditorPillField(title: "End", icon: "calendar.badge.clock", trailingWidth: 110) {
+                TaskEditorPillField(title: String(localized: "End"), icon: "calendar.badge.clock", trailingWidth: 110) {
                     DatePicker("", selection: state.endDayDateBinding, displayedComponents: .date)
                         .labelsHidden()
                         .datePickerStyle(.compact)

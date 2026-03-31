@@ -189,7 +189,7 @@ struct TaskEditorTimeCoordinator {
 
     func validationMessage(start: Date, end: Date) -> String? {
         guard end <= start else { return nil }
-        return "End date & time must be later than start date & time."
+        return String(localized: "End date & time must be later than start date & time.")
     }
 }
 

@@ -124,10 +124,10 @@ struct StatisticsRangeSheet: View {
 
     private var quickActionTitle: String {
         switch range {
-        case .day: return "Today"
-        case .week: return "This week"
-        case .month: return "This month"
-        case .year: return "This year"
+        case .day: return String(localized: "Today")
+        case .week: return String(localized: "This week")
+        case .month: return String(localized: "This month")
+        case .year: return String(localized: "This year")
         }
     }
 

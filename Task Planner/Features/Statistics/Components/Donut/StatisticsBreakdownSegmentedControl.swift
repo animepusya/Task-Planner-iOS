@@ -15,12 +15,12 @@ struct StatisticsBreakdownSegmentedControl: View {
     var body: some View {
         HStack(spacing: 4) {
             segmentButton(
-                title: "By Category",
+                title: StatisticsBreakdown.category.title,
                 value: .category
             )
 
             segmentButton(
-                title: "By Task",
+                title: StatisticsBreakdown.task.title,
                 value: .task
             )
         }

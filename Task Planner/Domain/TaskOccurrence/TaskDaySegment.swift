@@ -13,6 +13,17 @@ struct DayOccurrence: Identifiable, Hashable {
         case continues = "Continues"
         case ongoing = "Ongoing"
         case ends = "Ends"
+
+        var localizedTitle: String {
+            switch self {
+            case .continues:
+                return String(localized: "Continues")
+            case .ongoing:
+                return String(localized: "Ongoing")
+            case .ends:
+                return String(localized: "Ends")
+            }
+        }
     }
 
     let id: String
@@ -80,6 +91,17 @@ struct PlannerTaskOccurrence: Identifiable, Hashable, Sendable {
         case continues = "Continues"
         case ongoing = "Ongoing"
         case ends = "Ends"
+
+        var localizedTitle: String {
+            switch self {
+            case .continues:
+                return String(localized: "Continues")
+            case .ongoing:
+                return String(localized: "Ongoing")
+            case .ends:
+                return String(localized: "Ends")
+            }
+        }
     }
 
     let id: String

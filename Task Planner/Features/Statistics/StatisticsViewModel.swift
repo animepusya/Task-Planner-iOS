@@ -321,10 +321,10 @@ final class StatisticsViewModel: ObservableObject {
             rows: preparedRows,
             donutSlices: donutSlices,
             defaultCenter: StatisticsDonutCenterData(
-                title: "Total",
+                title: String(localized: "Total"),
                 valueText: totalMinutesText
             ),
-            emptyMessage: "Add some tasks to see totals.",
+            emptyMessage: String(localized: "Add a few tasks to see totals."),
             centersBySliceID: centersBySliceID
         )
     }

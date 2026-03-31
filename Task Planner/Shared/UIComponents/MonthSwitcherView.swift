@@ -229,11 +229,6 @@ private struct MonthYearPickerSheet: View {
 
         let cal = Calendar.current
         let date = cal.date(from: comps) ?? .now
-
-        let f = DateFormatter()
-        f.calendar = cal
-        f.locale = .current
-        f.dateFormat = "LLLL"
-        return f.string(from: date)
+        return date.monthName(using: cal)
     }
 }

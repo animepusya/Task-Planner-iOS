@@ -21,10 +21,10 @@ struct TaskCardView: View {
 
     private var model: PlannerCardModel {
         .init(
-            title: occurrence.title,
+            title: LocalizedDisplayText.taskTitle(occurrence.title),
             subtitle: subtitleText,
             timeText: timeRangeText,
-            badgeText: occurrence.badge?.rawValue,
+            badgeText: occurrence.badge?.localizedTitle,
             thumb: thumbImage,
             surfaceColor: occurrence.color.surface(opacity: 1.0),
             isMuted: isVisuallyDone
@@ -41,12 +41,12 @@ struct TaskCardView: View {
            !notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return notes
         }
-        return occurrence.categoryTitle ?? CategorySystem.uncategorizedTitle
+        return CategorySystem.localizedDisplayTitle(for: occurrence.categoryTitle)
     }
 
     private var timeRangeText: String {
         if occurrence.isAllDaySegment {
-            return "All day"
+            return String(localized: "All day")
         }
         return "\(occurrence.displayStart.formatted(date: .omitted, time: .shortened)) – \(occurrence.displayEnd.formatted(date: .omitted, time: .shortened))"
     }

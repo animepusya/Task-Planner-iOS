@@ -57,7 +57,7 @@ struct NotificationsView: View {
         .navigationBarHidden(true)
         .safeAreaInset(edge: .top) {
             NotificationsTopBar(
-                title: "Notifications",
+                title: String(localized: "Notifications"),
                 onBack: { dismiss() }
             )
             .padding(.top, 6)

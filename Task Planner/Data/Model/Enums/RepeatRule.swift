@@ -32,13 +32,13 @@ extension RepeatRule {
 
     var displayName: String {
         switch self {
-        case .none: return "None"
-        case .daily: return "Daily"
-        case .weekdays: return "Weekdays"
-        case .weekends: return "Weekends"
-        case .weekly: return "Weekly"
-        case .monthly: return "Monthly"
-        case .everyNDays: return "Select manually"
+        case .none: return String(localized: "None")
+        case .daily: return String(localized: "Daily")
+        case .weekdays: return String(localized: "Weekdays")
+        case .weekends: return String(localized: "Weekends")
+        case .weekly: return String(localized: "Weekly")
+        case .monthly: return String(localized: "Monthly")
+        case .everyNDays: return String(localized: "Select manually")
         }
     }
 }

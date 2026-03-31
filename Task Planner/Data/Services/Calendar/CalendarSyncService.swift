@@ -23,17 +23,17 @@ final class CalendarSyncService {
         var errorDescription: String? {
             switch self {
             case .accessDenied:
-                return "Доступ к календарю запрещён. Разреши доступ в Settings → Privacy → Calendars."
+                return String(localized: "Calendar access is denied. Allow it in Settings > Privacy > Calendars.")
             case .restricted:
-                return "Доступ к календарю ограничен системой."
+                return String(localized: "Calendar access is restricted by the system.")
             case .calendarCreateFailed:
-                return "Не удалось создать календарь Task Planner."
+                return String(localized: "Couldn't create the Task Planner calendar.")
             case .calendarNotFound:
-                return "Календарь Task Planner не найден."
+                return String(localized: "The Task Planner calendar couldn't be found.")
             case .eventSaveFailed:
-                return "Не удалось сохранить событие в календарь."
+                return String(localized: "Couldn't save the event to Calendar.")
             case .eventRemoveFailed:
-                return "Не удалось удалить событие из календаря."
+                return String(localized: "Couldn't remove the event from Calendar.")
             }
         }
     }
@@ -336,4 +336,3 @@ final class CalendarSyncService {
         }
     }
 }
-

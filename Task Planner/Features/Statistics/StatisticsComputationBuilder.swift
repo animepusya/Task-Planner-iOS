@@ -840,17 +840,20 @@ enum StatisticsComputationBuilder {
 
         guard otherMinutes > 0 else { return top }
 
-        let other = TaskStat(id: "other", title: "Other", minutes: otherMinutes, colorRaw: "")
+        let other = TaskStat(
+            id: "other",
+            title: String(localized: "Other"),
+            minutes: otherMinutes,
+            colorRaw: ""
+        )
         return top + [other]
     }
 
     private static func normalizedCategoryTitle(_ raw: String?) -> String {
-        let trimmed = (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Work" : trimmed
+        CategorySystem.localizedDisplayTitle(for: raw)
     }
 
     private static func normalizedTaskTitle(_ raw: String) -> String {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Untitled" : trimmed
+        LocalizedDisplayText.taskTitle(raw)
     }
 }

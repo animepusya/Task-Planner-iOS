@@ -32,13 +32,13 @@ struct ScheduledReminderRow: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(reminder.taskTitle)
+                    Text(LocalizedDisplayText.taskTitle(reminder.taskTitle))
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundStyle(isSuppressed ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
                         .strikethrough(isSuppressed, color: DS.ColorToken.textSecondary.opacity(0.85))
                         .lineLimit(1)
 
-                    StatusPill(title: "Disabled for this day", isOn: false)
+                    StatusPill(title: String(localized: "Disabled for this day"), isOn: false)
                         .scaleEffect(0.92, anchor: .leading)
                         .opacity(isSuppressed ? 1.0 : 0.0)
 

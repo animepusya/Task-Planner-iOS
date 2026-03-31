@@ -64,7 +64,7 @@ struct TaskPlannerWidgetEntryView: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            Text(entry.selectedDay?.titleText ?? "Today")
+            Text(entry.selectedDay?.titleText ?? String(localized: "Today"))
                 .font(.system(size: 20, weight: .bold, design: .rounded))
                 .foregroundStyle(
                     isAccented
@@ -107,7 +107,7 @@ struct TaskPlannerWidgetEntryView: View {
             if selectedDay.tasks.isEmpty {
                 VStack(alignment: .leading, spacing: taskRowSpacing) {
                     TaskPlannerWidgetEmptyState(
-                        text: "No tasks for this day",
+                        text: String(localized: "No tasks for this day"),
                         isAccented: isAccented
                     )
                     .frame(height: (taskRowHeight * 3) + (taskRowSpacing * 2), alignment: .top)
@@ -143,7 +143,7 @@ struct TaskPlannerWidgetEntryView: View {
         } else {
             VStack(alignment: .leading, spacing: taskRowSpacing) {
                 TaskPlannerWidgetEmptyState(
-                    text: "No tasks for this day",
+                    text: String(localized: "No tasks for this day"),
                     isAccented: isAccented
                 )
                 .frame(height: (taskRowHeight * 3) + (taskRowSpacing * 2), alignment: .top)

@@ -30,15 +30,11 @@ struct RecurringTaskCardView: View {
     }
 
     private var displayTitle: String {
-        let trimmed = task.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "Untitled" : trimmed
+        LocalizedDisplayText.taskTitle(task.title)
     }
 
     private var subtitleText: String {
-        let trimmed = (task.categoryTitle ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return trimmed.isEmpty ? CategorySystem.uncategorizedTitle : trimmed
+        CategorySystem.localizedDisplayTitle(for: task.categoryTitle)
     }
 
     private var repeatText: String {

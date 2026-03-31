@@ -90,7 +90,7 @@ struct StatisticsView: View {
     }
 
     private var header: some View {
-        ScreenTopSection(title: "Statistics") {
+        ScreenTopSection(title: String(localized: "Statistics")) {
             IconCircleButton(systemName: "gearshape") {
                 viewModel.openSettings()
             }

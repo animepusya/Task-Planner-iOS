@@ -25,15 +25,15 @@ enum ReminderPreset: Int, CaseIterable, Identifiable, Hashable {
 
     var displayName: String {
         switch self {
-        case .minutes5: return "5 minutes before"
-        case .minutes10: return "10 minutes before"
-        case .minutes15: return "15 minutes before"
-        case .minutes30: return "30 minutes before"
-        case .minutes60: return "1 hour before"
-        case .minutes120: return "2 hours before"
-        case .minutes1440: return "1 day before"
-        case .minutes2880: return "2 days before"
-        case .minutes10080: return "1 week before"
+        case .minutes5: return String(localized: "5 minutes before")
+        case .minutes10: return String(localized: "10 minutes before")
+        case .minutes15: return String(localized: "15 minutes before")
+        case .minutes30: return String(localized: "30 minutes before")
+        case .minutes60: return String(localized: "1 hour before")
+        case .minutes120: return String(localized: "2 hours before")
+        case .minutes1440: return String(localized: "1 day before")
+        case .minutes2880: return String(localized: "2 days before")
+        case .minutes10080: return String(localized: "1 week before")
         }
     }
 

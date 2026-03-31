@@ -80,15 +80,15 @@ struct SettingsView: View {
     // MARK: - Sections
 
     private var appSection: some View {
-        SettingsSection(title: "App") {
+        SettingsSection(title: String(localized: "App")) {
             SettingsCard {
                 weekStartsOnRow
 
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: "Theme",
-                    subtitle: "Prepared for future appearance support",
+                    title: String(localized: "Theme"),
+                    subtitle: String(localized: "Prepared for future appearance support"),
                     systemImage: "circle.lefthalf.filled"
                 ) {
                     Menu {
@@ -111,8 +111,8 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: "Localization",
-                    subtitle: "UI is ready. App localization can be connected later",
+                    title: String(localized: "Localization"),
+                    subtitle: String(localized: "UI is ready. App localization can be connected later"),
                     systemImage: "globe"
                 ) {
                     Menu {
@@ -159,7 +159,7 @@ struct SettingsView: View {
     private var weekStartPicker: some View {
         HStack(spacing: 4) {
             weekStartSegment(
-                title: "Monday",
+                title: String(localized: "Monday"),
                 isSelected: viewModel.weekStartsOnMonday,
                 action: {
                     guard viewModel.weekStartsOnMonday == false else { return }
@@ -170,7 +170,7 @@ struct SettingsView: View {
             )
 
             weekStartSegment(
-                title: "Sunday",
+                title: String(localized: "Sunday"),
                 isSelected: viewModel.weekStartsOnMonday == false,
                 action: {
                     guard viewModel.weekStartsOnMonday else { return }
@@ -214,11 +214,11 @@ struct SettingsView: View {
     }
 
     private var notificationsSection: some View {
-        SettingsSection(title: "Notifications") {
+        SettingsSection(title: String(localized: "Notifications")) {
             SettingsCard {
                 SettingsRow(
-                    title: "Notifications",
-                    subtitle: "Scheduled reminders, defaults and permission status",
+                    title: String(localized: "Notifications"),
+                    subtitle: String(localized: "Scheduled reminders, defaults and permission status"),
                     systemImage: "bell.badge",
                     action: {
                         showNotifications = true
@@ -233,13 +233,13 @@ struct SettingsView: View {
 
     private var calendarSection: some View {
         SettingsSection(
-            title: "Calendar",
+            title: String(localized: "Calendar"),
             footer: footerTextForCalendar
         ) {
             SettingsCard {
                 SettingsRow(
-                    title: "Show tasks in Apple Calendar",
-                    subtitle: "Exports to calendar “Task Planner”",
+                    title: String(localized: "Show tasks in Apple Calendar"),
+                    subtitle: String(localized: "Exports to calendar “Task Planner”"),
                     systemImage: "calendar.badge.plus",
                     accessory: {
                         Toggle(
@@ -257,8 +257,8 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: "Show Apple Calendar events in Planner",
-                    subtitle: "Read-only overlay, not saved in SwiftData",
+                    title: String(localized: "Show Apple Calendar events in Planner"),
+                    subtitle: String(localized: "Read-only overlay, not saved in SwiftData"),
                     systemImage: "calendar.badge.clock",
                     accessory: {
                         Toggle(
@@ -276,8 +276,8 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: "Export now",
-                    subtitle: "Force sync current tasks to Apple Calendar",
+                    title: String(localized: "Export now"),
+                    subtitle: String(localized: "Force sync current tasks to Apple Calendar"),
                     systemImage: "arrow.up.right.square",
                     action: {
                         viewModel.exportNow()
@@ -290,8 +290,8 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: "Remove exported events",
-                    subtitle: "Delete all events created by Task Planner",
+                    title: String(localized: "Remove exported events"),
+                    subtitle: String(localized: "Delete all events created by Task Planner"),
                     systemImage: "trash",
                     isDestructive: true,
                     action: {
@@ -306,7 +306,7 @@ struct SettingsView: View {
     }
 
     private var categoriesSection: some View {
-        SettingsSection(title: "Categories") {
+        SettingsSection(title: String(localized: "Categories")) {
             SettingsCard {
                 CategoryInputRow(
                     title: $viewModel.newCategoryTitle,
@@ -334,13 +334,13 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         SettingsSection(
-            title: "Data",
-            footer: "Use with caution. This action cannot be undone."
+            title: String(localized: "Data"),
+            footer: String(localized: "Use with caution. This action can't be undone.")
         ) {
             SettingsCard {
                 SettingsRow(
-                    title: "Clear all tasks",
-                    subtitle: "Remove all tasks and planner data from this device",
+                    title: String(localized: "Clear all tasks"),
+                    subtitle: String(localized: "Remove all tasks and planner data from this device"),
                     systemImage: "trash",
                     isDestructive: true,
                     action: {

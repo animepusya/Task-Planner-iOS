@@ -67,10 +67,10 @@ struct StatisticsBreakdownSnapshot {
             rows: [],
             donutSlices: [],
             defaultCenter: StatisticsDonutCenterData(
-                title: "Total",
+                title: String(localized: "Total"),
                 valueText: totalMinutesText
             ),
-            emptyMessage: "Add some tasks to see totals.",
+            emptyMessage: String(localized: "Add a few tasks to see totals."),
             centersBySliceID: [:]
         )
     }

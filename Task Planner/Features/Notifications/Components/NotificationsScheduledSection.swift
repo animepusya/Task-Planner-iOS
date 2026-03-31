@@ -120,15 +120,15 @@ struct NotificationsScheduledSection: View {
 
     private var emptyText: String {
         if viewModel.notificationsEnabled == false {
-            return "Notifications are disabled in the app."
+            return String(localized: "Notifications are turned off in the app.")
         }
         switch viewModel.systemStatus {
         case .denied:
-            return "System permission denied. Enable notifications in Settings."
+            return String(localized: "Notification access is denied. Enable it in Settings.")
         case .notDetermined:
-            return "Enable notifications to see scheduled reminders."
+            return String(localized: "Enable notifications to see scheduled reminders.")
         case .authorized:
-            return "No reminders scheduled for the next 7 days."
+            return String(localized: "No reminders are scheduled for the next 7 days.")
         }
     }
 }

@@ -46,7 +46,7 @@ final class UNUserNotificationService: NotificationService {
         for r in reminders {
             let content = UNMutableNotificationContent()
             content.title = r.taskTitle
-            content.body = "Reminder"
+            content.body = String(localized: "Reminder")
             content.sound = .default
 
             let triggerDate = r.fireDate

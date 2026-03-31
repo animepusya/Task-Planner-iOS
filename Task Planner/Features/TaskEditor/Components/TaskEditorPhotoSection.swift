@@ -147,13 +147,13 @@ struct TaskEditorPhotoSection: View {
                     removePhoto()
                 }
             } label: {
-                pillLabel(title: "Edit", systemImage: "ellipsis.circle")
+                pillLabel(title: String(localized: "Edit"), systemImage: "ellipsis.circle")
             }
             .disabled(isLoadingPhoto)
         }
         .overlay {
             if isLoadingPhoto {
-                loadingOverlay(title: "Loading Photo")
+                loadingOverlay(title: String(localized: "Loading Photo"))
             }
         }
     }
@@ -179,7 +179,7 @@ struct TaskEditorPhotoSection: View {
 
                 Spacer(minLength: 0)
 
-                pillLabel(title: "Add", systemImage: "plus")
+                pillLabel(title: String(localized: "Add"), systemImage: "plus")
             }
             .contentShape(Rectangle())
         }
@@ -187,7 +187,7 @@ struct TaskEditorPhotoSection: View {
         .disabled(isLoadingPhoto)
         .overlay {
             if isLoadingPhoto {
-                loadingOverlay(title: "Loading Photo")
+                loadingOverlay(title: String(localized: "Loading Photo"))
             }
         }
         .accessibilityLabel("Add photo")
@@ -235,7 +235,7 @@ struct TaskEditorPhotoSection: View {
 
             guard let data = try await item.loadTransferable(type: Data.self) else {
                 await MainActor.run {
-                    loadErrorMessage = "The selected photo is unavailable right now."
+                    loadErrorMessage = String(localized: "The selected photo isn't available right now.")
                 }
                 return
             }
@@ -252,7 +252,7 @@ struct TaskEditorPhotoSection: View {
 
             guard let preparedImage else {
                 await MainActor.run {
-                    loadErrorMessage = "Try a different image."
+                    loadErrorMessage = String(localized: "Try a different image.")
                 }
                 return
             }
@@ -264,7 +264,7 @@ struct TaskEditorPhotoSection: View {
             return
         } catch {
             await MainActor.run {
-                loadErrorMessage = "Try a different image."
+                loadErrorMessage = String(localized: "Try a different image.")
             }
         }
     }

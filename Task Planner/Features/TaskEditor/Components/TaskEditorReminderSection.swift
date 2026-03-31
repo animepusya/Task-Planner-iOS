@@ -35,7 +35,7 @@ struct TaskEditorReminderSection: View {
             }
 
             DSRowMenu(
-                title: "Remind",
+                title: String(localized: "Remind"),
                 value: offsetTitle
             ) {
                 ForEach(ReminderPreset.allCases) { preset in
@@ -57,7 +57,7 @@ struct TaskEditorReminderSection: View {
 
             if dateTimeState.isAllDay {
                 DSRowButton(
-                    title: "Time",
+                    title: String(localized: "Time"),
                     value: TimeOfDayMinutes.format(state.reminderAllDayTimeMinutes ?? state.defaultAllDayTimeMinutes),
                     onTap: openAllDayPopover
                 )

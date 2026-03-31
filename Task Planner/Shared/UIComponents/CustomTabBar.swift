@@ -26,7 +26,7 @@ struct CustomTabBar: View {
             }
 
             tabButton(
-                title: "Statistics",
+                title: String(localized: "Statistics"),
                 systemImage: "chart.pie.fill",
                 isActive: selected == .statistics,
                 activeStyle: .statistics

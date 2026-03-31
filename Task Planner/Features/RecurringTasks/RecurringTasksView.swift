@@ -39,7 +39,7 @@ struct RecurringTasksView: View {
 
         VStack(spacing: 0) {
             NotificationsTopBar(
-                title: "Recurring Tasks",
+                title: String(localized: "Recurring Tasks"),
                 onBack: { dismiss() }
             )
 
@@ -80,7 +80,7 @@ struct RecurringTasksView: View {
                                     .listRowSeparator(.hidden)
                             }
                         } header: {
-                            sectionHeader(title: "Active", count: sections.active.count)
+                            sectionHeader(title: String(localized: "Active"), count: sections.active.count)
                         }
                     }
 
@@ -114,7 +114,7 @@ struct RecurringTasksView: View {
                                     .listRowSeparator(.hidden)
                             }
                         } header: {
-                            sectionHeader(title: "Past", count: sections.past.count)
+                            sectionHeader(title: String(localized: "Past"), count: sections.past.count)
                         }
                     }
                 }

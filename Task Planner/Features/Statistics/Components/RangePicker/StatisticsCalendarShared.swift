@@ -82,11 +82,7 @@ struct StatisticsCalendarDayCell: View {
 
 enum StatisticsCalendarLogic {
     static func monthTitle(for date: Date, calendar: Calendar) -> String {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = .current
-        formatter.dateFormat = "LLLL yyyy"
-        return formatter.string(from: date)
+        date.monthTitle(using: calendar)
     }
 
     static func weekRange(for date: Date, calendar: Calendar) -> ClosedRange<Date> {

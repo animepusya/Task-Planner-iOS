@@ -15,8 +15,8 @@ enum StatisticsBreakdown: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .category: return "By category"
-        case .task:     return "By task"
+        case .category: return String(localized: "By Category")
+        case .task:     return String(localized: "By Task")
         }
     }
 }

@@ -18,7 +18,7 @@ struct CategoryListRow: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundStyle(isDeletable ? DS.ColorToken.textSecondary : DS.ColorToken.textSecondary)
 
-            Text(title)
+            Text(displayTitle)
                 .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
@@ -40,5 +40,9 @@ struct CategoryListRow: View {
                 }
             }
         }
+    }
+
+    private var displayTitle: String {
+        isDeletable ? title : CategorySystem.localizedDisplayTitle(for: title)
     }
 }

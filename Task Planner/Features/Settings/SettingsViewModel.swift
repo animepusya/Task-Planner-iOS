@@ -21,9 +21,9 @@ final class SettingsViewModel: ObservableObject {
 
         var title: String {
             switch self {
-            case .system: return "System"
-            case .light: return "Light"
-            case .dark: return "Dark"
+            case .system: return String(localized: "System")
+            case .light: return String(localized: "Light")
+            case .dark: return String(localized: "Dark")
             }
         }
     }
@@ -38,10 +38,10 @@ final class SettingsViewModel: ObservableObject {
 
         var title: String {
             switch self {
-            case .system: return "System"
-            case .english: return "English"
-            case .russian: return "Russian"
-            case .hebrew: return "Hebrew"
+            case .system: return String(localized: "System")
+            case .english: return String(localized: "English")
+            case .russian: return String(localized: "Russian")
+            case .hebrew: return String(localized: "Hebrew")
             }
         }
     }
@@ -92,7 +92,7 @@ final class SettingsViewModel: ObservableObject {
             showAppleCalendarEventsInPlanner = prefs.showAppleCalendarEventsInPlanner
             calendarStatusText = statusText()
         } catch {
-            calendarStatusText = "Preferences load failed"
+            calendarStatusText = String(localized: "Couldn't load settings.")
         }
 
         selectedTheme = loadTheme()
@@ -208,7 +208,7 @@ final class SettingsViewModel: ObservableObject {
             do {
                 let tasks = try taskRepository.fetchAll()
                 try await calendarSync.exportAllTasks(tasks)
-                calendarStatusText = statusText(prefix: "Export done")
+                calendarStatusText = statusText(prefix: String(localized: "Export complete"))
             } catch {
                 calendarErrorText = error.localizedDescription
             }
@@ -220,7 +220,7 @@ final class SettingsViewModel: ObservableObject {
         Task {
             do {
                 try await calendarSync.removeAllExportedEvents()
-                calendarStatusText = statusText(prefix: "Removed exported events")
+                calendarStatusText = statusText(prefix: String(localized: "Exported events removed"))
             } catch {
                 calendarErrorText = error.localizedDescription
             }
@@ -229,15 +229,25 @@ final class SettingsViewModel: ObservableObject {
 
     private func statusText(prefix: String? = nil) -> String {
         let base = switch calendarSync.authorizationStatus {
-        case .authorized, .fullAccess: "Calendar access: granted"
-        case .notDetermined: "Calendar access: not determined"
-        case .denied: "Calendar access: denied"
-        case .restricted: "Calendar access: restricted"
-        @unknown default: "Calendar access: unknown"
+        case .authorized, .fullAccess: String(localized: "Calendar access: granted")
+        case .notDetermined: String(localized: "Calendar access: not requested")
+        case .denied: String(localized: "Calendar access: denied")
+        case .restricted: String(localized: "Calendar access: restricted")
+        @unknown default: String(localized: "Calendar access: unknown")
         }
 
-        let export = "Export: \(showTasksInAppleCalendar ? "ON" : "OFF")"
-        let importEvents = "Overlay events: \(showAppleCalendarEventsInPlanner ? "ON" : "OFF")"
+        let exportState = showTasksInAppleCalendar ? String(localized: "On") : String(localized: "Off")
+        let overlayState = showAppleCalendarEventsInPlanner ? String(localized: "On") : String(localized: "Off")
+        let export = String(
+            format: String(localized: "Export: %@"),
+            locale: Locale.current,
+            exportState
+        )
+        let importEvents = String(
+            format: String(localized: "Calendar overlay: %@"),
+            locale: Locale.current,
+            overlayState
+        )
 
         if let prefix {
             return "\(prefix) • \(base) • \(export) • \(importEvents)"

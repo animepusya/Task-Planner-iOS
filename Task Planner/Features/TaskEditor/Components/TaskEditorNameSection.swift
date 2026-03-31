@@ -74,15 +74,15 @@ private struct TaskEditorTitleRow: View {
                     state.categoryTitleBinding.wrappedValue = category
                 } label: {
                     if state.categoryTitle == category {
-                        Label(category, systemImage: "checkmark")
+                        Label(displayCategoryTitle(category), systemImage: "checkmark")
                     } else {
-                        Text(category)
+                        Text(displayCategoryTitle(category))
                     }
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(state.categoryTitle)
+                Text(displayCategoryTitle(state.categoryTitle))
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -99,5 +99,9 @@ private struct TaskEditorTitleRow: View {
             .cornerRadius(DS.Radius.pill)
         }
         .buttonStyle(.plain)
+    }
+
+    private func displayCategoryTitle(_ rawTitle: String) -> String {
+        CategorySystem.localizedDisplayTitle(for: rawTitle)
     }
 }

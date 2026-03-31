@@ -47,7 +47,7 @@ struct TaskPhotoCropperView: View {
                 .padding(.bottom, DS.Spacing.lg)
 
                 if isExporting {
-                    processingOverlay(title: "Preparing Photo")
+                    processingOverlay(title: String(localized: "Preparing Photo"))
                 }
             }
             .navigationTitle("Adjust Photo")
@@ -192,7 +192,7 @@ struct TaskPhotoCropperView: View {
                 isExporting = false
 
                 guard let data = result else {
-                    exportErrorMessage = "Try a different crop or choose another photo."
+                    exportErrorMessage = String(localized: "Try a different crop or choose another photo.")
                     return
                 }
 

@@ -24,7 +24,7 @@ struct TaskEditorView: View {
     @Query
     private var preferences: [AppPreferencesEntity]
 
-    private let fallbackCategories = ["Work", "Study", "Hobby"]
+    private let fallbackCategories = CategorySystem.defaultSelectableTitles
 
     @FocusState private var focusedField: TaskEditorField?
 
@@ -169,10 +169,10 @@ struct TaskEditorView: View {
             case .repeatConflict:
                 return
             default:
-                viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
+                viewModel.alert = .init(title: String(localized: "Couldn't save"), message: error.localizedDescription)
             }
         } catch {
-            viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
+            viewModel.alert = .init(title: String(localized: "Couldn't save"), message: error.localizedDescription)
         }
     }
 
@@ -188,10 +188,10 @@ struct TaskEditorView: View {
             case .repeatConflict:
                 return
             default:
-                viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
+                viewModel.alert = .init(title: String(localized: "Couldn't save"), message: error.localizedDescription)
             }
         } catch {
-            viewModel.alert = .init(title: "Can't save", message: error.localizedDescription)
+            viewModel.alert = .init(title: String(localized: "Couldn't save"), message: error.localizedDescription)
         }
     }
 }

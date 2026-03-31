@@ -23,7 +23,7 @@ struct ImportedEventCardView: View {
         ].compactMap { $0 }
 
         return .init(
-            title: row.title,
+            title: LocalizedDisplayText.taskTitle(row.title),
             subtitle: subtitleParts.joined(separator: " • "),
             timeText: timeText,
             badgeText: nil,
@@ -34,7 +34,7 @@ struct ImportedEventCardView: View {
     }
 
     private var timeText: String {
-        if row.isAllDay { return "All day" }
+        if row.isAllDay { return String(localized: "All day") }
         return "\(row.startDate.formatted(date: .omitted, time: .shortened)) – \(row.endDate.formatted(date: .omitted, time: .shortened))"
     }
 }

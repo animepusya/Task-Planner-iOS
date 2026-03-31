@@ -17,10 +17,10 @@ enum StatisticsRange: String, CaseIterable, Identifiable, Sendable {
 
     var title: String {
         switch self {
-        case .day:   return "Day"
-        case .week:  return "Week"
-        case .month: return "Month"
-        case .year:  return "Year"
+        case .day:   return String(localized: "Day")
+        case .week:  return String(localized: "Week")
+        case .month: return String(localized: "Month")
+        case .year:  return String(localized: "Year")
         }
     }
 }

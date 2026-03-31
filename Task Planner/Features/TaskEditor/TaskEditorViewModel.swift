@@ -29,7 +29,7 @@ final class TaskEditorViewModel {
     private var didBootstrap = false
     private var weekStartsOnMonday = true
     private var defaultAllDayTimeMinutes: Int = 9 * 60
-    private var availableCategories: [String] = ["Work"]
+    private var availableCategories: [String] = [CategorySystem.workTitle]
     private var form: FormState
 
     let chrome: ChromeState
@@ -90,7 +90,7 @@ final class TaskEditorViewModel {
             repeatRule: .none,
             repeatIntervalDays: 2,
             color: .purple,
-            categoryTitle: "Work",
+            categoryTitle: CategorySystem.workTitle,
             photoThumbData: nil,
             reminderEnabled: false,
             reminderOffsetMinutes: ReminderPreset.default.minutes,
@@ -163,7 +163,7 @@ final class TaskEditorViewModel {
             }
 
             reminderGate = ReminderGate(
-                message: "Enable notifications in the app to use reminders",
+                message: String(localized: "Turn on app notifications to use reminders."),
                 action: .openNotificationsCenter
             )
         } else if reminderGate?.action == .openNotificationsCenter {
@@ -357,7 +357,10 @@ final class TaskEditorViewModel {
             }
 
             guard let existing = try taskRepository.fetch(by: taskId) else {
-                alertState.alert = .init(title: "Task not found", message: "This task no longer exists.")
+                alertState.alert = .init(
+                    title: String(localized: "Task not found"),
+                    message: String(localized: "This task no longer exists.")
+                )
                 return
             }
 
@@ -450,7 +453,10 @@ final class TaskEditorViewModel {
             apply(validated)
 
         } catch {
-            alertState.alert = .init(title: "Failed to load", message: error.localizedDescription)
+            alertState.alert = .init(
+                title: String(localized: "Couldn't load"),
+                message: error.localizedDescription
+            )
         }
     }
 
@@ -520,7 +526,7 @@ final class TaskEditorViewModel {
         let normalizedNotes: String? = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedCategory = trimmedCategory.isEmpty ? "Work" : trimmedCategory
+        let normalizedCategory = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
 
         let startMinutes = TimeMinutes.minutes(from: form.startTime, calendar: cal)
         let endMinutes = TimeMinutes.minutes(from: form.endTime, calendar: cal)
@@ -587,7 +593,7 @@ final class TaskEditorViewModel {
         template.title = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
 
         let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        template.categoryTitle = trimmedCategory.isEmpty ? "Work" : trimmedCategory
+        template.categoryTitle = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
 
         template.repeatRuleRaw = form.repeatRule.rawValue
         template.repeatIntervalDays = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
@@ -628,7 +634,7 @@ final class TaskEditorViewModel {
         let normalizedNotes: String? = trimmedNotes.isEmpty ? nil : trimmedNotes
 
         let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedCategory = trimmedCategory.isEmpty ? "Work" : trimmedCategory
+        let normalizedCategory = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
 
         let normalizedTimes = time.normalizeForSave(
             dayDate: form.dayDate,
@@ -800,7 +806,7 @@ final class TaskEditorViewModel {
             prefs = try preferencesRepository.getOrCreate()
         } catch {
             reminderGate = ReminderGate(
-                message: "Enable notifications in the app to use reminders",
+                message: String(localized: "Turn on app notifications to use reminders."),
                 action: .openNotificationsCenter
             )
             setReminderEnabledSilently(false)
@@ -809,7 +815,7 @@ final class TaskEditorViewModel {
 
         guard prefs.notificationsEnabled else {
             reminderGate = ReminderGate(
-                message: "Enable notifications in the app to use reminders",
+                message: String(localized: "Turn on app notifications to use reminders."),
                 action: .openNotificationsCenter
             )
             setReminderEnabledSilently(false)
@@ -829,7 +835,7 @@ final class TaskEditorViewModel {
                 setReminderEnabledSilently(true)
             } else {
                 reminderGate = ReminderGate(
-                    message: "Allow notifications in Settings to use reminders",
+                    message: String(localized: "Allow notifications in Settings to use reminders."),
                     action: .openSystemSettings
                 )
                 setReminderEnabledSilently(false)
@@ -837,7 +843,7 @@ final class TaskEditorViewModel {
 
         case .denied:
             reminderGate = ReminderGate(
-                message: "Allow notifications in Settings to use reminders",
+                message: String(localized: "Allow notifications in Settings to use reminders."),
                 action: .openSystemSettings
             )
             setReminderEnabledSilently(false)
@@ -927,7 +933,7 @@ final class TaskEditorViewModel {
         )
 
         if conflict {
-            return (true, "Repeat unavailable: task overlaps the next occurrence.")
+            return (true, String(localized: "Repeat isn't available because the task overlaps the next occurrence."))
         } else {
             return (false, nil)
         }
@@ -1029,13 +1035,13 @@ final class TaskEditorViewModel {
         var errorDescription: String? {
             switch self {
             case .taskNotFound:
-                return "The task was not found. It may have been deleted."
+                return String(localized: "The task couldn't be found. It may have been deleted.")
             case .invalidTimeRange:
-                return "End date & time must be later than start date & time."
+                return String(localized: "End date & time must be later than start date & time.")
             case .repeatConflict:
-                return "Repeat unavailable: task overlaps the next occurrence."
+                return String(localized: "Repeat isn't available because the task overlaps the next occurrence.")
             case .repeatingTasksMustUseSeriesSave:
-                return "Repeating tasks must be saved through the series model."
+                return String(localized: "Repeating tasks need to be saved as a series.")
             }
         }
     }
@@ -1061,8 +1067,8 @@ extension TaskEditorViewModel {
             self.editMode = editMode
             self.isEditing = isEditing
             self.navigationTitle = editMode == .baseRecurringIdentity
-                ? "Edit Recurring Task"
-                : (isEditing ? "Edit Task" : "Create Task")
+                ? String(localized: "Edit Recurring Task")
+                : (isEditing ? String(localized: "Edit Task") : String(localized: "Create Task"))
             refresh()
         }
 
@@ -1162,7 +1168,7 @@ extension TaskEditorViewModel {
     @MainActor
     final class TitleSectionState: ObservableObject {
         @Published private(set) var title = ""
-        @Published private(set) var categoryTitle = "Work"
+        @Published private(set) var categoryTitle = CategorySystem.workTitle
         @Published private(set) var availableCategories: [String] = []
 
         var onTitleChange: ((String) -> Void)?

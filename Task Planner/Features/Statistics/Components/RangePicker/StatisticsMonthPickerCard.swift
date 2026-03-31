@@ -104,14 +104,9 @@ struct StatisticsMonthPickerCard: View {
     }
 
     private var monthItems: [String] {
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.calendar = calendar
-        formatter.dateFormat = "LLL"
-
         return (1...12).map { month in
             let date = calendar.date(from: DateComponents(year: 2000, month: month, day: 1)) ?? .now
-            return formatter.string(from: date)
+            return date.monthShortName(using: calendar)
         }
     }
 

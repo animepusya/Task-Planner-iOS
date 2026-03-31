@@ -215,8 +215,8 @@ struct PlannerView: View {
 
     private var header: some View {
         ScreenTopSection(
-            title: "Task Planner",
-            subtitle: "Organize your day with ease"
+            title: String(localized: "Task Planner"),
+            subtitle: String(localized: "Organize your day with ease")
         ) {
             HStack(spacing: 10) {
                 IconCircleButton(systemName: "square.stack.3d.up") {
@@ -256,7 +256,7 @@ struct PlannerView: View {
                 onNext: handleNextMonth,
                 onSelectMonthAnchor: handleSelectMonthAnchor(_:),
                 onToday: handleToday,
-                todayTitle: "Today"
+                todayTitle: String(localized: "Today")
             )
 
             WeekdaysRowView(symbols: snapshot.weekdaySymbols)

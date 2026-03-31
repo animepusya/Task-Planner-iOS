@@ -14,21 +14,21 @@ struct NotificationsStatusMini: View {
     @State private var showInfoPopover = false
 
     private var pillTitle: String {
-        viewModel.notificationsEnabled ? "Enabled" : "Disabled"
+        viewModel.notificationsEnabled ? String(localized: "Enabled") : String(localized: "Disabled")
     }
 
     private var systemStatusTitle: String? {
         switch viewModel.systemStatus {
-        case .notDetermined: return "Permission not requested"
-        case .denied: return "Permission denied"
+        case .notDetermined: return String(localized: "Permission not requested")
+        case .denied: return String(localized: "Permission denied")
         case .authorized: return nil
         }
     }
 
     private var primaryActionTitle: String? {
         switch viewModel.systemStatus {
-        case .notDetermined: return "Enable"
-        case .denied: return "Settings"
+        case .notDetermined: return String(localized: "Enable")
+        case .denied: return String(localized: "Settings")
         case .authorized: return nil
         }
     }
@@ -36,11 +36,11 @@ struct NotificationsStatusMini: View {
     private var infoText: String {
         switch viewModel.systemStatus {
         case .notDetermined:
-            return "System permission is not requested yet. Tap “Enable” to show the system prompt."
+            return String(localized: "Notification access hasn't been requested yet. Tap “Enable” to show the system prompt.")
         case .denied:
-            return "System permission is denied. Tap “Settings” to enable notifications in iOS Settings."
+            return String(localized: "Notification access is denied. Tap “Settings” to allow it in iOS Settings.")
         case .authorized:
-            return "System permission is granted."
+            return String(localized: "Notification access is enabled.")
         }
     }
 

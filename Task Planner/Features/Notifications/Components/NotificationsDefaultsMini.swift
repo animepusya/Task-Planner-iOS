@@ -21,7 +21,7 @@ struct NotificationsDefaultsMini: View {
 
             // Reminder menu (только пресеты, без Custom)
             CompactMenuRow(
-                title: "Reminder",
+                title: String(localized: "Reminder"),
                 value: offsetTitle
             ) {
                 ForEach(ReminderPreset.allCases) { preset in
@@ -41,7 +41,7 @@ struct NotificationsDefaultsMini: View {
 
             // All-day time -> popover with wheel DatePicker
             CompactTapRow(
-                title: "All-day",
+                title: String(localized: "All-day"),
                 value: TimeOfDayMinutes.format(viewModel.defaultAllDayTimeMinutes),
                 onTap: openAllDayPopover
             )
