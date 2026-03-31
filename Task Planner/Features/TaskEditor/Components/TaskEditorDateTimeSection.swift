@@ -10,7 +10,21 @@ import SwiftUI
 struct TaskEditorDateTimeSection: View {
     @ObservedObject var state: TaskEditorViewModel.DateTimeSectionState
 
+    let availableWidth: CGFloat
     let onApplyDuration: (Int) -> Void
+
+    private enum Layout {
+        static let contentInset: CGFloat = DS.Spacing.xs
+        static let rowSpacing: CGFloat = DS.Spacing.xs
+        static let dateFieldMinimumWidth: CGFloat = 150
+        static let datePickerMinimumWidth: CGFloat = 118
+        static let timeFieldReservedWidth: CGFloat = 96
+        static let timePickerMinimumWidth: CGFloat = 50
+    }
+
+    private struct RowMetrics {
+        let usesVerticalLayout: Bool
+    }
 
     private static let durationOptions: [(title: String, minutes: Int)] = [
         ("15m", 15),
@@ -66,30 +80,85 @@ struct TaskEditorDateTimeSection: View {
 
     private var pickerRows: some View {
         VStack(spacing: DS.Spacing.md) {
-            HStack(spacing: DS.Spacing.md) {
-                TaskEditorPillField(title: String(localized: "Start"), icon: "calendar", trailingWidth: 110) {
-                    DatePicker("", selection: state.dayDateBinding, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
+            pickerRow(
+                title: String(localized: "Start"),
+                dateIcon: "calendar",
+                dateSelection: state.dayDateBinding,
+                timeIcon: "clock",
+                timeSelection: state.startTimeBinding
+            )
+
+            pickerRow(
+                title: String(localized: "End"),
+                dateIcon: "calendar.badge.clock",
+                dateSelection: state.endDayDateBinding,
+                timeIcon: "clock.fill",
+                timeSelection: state.endTimeBinding
+            )
+        }
+    }
+
+    private var rowMetrics: RowMetrics {
+        let contentWidth = max(0, availableWidth - Layout.contentInset * 2)
+        let minimumHorizontalWidth = Layout.dateFieldMinimumWidth + Layout.timeFieldReservedWidth + Layout.rowSpacing
+        return RowMetrics(usesVerticalLayout: contentWidth < minimumHorizontalWidth)
+    }
+
+    private func pickerRow(
+        title: String,
+        dateIcon: String,
+        dateSelection: Binding<Date>,
+        timeIcon: String,
+        timeSelection: Binding<Date>
+    ) -> some View {
+        Group {
+            if rowMetrics.usesVerticalLayout {
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    datePill(title: title, icon: dateIcon, selection: dateSelection)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    timePill(icon: timeIcon, selection: timeSelection, reservesTitleSpace: false)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
+            } else {
+                HStack(alignment: .top, spacing: Layout.rowSpacing) {
+                    datePill(title: title, icon: dateIcon, selection: dateSelection)
+                        .frame(minWidth: Layout.dateFieldMinimumWidth, maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
 
-                timePill(icon: "clock", selection: state.startTimeBinding)
-            }
-
-            HStack(spacing: DS.Spacing.md) {
-                TaskEditorPillField(title: String(localized: "End"), icon: "calendar.badge.clock", trailingWidth: 110) {
-                    DatePicker("", selection: state.endDayDateBinding, displayedComponents: .date)
-                        .labelsHidden()
-                        .datePickerStyle(.compact)
+                    timePill(icon: timeIcon, selection: timeSelection)
+                        .fixedSize(horizontal: true, vertical: false)
                 }
-
-                timePill(icon: "clock.fill", selection: state.endTimeBinding)
             }
         }
     }
 
-    private func timePill(icon: String, selection: Binding<Date>) -> some View {
-        TaskEditorPillField(title: nil, icon: icon, trailingWidth: 60) {
+    private func datePill(title: String, icon: String, selection: Binding<Date>) -> some View {
+        TaskEditorPillField(
+            title: title,
+            icon: icon,
+            trailingMinWidth: Layout.datePickerMinimumWidth,
+            trailingAlignment: .leading,
+            expandsTrailing: true
+        ) {
+            DatePicker("", selection: selection, displayedComponents: .date)
+                .labelsHidden()
+                .datePickerStyle(.compact)
+        }
+    }
+
+    private func timePill(
+        icon: String,
+        selection: Binding<Date>,
+        reservesTitleSpace: Bool = true
+    ) -> some View {
+        TaskEditorPillField(
+            title: nil,
+            icon: icon,
+            trailingMinWidth: Layout.timePickerMinimumWidth,
+            trailingAlignment: .leading,
+            reservesTitleSpace: reservesTitleSpace
+        ) {
             DatePicker("", selection: selection, displayedComponents: .hourAndMinute)
                 .labelsHidden()
                 .datePickerStyle(.compact)

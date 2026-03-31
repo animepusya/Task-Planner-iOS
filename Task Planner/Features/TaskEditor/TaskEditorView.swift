@@ -222,6 +222,7 @@ private struct TaskEditorContentView: View {
                 if visibility.showsDateTimeSection {
                     TaskEditorDateTimeSection(
                         state: viewModel.dateTimeSection,
+                        availableWidth: layout.contentWidth,
                         onApplyDuration: viewModel.applyDuration(minutes:)
                     )
                 }

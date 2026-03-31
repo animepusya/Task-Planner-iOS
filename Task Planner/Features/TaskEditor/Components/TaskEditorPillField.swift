@@ -10,22 +10,34 @@ import SwiftUI
 struct TaskEditorPillField<Trailing: View>: View {
     let title: String?
     let icon: String
-    let trailingWidth: CGFloat
+    let trailingMinWidth: CGFloat
+    let trailingMaxWidth: CGFloat?
+    let trailingAlignment: Alignment
+    let expandsTrailing: Bool
     let showsIcon: Bool
+    let reservesTitleSpace: Bool
 
     @ViewBuilder var trailing: () -> Trailing
 
     init(
         title: String?,
         icon: String,
-        trailingWidth: CGFloat,
+        trailingMinWidth: CGFloat = 0,
+        trailingMaxWidth: CGFloat? = nil,
+        trailingAlignment: Alignment = .trailing,
+        expandsTrailing: Bool = false,
         showsIcon: Bool = true,
+        reservesTitleSpace: Bool = true,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
         self.icon = icon
-        self.trailingWidth = trailingWidth
+        self.trailingMinWidth = trailingMinWidth
+        self.trailingMaxWidth = trailingMaxWidth
+        self.trailingAlignment = trailingAlignment
+        self.expandsTrailing = expandsTrailing
         self.showsIcon = showsIcon
+        self.reservesTitleSpace = reservesTitleSpace
         self.trailing = trailing
     }
 
@@ -35,7 +47,7 @@ struct TaskEditorPillField<Trailing: View>: View {
                 Text(title)
                     .font(DS.Typography.caption)
                     .foregroundStyle(DS.ColorToken.textSecondary)
-            } else {
+            } else if reservesTitleSpace {
                 Color.clear
                     .frame(height: 14)
             }
@@ -45,17 +57,22 @@ struct TaskEditorPillField<Trailing: View>: View {
                     Image(systemName: icon)
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(DS.ColorToken.textSecondary)
+                        .frame(width: 18, alignment: .center)
                 }
 
-                Spacer(minLength: 0)
-
                 trailing()
-                    .frame(width: trailingWidth, alignment: .trailing)
+                    .frame(
+                        minWidth: trailingMinWidth,
+                        maxWidth: expandsTrailing ? .infinity : trailingMaxWidth,
+                        alignment: trailingAlignment
+                    )
+                    .layoutPriority(expandsTrailing ? 1 : 0)
+                    .clipped()
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
             .background(Color.black.opacity(0.04))
             .cornerRadius(DS.Radius.sm)
         }
-        .frame(maxWidth: .infinity)
     }
 }
