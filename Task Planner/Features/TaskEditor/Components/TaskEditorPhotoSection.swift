@@ -29,6 +29,7 @@ struct TaskEditorPhotoSection: View {
             header
             content
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .dsCard(style: .outlined)
         .photosPicker(
             isPresented: $isPickerPresented,
@@ -99,104 +100,103 @@ struct TaskEditorPhotoSection: View {
     @ViewBuilder
     private var content: some View {
         if let previewImage {
-            attachedPhotoRow(image: previewImage)
+            attachedPhotoContent(image: previewImage)
         } else {
-            addPhotoButton
+            addPhotoContent
         }
     }
 
-    private func attachedPhotoRow(image: UIImage) -> some View {
-        HStack(spacing: DS.Spacing.md) {
-            Button(action: presentPicker) {
-                HStack(spacing: DS.Spacing.md) {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: previewSide, height: previewSide)
-                        .clipShape(
-                            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                                .stroke(Color.black.opacity(0.06), lineWidth: 1)
-                        )
-
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Photo attached")
-                            .font(DS.Typography.body)
-                            .foregroundStyle(DS.ColorToken.textPrimary)
-
-                        Text("Tap to replace the square thumbnail.")
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.ColorToken.textSecondary)
-                    }
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isLoadingPhoto)
-            .accessibilityLabel("Replace photo")
-            .accessibilityHint("Opens photo picker")
-
-            Spacer(minLength: 0)
-
+    private func attachedPhotoContent(image: UIImage) -> some View {
+        HStack(spacing: DS.Spacing.sm) {
             Menu {
-                Button("Replace Photo", systemImage: "photo.badge.plus", action: presentPicker)
+                Button("Replace", systemImage: "photo.badge.plus", action: presentPicker)
 
-                Button("Remove Photo", systemImage: "trash", role: .destructive) {
+                Button("Delete", systemImage: "trash", role: .destructive) {
                     removePhoto()
                 }
             } label: {
-                pillLabel(title: String(localized: "Edit"), systemImage: "ellipsis.circle")
+                photoButtonLabel {
+                    attachedThumbnail(image: image)
+                }
             }
+            .menuIndicator(.hidden)
+            .buttonStyle(.plain)
             .disabled(isLoadingPhoto)
-        }
-        .overlay {
-            if isLoadingPhoto {
-                loadingOverlay(title: String(localized: "Loading Photo"))
-            }
+            .accessibilityLabel("Photo options")
+            .accessibilityHint("Shows options to replace or delete the photo")
+
+            Text("Tap the photo to change it.")
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .padding(.leading, 2)
         }
     }
 
-    private var addPhotoButton: some View {
-        Button(action: presentPicker) {
-            HStack(spacing: DS.Spacing.md) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                        .fill(DS.ColorToken.textSecondary.opacity(0.10))
-                        .frame(width: previewSide, height: previewSide)
-
-                    Image(systemName: "photo.badge.plus")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(DS.ColorToken.textSecondary)
+    private var addPhotoContent: some View {
+        HStack(spacing: DS.Spacing.sm) {
+            Button(action: presentPicker) {
+                photoButtonLabel {
+                    emptyThumbnail
                 }
+            }
+            .buttonStyle(.plain)
+            .disabled(isLoadingPhoto)
+            .accessibilityLabel("Add photo")
+            .accessibilityHint("Opens photo picker")
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Add photo")
-                        .font(DS.Typography.body)
-                        .foregroundStyle(DS.ColorToken.textPrimary)
+            Text("Tap the placeholder to add a photo.")
+                .font(DS.Typography.caption)
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .padding(.leading, 2)
+        }
+    }
+
+    private func photoButtonLabel<Content: View>(
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        content()
+            .overlay {
+                if isLoadingPhoto {
+                    loadingOverlay(title: String(localized: "Loading Photo"))
+                        .clipShape(
+                            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+                        )
+                        .allowsHitTesting(false)
                 }
-
-                Spacer(minLength: 0)
-
-                pillLabel(title: String(localized: "Add"), systemImage: "plus")
             }
-            .contentShape(Rectangle())
+    }
+
+    private func attachedThumbnail(image: UIImage) -> some View {
+        Image(uiImage: image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: previewSide, height: previewSide)
+            .clipShape(
+                RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+            )
+    }
+
+    private var emptyThumbnail: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
+                .fill(DS.ColorToken.textSecondary.opacity(0.10))
+                .frame(width: previewSide, height: previewSide)
+
+            Image(systemName: "photo.badge.plus")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(DS.ColorToken.textSecondary)
         }
-        .buttonStyle(.plain)
-        .disabled(isLoadingPhoto)
-        .overlay {
-            if isLoadingPhoto {
-                loadingOverlay(title: String(localized: "Loading Photo"))
-            }
-        }
-        .accessibilityLabel("Add photo")
-        .accessibilityHint("Opens photo picker")
     }
 
     private func presentPicker() {
         guard !isLoadingPhoto else { return }
-        isPickerPresented = true
+        Task { @MainActor in
+            isPickerPresented = true
+        }
     }
 
     private func removePhoto() {
@@ -267,18 +267,6 @@ struct TaskEditorPhotoSection: View {
                 loadErrorMessage = String(localized: "Try a different image.")
             }
         }
-    }
-
-    private func pillLabel(title: String, systemImage: String) -> some View {
-        Label(title, systemImage: systemImage)
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
-            .foregroundStyle(DS.ColorToken.textPrimary)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                RoundedRectangle(cornerRadius: DS.Radius.pill, style: .continuous)
-                    .fill(DS.ColorToken.textSecondary.opacity(0.10))
-            )
     }
 
     private func loadingOverlay(title: String) -> some View {
