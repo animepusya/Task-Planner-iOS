@@ -301,12 +301,13 @@ final class StatisticsViewModel: ObservableObject {
         }
 
         let donutSlices = Self.normalizedDonutSlices(
-            preparedRows.map { row in
+            preparedRows.enumerated().map { index, row in
                 DonutChartSlice(
                     id: Self.makeDonutSliceID(
                         breakdown: breakdown,
                         rowID: row.id
                     ),
+                    renderKey: Self.makeDonutRenderKey(slot: index),
                     fraction: Double(row.minutes),
                     color: row.color
                 )
@@ -362,6 +363,10 @@ final class StatisticsViewModel: ObservableObject {
         "\(breakdown.rawValue):\(rowID)"
     }
 
+    private static func makeDonutRenderKey(slot: Int) -> String {
+        "slot:\(slot)"
+    }
+
     private static func normalizedDonutSlices(_ slices: [DonutChartSlice]) -> [DonutChartSlice] {
         let total = slices.reduce(0.0) { $0 + max(0, $1.fraction) }
         guard total > 0 else { return [] }
@@ -369,6 +374,7 @@ final class StatisticsViewModel: ObservableObject {
         return slices.map { slice in
             DonutChartSlice(
                 id: slice.id,
+                renderKey: slice.renderKey,
                 fraction: max(0, slice.fraction) / total,
                 color: slice.color
             )

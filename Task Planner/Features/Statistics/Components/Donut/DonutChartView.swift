@@ -10,6 +10,7 @@ import Charts
 
 struct DonutChartSlice: Identifiable, Hashable {
     let id: String
+    let renderKey: String
     let fraction: Double
     let color: Color
 }
@@ -43,20 +44,20 @@ struct DonutChartView: View {
         let data = slices
 
         Chart {
-            ForEach(data) { s in
+            ForEach(data, id: \.renderKey) { s in
                 SectorMark(
                     angle: .value("Value", s.fraction),
                     innerRadius: .ratio(innerRadiusRatio),
                     angularInset: gapDegrees
                 )
-                .foregroundStyle(by: .value("Slice", s.id))
+                .foregroundStyle(by: .value("Slice", s.renderKey))
                 .cornerRadius(cornerRadius)
                 .opacity(selectedSliceId == nil || selectedSliceId == s.id ? 1.0 : 0.32)
             }
         }
         .chartLegend(.hidden)
         .chartForegroundStyleScale(
-            domain: data.map(\.id),
+            domain: data.map(\.renderKey),
             range: data.map(\.color)
         )
         .chartPlotStyle { plot in
@@ -95,9 +96,20 @@ struct DonutChartView: View {
                 }
             }
         }
+        .animation(.easeInOut(duration: 0.20), value: sliceAnimationState(for: data))
         .animation(.easeInOut(duration: 0.14), value: selectedSliceId)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Donut chart")
+    }
+
+    private func sliceAnimationState(for data: [DonutChartSlice]) -> [DonutChartSliceAnimationState] {
+        data.map {
+            DonutChartSliceAnimationState(
+                renderKey: $0.renderKey,
+                semanticID: $0.id,
+                fraction: $0.fraction
+            )
+        }
     }
 
     private func tapSelectionGesture(
@@ -206,6 +218,12 @@ struct DonutChartView: View {
 
         return nil
     }
+}
+
+private struct DonutChartSliceAnimationState: Equatable {
+    let renderKey: String
+    let semanticID: String
+    let fraction: Double
 }
 
 private struct DonutInteractionRingShape: Shape {
