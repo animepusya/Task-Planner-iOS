@@ -49,20 +49,24 @@ struct DonutChartView: View {
                     innerRadius: .ratio(innerRadiusRatio),
                     angularInset: gapDegrees
                 )
-                .foregroundStyle(s.color)
+                .foregroundStyle(by: .value("Slice", s.id))
                 .cornerRadius(cornerRadius)
                 .opacity(selectedSliceId == nil || selectedSliceId == s.id ? 1.0 : 0.32)
             }
         }
         .chartLegend(.hidden)
+        .chartForegroundStyleScale(
+            domain: data.map(\.id),
+            range: data.map(\.color)
+        )
         .chartPlotStyle { plot in
             plot.background(Color.clear)
         }
         .chartOverlay { proxy in
             GeometryReader { geo in
-                let plotFrame = geo[proxy.plotAreaFrame]
-
-                if plotFrame.width > 0, plotFrame.height > 0 {
+                if let plotFrame = proxy.plotFrame.map({ geo[$0] }),
+                   plotFrame.width > 0,
+                   plotFrame.height > 0 {
                     let localCenter = CGPoint(
                         x: plotFrame.width / 2,
                         y: plotFrame.height / 2

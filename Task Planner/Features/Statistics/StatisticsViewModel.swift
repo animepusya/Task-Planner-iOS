@@ -249,6 +249,7 @@ final class StatisticsViewModel: ObservableObject {
             totalMinutesText: totalMinutesText,
             category: makeBreakdownSnapshot(
                 totalMinutes: result.totalMinutes,
+                breakdown: .category,
                 rows: result.categoryStats.map {
                     StatisticsBreakdownRowSource(
                         id: $0.id,
@@ -260,6 +261,7 @@ final class StatisticsViewModel: ObservableObject {
             ),
             task: makeBreakdownSnapshot(
                 totalMinutes: result.totalMinutes,
+                breakdown: .task,
                 rows: result.taskStats.map {
                     StatisticsBreakdownRowSource(
                         id: $0.id,
@@ -274,6 +276,7 @@ final class StatisticsViewModel: ObservableObject {
 
     private func makeBreakdownSnapshot(
         totalMinutes: Int,
+        breakdown: StatisticsBreakdown,
         rows: [StatisticsBreakdownRowSource]
     ) -> StatisticsBreakdownSnapshot {
         let totalMinutesText = totalMinutes.formattedHoursMinutes()
@@ -300,22 +303,32 @@ final class StatisticsViewModel: ObservableObject {
         let donutSlices = Self.normalizedDonutSlices(
             preparedRows.map { row in
                 DonutChartSlice(
-                    id: row.id,
+                    id: Self.makeDonutSliceID(
+                        breakdown: breakdown,
+                        rowID: row.id
+                    ),
                     fraction: Double(row.minutes),
                     color: row.color
                 )
             }
         )
 
-        let centersBySliceID = Dictionary(uniqueKeysWithValues: preparedRows.map { row in
-            (
-                row.id,
-                StatisticsDonutCenterData(
-                    title: row.name,
-                    valueText: row.minutesText
+        let centersBySliceID: [String: StatisticsDonutCenterData] = Dictionary(
+            uniqueKeysWithValues: preparedRows.map { row in
+                let sliceID = Self.makeDonutSliceID(
+                    breakdown: breakdown,
+                    rowID: row.id
                 )
-            )
-        })
+
+                return (
+                    sliceID,
+                    StatisticsDonutCenterData(
+                        title: row.name,
+                        valueText: row.minutesText
+                    )
+                )
+            }
+        )
 
         return StatisticsBreakdownSnapshot(
             rows: preparedRows,
@@ -340,6 +353,13 @@ final class StatisticsViewModel: ObservableObject {
 
     private static func color(forRawValue rawValue: String) -> Color {
         TaskColor(rawValue: rawValue)?.uiColor ?? DS.ColorToken.textSecondary
+    }
+
+    private static func makeDonutSliceID(
+        breakdown: StatisticsBreakdown,
+        rowID: String
+    ) -> String {
+        "\(breakdown.rawValue):\(rowID)"
     }
 
     private static func normalizedDonutSlices(_ slices: [DonutChartSlice]) -> [DonutChartSlice] {

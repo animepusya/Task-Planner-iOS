@@ -72,9 +72,7 @@ struct StatisticsView: View {
             viewModel.onViewAppear()
         }
         .onChange(of: viewModel.breakdown) { _, _ in
-            withAnimation(.easeInOut(duration: 0.16)) {
-                selectedSliceId = nil
-            }
+            selectedSliceId = nil
         }
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { note in
             guard let context = note.object as? ModelContext, context == modelContext else { return }
