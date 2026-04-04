@@ -582,30 +582,21 @@ final class TaskEditorViewModel {
             throw EditorError.repeatingTasksMustUseSeriesSave
         }
 
-        let cal = Calendar.current
-        let ownerDay = cal.startOfDay(for: existing.dayDate)
-        let currentOwnerTemplate = TaskSeriesEngine.template(for: existing, startDay: ownerDay, calendar: cal)
-            ?? TaskSeriesEngine.templateFromTask(existing, dayStart: ownerDay, calendar: cal)
-
-        var template = currentOwnerTemplate
-
         let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
-        template.title = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
+        let safeTitle = normalizedTitle.isEmpty ? "Untitled" : normalizedTitle
 
         let trimmedCategory = form.categoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        template.categoryTitle = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
+        let safeCategory = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
+        let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
-        template.repeatRuleRaw = form.repeatRule.rawValue
-        template.repeatIntervalDays = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
-        template.colorRaw = form.color.rawValue
-
-        try seriesService.applyEdit(
+        try seriesService.applyBaseRecurringIdentityEdit(
             taskId: taskId,
-            occurrenceStartDay: ownerDay,
-            scope: .allFutureDays,
             changes: .init(
-                startDay: ownerDay,
-                template: template
+                title: safeTitle,
+                repeatRuleRaw: form.repeatRule.rawValue,
+                repeatIntervalDays: intervalOrNil,
+                colorRaw: form.color.rawValue,
+                categoryTitle: safeCategory
             )
         )
     }

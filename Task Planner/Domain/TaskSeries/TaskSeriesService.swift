@@ -21,6 +21,18 @@ final class TaskSeriesService {
         let template: TaskSeriesTemplate
     }
 
+    struct BaseRecurringIdentityChanges: Equatable {
+        let title: String
+        let repeatRuleRaw: String
+        let repeatIntervalDays: Int?
+        let colorRaw: String
+        let categoryTitle: String
+
+        var repeatRule: RepeatRule {
+            RepeatRule(rawValue: repeatRuleRaw) ?? .none
+        }
+    }
+
     private struct PreservedPastOccurrence {
         let day: Date
         let template: TaskSeriesTemplate
@@ -116,6 +128,44 @@ final class TaskSeriesService {
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
             try taskRepository.save()
         }
+    }
+
+    func applyBaseRecurringIdentityEdit(
+        taskId: PersistentIdentifier,
+        changes: BaseRecurringIdentityChanges
+    ) throws {
+        guard let task = try taskRepository.fetch(by: taskId) else { return }
+
+        let cal = Calendar.current
+        TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: task, calendar: cal)
+
+        if changes.repeatRule == .none {
+            collapseSeriesToSingleNonRepeatingTemplate(
+                task: task,
+                changes: changes,
+                calendar: cal
+            )
+        } else {
+            // Base recurring fields are shared across scoped templates, so merge them in-place.
+            task.seriesSegments = task.seriesSegments.map { segment in
+                var segment = segment
+                segment.template = mergeBaseRecurringIdentity(into: segment.template, changes: changes)
+                return segment
+            }
+
+            task.seriesOverrides = task.seriesOverrides.map { override in
+                var override = override
+
+                if let template = override.template {
+                    override.template = mergeBaseRecurringIdentity(into: template, changes: changes)
+                }
+
+                return override
+            }
+        }
+
+        syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
+        try taskRepository.save()
     }
 
     // MARK: - Only this day edit / move
@@ -275,6 +325,45 @@ final class TaskSeriesService {
         task.reminderAllDayTimeMinutes = tpl.reminderAllDayTimeMinutes
 
         task.normalizeRepeatFields()
+    }
+
+    private func mergeBaseRecurringIdentity(
+        into template: TaskSeriesTemplate,
+        changes: BaseRecurringIdentityChanges
+    ) -> TaskSeriesTemplate {
+        var template = template
+        template.title = changes.title
+        template.repeatRuleRaw = changes.repeatRuleRaw
+        template.repeatIntervalDays = changes.repeatIntervalDays
+        template.colorRaw = changes.colorRaw
+        template.categoryTitle = changes.categoryTitle
+        return template
+    }
+
+    private func collapseSeriesToSingleNonRepeatingTemplate(
+        task: TaskEntity,
+        changes: BaseRecurringIdentityChanges,
+        calendar: Calendar
+    ) {
+        let ownerDay = resolvedOwnerDay(for: task, calendar: calendar)
+            ?? calendar.startOfDay(for: task.dayDate)
+
+        let currentTemplate = TaskSeriesEngine.template(for: task, startDay: ownerDay, calendar: calendar)
+            ?? TaskSeriesEngine.templateFromTask(task, dayStart: ownerDay, calendar: calendar)
+
+        let mergedTemplate = mergeBaseRecurringIdentity(into: currentTemplate, changes: changes)
+
+        task.seriesSegments = [
+            TaskSeriesSegment(
+                id: UUID(),
+                startDayKey: DayKey.format(ownerDay, calendar: calendar),
+                endDayKey: nil,
+                template: mergedTemplate
+            )
+        ]
+        task.seriesOverrides = []
+        task.seriesEndDay = nil
+        task.removeSuppressedReminders(onOrAfter: ownerDay, calendar: calendar)
     }
 
     // MARK: - All future split / move
