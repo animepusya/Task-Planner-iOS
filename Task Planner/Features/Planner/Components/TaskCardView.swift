@@ -26,7 +26,8 @@ struct TaskCardView: View {
             timeText: timeRangeText,
             badgeText: occurrence.badge?.localizedTitle,
             thumb: thumbImage,
-            surfaceColor: occurrence.color.surface(opacity: 1.0),
+            surfaceColor: occurrence.color.uiColor,
+            colorTreatment: .subtleAccent,
             isMuted: isVisuallyDone
         )
     }

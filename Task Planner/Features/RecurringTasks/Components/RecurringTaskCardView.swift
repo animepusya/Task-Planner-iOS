@@ -24,7 +24,8 @@ struct RecurringTaskCardView: View {
             timeText: repeatText,
             badgeText: nil,
             thumb: thumbImage,
-            surfaceColor: task.color.surface(opacity: 1.0),
+            surfaceColor: task.color.uiColor,
+            colorTreatment: .subtleAccent,
             isMuted: false
         )
     }

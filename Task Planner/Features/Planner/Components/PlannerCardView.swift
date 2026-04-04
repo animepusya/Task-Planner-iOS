@@ -9,6 +9,11 @@ import SwiftUI
 import UIKit
 
 struct PlannerCardModel: Hashable {
+    enum ColorTreatment: Hashable {
+        case fullSurface
+        case subtleAccent
+    }
+
     let title: String
     let subtitle: String
     let timeText: String
@@ -16,10 +21,13 @@ struct PlannerCardModel: Hashable {
     let thumb: UIImage?
 
     let surfaceColor: Color
+    let colorTreatment: ColorTreatment
     let isMuted: Bool
 }
 
 struct PlannerCardView<TopRight: View>: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let model: PlannerCardModel
     @ViewBuilder let topRight: () -> TopRight
 
@@ -40,8 +48,9 @@ struct PlannerCardView<TopRight: View>: View {
             }
         }
         .dsCard(padding: DS.Spacing.md) {
-            model.surfaceColor.opacity(surfaceOpacity)
+            cardBackground
         }
+        .overlay(alignment: .leading, content: accentOverlay)
         .overlay(doneOverlay)
         .saturation(model.isMuted ? 0.35 : 1.0)
         .grayscale(model.isMuted ? 0.25 : 0.0)
@@ -103,12 +112,44 @@ struct PlannerCardView<TopRight: View>: View {
         .accessibilityLabel("Task photo")
     }
 
+    @ViewBuilder
+    private var cardBackground: some View {
+        if usesDarkAccentTreatment {
+            ZStack {
+                DS.Surface.card
+                model.surfaceColor.opacity(model.isMuted ? 0.07 : 0.12)
+            }
+        } else {
+            model.surfaceColor.opacity(surfaceOpacity)
+        }
+    }
+
+    @ViewBuilder
+    private func accentOverlay() -> some View {
+        if usesDarkAccentTreatment {
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(model.surfaceColor.opacity(model.isMuted ? 0.45 : 0.96))
+                .frame(width: 4, height: 58)
+                .shadow(
+                    color: model.surfaceColor.opacity(model.isMuted ? 0.0 : 0.24),
+                    radius: 10,
+                    x: 0,
+                    y: 0
+                )
+                .padding(.leading, 8)
+        }
+    }
+
     private var doneOverlay: some View {
         RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
             .stroke(
                 DS.ColorToken.textSecondary.opacity(model.isMuted ? 0.22 : 0.0),
                 lineWidth: 1
             )
+    }
+
+    private var usesDarkAccentTreatment: Bool {
+        colorScheme == .dark && model.colorTreatment == .subtleAccent
     }
 
     private func badgePill(text: String, isMuted: Bool) -> some View {

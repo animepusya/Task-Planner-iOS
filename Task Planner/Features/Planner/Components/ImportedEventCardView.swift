@@ -29,6 +29,7 @@ struct ImportedEventCardView: View {
             badgeText: nil,
             thumb: nil,
             surfaceColor: row.mappedColor.surface(opacity: 1.0),
+            colorTreatment: .fullSurface,
             isMuted: false
         )
     }
