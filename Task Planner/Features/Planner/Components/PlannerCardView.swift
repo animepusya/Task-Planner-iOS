@@ -39,7 +39,7 @@ struct PlannerCardView<TopRight: View>: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            contentLeft
+            leadingContent
 
             Spacer(minLength: 0)
 
@@ -47,15 +47,28 @@ struct PlannerCardView<TopRight: View>: View {
                 thumbContainer(thumb)
             }
         }
-        .dsCard(padding: DS.Spacing.md) {
+        .padding(.vertical, DS.Spacing.md)
+        .padding(.trailing, DS.Spacing.md)
+        .padding(.leading, DS.Spacing.sm)
+        .dsCard(padding: 0) {
             cardBackground
         }
-        .overlay(alignment: .leading, content: accentOverlay)
         .overlay(doneOverlay)
         .saturation(model.isMuted ? 0.35 : 1.0)
         .grayscale(model.isMuted ? 0.25 : 0.0)
         .scaleEffect(model.isMuted ? 0.995 : 1.0)
         .animation(doneAnim, value: model.isMuted)
+    }
+
+
+    private var leadingContent: some View {
+        HStack(spacing: usesDarkAccentTreatment ? DS.Spacing.sm : 0) {
+            if usesDarkAccentTreatment {
+                accentBar
+            }
+
+            contentLeft
+        }
     }
 
     private var contentLeft: some View {
@@ -124,20 +137,16 @@ struct PlannerCardView<TopRight: View>: View {
         }
     }
 
-    @ViewBuilder
-    private func accentOverlay() -> some View {
-        if usesDarkAccentTreatment {
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .fill(model.surfaceColor.opacity(model.isMuted ? 0.45 : 0.96))
-                .frame(width: 4, height: 58)
-                .shadow(
-                    color: model.surfaceColor.opacity(model.isMuted ? 0.0 : 0.24),
-                    radius: 10,
-                    x: 0,
-                    y: 0
-                )
-                .padding(.leading, 8)
-        }
+    private var accentBar: some View {
+        RoundedRectangle(cornerRadius: 3, style: .continuous)
+            .fill(model.surfaceColor.opacity(model.isMuted ? 0.45 : 0.96))
+            .frame(width: 4, height: 58)
+            .shadow(
+                color: model.surfaceColor.opacity(model.isMuted ? 0.0 : 0.24),
+                radius: 10,
+                x: 0,
+                y: 0
+            )
     }
 
     private var doneOverlay: some View {
