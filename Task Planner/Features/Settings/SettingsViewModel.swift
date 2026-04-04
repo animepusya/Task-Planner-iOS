@@ -12,22 +12,6 @@ import EventKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    enum ThemeOption: String, CaseIterable, Identifiable {
-        case system
-        case light
-        case dark
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .system: return String(localized: "System")
-            case .light: return String(localized: "Light")
-            case .dark: return String(localized: "Dark")
-            }
-        }
-    }
-
     enum LocalizationOption: String, CaseIterable, Identifiable {
         case system
         case english
@@ -47,7 +31,6 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private enum StorageKey {
-        static let theme = "settings.theme"
         static let localization = "settings.localization"
     }
 
@@ -67,7 +50,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var calendarStatusText: String = ""
     @Published var calendarErrorText: String?
 
-    @Published var selectedTheme: ThemeOption = .system
+    @Published var selectedTheme: AppTheme = .system
     @Published var selectedLocalization: LocalizationOption = .system
 
     init(
@@ -90,12 +73,13 @@ final class SettingsViewModel: ObservableObject {
             weekStartsOnMonday = prefs.weekStartsOnMonday
             showTasksInAppleCalendar = prefs.showTasksInAppleCalendar
             showAppleCalendarEventsInPlanner = prefs.showAppleCalendarEventsInPlanner
+            selectedTheme = prefs.theme
             calendarStatusText = statusText()
         } catch {
             calendarStatusText = String(localized: "Couldn't load settings.")
+            selectedTheme = .system
         }
 
-        selectedTheme = loadTheme()
         selectedLocalization = loadLocalization()
 
         reloadCategories()
@@ -132,9 +116,15 @@ final class SettingsViewModel: ObservableObject {
         } catch {}
     }
 
-    func setTheme(_ value: ThemeOption) {
+    func setTheme(_ value: AppTheme) {
+        let previousValue = selectedTheme
         selectedTheme = value
-        defaults.set(value.rawValue, forKey: StorageKey.theme)
+
+        do {
+            try preferencesRepository.setAppTheme(value)
+        } catch {
+            selectedTheme = previousValue
+        }
     }
 
     func setLocalization(_ value: LocalizationOption) {
@@ -291,16 +281,6 @@ final class SettingsViewModel: ObservableObject {
     }
 
     // MARK: - Helpers
-
-    private func loadTheme() -> ThemeOption {
-        guard
-            let rawValue = defaults.string(forKey: StorageKey.theme),
-            let value = ThemeOption(rawValue: rawValue)
-        else {
-            return .system
-        }
-        return value
-    }
 
     private func loadLocalization() -> LocalizationOption {
         guard

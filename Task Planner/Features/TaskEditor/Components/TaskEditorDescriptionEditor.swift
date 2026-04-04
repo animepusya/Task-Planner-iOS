@@ -47,7 +47,7 @@ struct TaskEditorDescriptionEditor: View {
     private var textEditor: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: DS.Radius.sm)
-                .fill(Color.black.opacity(0.04))
+                .fill(DS.ColorToken.controlFill)
 
             TextEditor(text: state.notesBinding)
                 .font(DS.Typography.body)

@@ -37,7 +37,7 @@ struct CustomTabBar: View {
         .padding(10)
         .frame(maxWidth: .infinity)
         .frame(minHeight: DS.Layout.tabBarMinHeight)
-        .dsSurface(Capsule(), fill: Color.white.opacity(0.70))
+        .dsSurface(Capsule(), fill: DS.Surface.frosted)
         .padding(.horizontal, DS.Spacing.lg)
         .accessibilityElement(children: .contain)
     }
@@ -89,7 +89,7 @@ struct CustomTabBar: View {
                 return AnyShapeStyle(DS.GradientToken.brandPink)
             }
         } else {
-            return AnyShapeStyle(Color.white.opacity(0.95))
+            return AnyShapeStyle(DS.Surface.card)
         }
     }
 

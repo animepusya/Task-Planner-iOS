@@ -93,7 +93,7 @@ struct TaskEditorRepeatSection: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(minHeight: 44)
-            .background(Color.black.opacity(0.04))
+            .background(DS.ColorToken.controlFill)
             .cornerRadius(DS.Radius.pill)
             .contentShape(Rectangle())
         }
@@ -126,7 +126,7 @@ private struct RepeatIntervalControl: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .frame(minHeight: 40)
-        .background(Color.black.opacity(0.04))
+        .background(DS.ColorToken.controlFill)
         .cornerRadius(DS.Radius.pill)
     }
 

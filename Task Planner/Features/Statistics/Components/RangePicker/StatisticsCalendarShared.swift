@@ -19,8 +19,8 @@ struct StatisticsCalendarHeader: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.white.opacity(0.95)))
-                    .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+                    .background(Circle().fill(DS.Surface.chrome))
+                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
             }
             .buttonStyle(.plain)
 
@@ -37,8 +37,8 @@ struct StatisticsCalendarHeader: View {
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .frame(width: 34, height: 34)
-                    .background(Circle().fill(Color.white.opacity(0.95)))
-                    .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+                    .background(Circle().fill(DS.Surface.chrome))
+                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
             }
             .buttonStyle(.plain)
         }

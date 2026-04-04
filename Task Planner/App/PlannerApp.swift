@@ -13,8 +13,6 @@ struct PlannerApp: App {
     private let modelContainer: ModelContainer
     private let dependencyContainer: DependencyContainer
 
-    @State private var showSplash = true
-
     init() {
         let modelContainer = ModelContainerFactory.make()
         self.modelContainer = modelContainer
@@ -23,24 +21,42 @@ struct PlannerApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                // 1) Подложка — всегда, чтобы не было белых флешей
-                AppBackgroundView(gradient: DS.GradientToken.splash)
-
-                // 2) Контент
-                AppRootView(container: dependencyContainer)
-                    .opacity(showSplash ? 0 : 1)
-                    .animation(.easeOut(duration: 0.25), value: showSplash)
-
-                // 3) Splash поверх
-                if showSplash {
-                    SplashView {
-                        showSplash = false
-                    }
-                    .transition(.opacity)
-                }
-            }
+            PlannerSceneView(container: dependencyContainer)
         }
         .modelContainer(modelContainer)
+    }
+}
+
+private struct PlannerSceneView: View {
+    let container: DependencyContainer
+
+    @Environment(\.modelContext) private var modelContext
+    @Query private var preferences: [AppPreferencesEntity]
+
+    @State private var showSplash = true
+
+    private var appTheme: AppTheme {
+        preferences.first?.theme ?? .system
+    }
+
+    var body: some View {
+        ZStack {
+            AppBackgroundView(gradient: DS.GradientToken.splash)
+
+            AppRootView(container: container)
+                .opacity(showSplash ? 0 : 1)
+                .animation(.easeOut(duration: 0.25), value: showSplash)
+
+            if showSplash {
+                SplashView {
+                    showSplash = false
+                }
+                .transition(.opacity)
+            }
+        }
+        .preferredColorScheme(appTheme.preferredColorScheme)
+        .task {
+            _ = try? SwiftDataPreferencesRepository(context: modelContext).getOrCreate()
+        }
     }
 }

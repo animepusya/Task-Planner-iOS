@@ -18,7 +18,7 @@ struct IconCircleButton: View {
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .frame(width: 42, height: 42)
-                .dsSurface(Circle(), fill: Color.white.opacity(0.86))
+                .dsSurface(Circle(), fill: DS.Surface.chrome)
         }
         .buttonStyle(.plain)
         .contentShape(Circle())

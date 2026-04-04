@@ -128,7 +128,7 @@ struct StatisticsView: View {
         .padding(.vertical, 8)
         .dsSurface(
             RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous),
-            fill: Color.white.opacity(0.95)
+            fill: DS.Surface.chrome
         )
     }
 

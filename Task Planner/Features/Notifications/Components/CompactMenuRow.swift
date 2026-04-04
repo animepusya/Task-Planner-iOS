@@ -44,7 +44,7 @@ struct CompactMenuRow<Content: View>: View {
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 10)
-        .background(Color.black.opacity(0.04))
+        .background(DS.ColorToken.controlFill)
         .cornerRadius(DS.Radius.sm)
     }
 }

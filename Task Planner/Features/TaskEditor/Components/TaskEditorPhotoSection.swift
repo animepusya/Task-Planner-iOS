@@ -176,14 +176,14 @@ struct TaskEditorPhotoSection: View {
             )
             .overlay(
                 RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                    .stroke(DS.Border.subtle, lineWidth: 1)
             )
     }
 
     private var emptyThumbnail: some View {
         ZStack {
             RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                .fill(DS.ColorToken.textSecondary.opacity(0.10))
+                .fill(DS.ColorToken.controlFillStrong)
                 .frame(width: previewSide, height: previewSide)
 
             Image(systemName: "photo.badge.plus")

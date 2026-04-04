@@ -19,7 +19,7 @@ struct SettingsCard<Content: View>: View {
             content()
         }
         .dsCard(padding: 0) {
-            Color.white.opacity(0.92)
+            DS.Surface.card
         }
     }
 }

@@ -47,7 +47,7 @@ struct NotificationsSetupStrip: View {
 
     private var divider: some View {
         Rectangle()
-            .fill(Color.black.opacity(0.06))
+            .fill(DS.Border.subtle)
             .frame(height: 1)
             .padding(.vertical, 2)
             .accessibilityHidden(true)

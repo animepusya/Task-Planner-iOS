@@ -75,21 +75,13 @@ struct ScheduledReminderRow: View {
     }
 
     private var topHighlight: some View {
-        LinearGradient(
-            colors: [
-                Color.white.opacity(0.55),
-                Color.white.opacity(0.18),
-                Color.white.opacity(0.0)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        DS.GradientToken.cardTopHighlight
         .blendMode(.screen)
         .opacity(0.9)
     }
 
     private var border: some View {
         RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-            .strokeBorder(Color.black.opacity(0.06), lineWidth: 1)
+            .strokeBorder(DS.Border.subtle, lineWidth: 1)
     }
 }

@@ -19,7 +19,7 @@ struct StatusPill: View {
             .padding(.vertical, 6)
             .background(
                 RoundedRectangle(cornerRadius: DS.Radius.pill)
-                    .fill(isOn ? DS.ColorToken.lavender.opacity(0.55) : Color.black.opacity(0.06))
+                    .fill(isOn ? DS.ColorToken.lavender.opacity(0.55) : DS.ColorToken.controlFillStrong)
             )
     }
 }

@@ -115,7 +115,7 @@ struct MonthSwitcherView: View {
                 .frame(width: 34, height: 34)
                 .dsSurface(
                     Circle(),
-                    fill: Color.white.opacity(isNavigationLocked ? 0.58 : 0.9),
+                    fill: isNavigationLocked ? DS.Surface.frosted : DS.Surface.chrome,
                     stroke: isNavigationLocked ? DS.Border.muted : DS.Border.subtle
                 )
                 .opacity(isNavigationLocked ? 0.72 : 1.0)

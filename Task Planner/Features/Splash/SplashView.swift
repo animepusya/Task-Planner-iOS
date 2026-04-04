@@ -10,6 +10,8 @@ import SwiftUI
 struct SplashView: View {
     let onFinished: () -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
+
     private let totalDuration: TimeInterval = 1.8
     private let mainAnim: TimeInterval = 1.1
     private let fadeOut: TimeInterval = 0.28
@@ -18,21 +20,16 @@ struct SplashView: View {
     @State private var glow = false
     @State private var fade = false
     @State private var didStart = false
+    @State private var themeOverlayOpacity = 0.0
 
     var body: some View {
         ZStack {
-            DS.GradientToken.splash
+            launchContinuationBackground
                 .ignoresSafeArea()
 
-            LinearGradient(
-                colors: [
-                    Color.white.opacity(0.30),
-                    Color.clear
-                ],
-                startPoint: .top,
-                endPoint: .center
-            )
-            .ignoresSafeArea()
+            themedBackground
+                .opacity(themeOverlayOpacity)
+                .ignoresSafeArea()
 
             VStack(spacing: 14) {
                 iconMark
@@ -53,7 +50,45 @@ struct SplashView: View {
         .onAppear {
             guard !didStart else { return }
             didStart = true
+            prepareThemeTransition()
             runAnimation()
+        }
+    }
+
+    private var launchContinuationBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(red: 0.85, green: 0.82, blue: 0.98),
+                    Color(red: 0.98, green: 0.83, blue: 0.92)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            LinearGradient(
+                colors: [
+                    Color.white.opacity(0.30),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .center
+            )
+        }
+    }
+
+    private var themedBackground: some View {
+        ZStack {
+            DS.GradientToken.splash
+
+            LinearGradient(
+                colors: [
+                    DS.ColorToken.topScrim.opacity(0.65),
+                    Color.clear
+                ],
+                startPoint: .top,
+                endPoint: .center
+            )
         }
     }
 
@@ -98,6 +133,18 @@ struct SplashView: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + totalDuration) {
             onFinished()
+        }
+    }
+
+    private func prepareThemeTransition() {
+        if colorScheme == .dark {
+            themeOverlayOpacity = 0
+
+            withAnimation(.easeInOut(duration: 0.42).delay(0.08)) {
+                themeOverlayOpacity = 1
+            }
+        } else {
+            themeOverlayOpacity = 1
         }
     }
 }

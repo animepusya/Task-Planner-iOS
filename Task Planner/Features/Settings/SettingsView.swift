@@ -88,11 +88,11 @@ struct SettingsView: View {
 
                 SettingsRow(
                     title: String(localized: "Theme"),
-                    subtitle: String(localized: "Prepared for future appearance support"),
+                    subtitle: String(localized: "Follow system appearance or always use Light or Dark"),
                     systemImage: "circle.lefthalf.filled"
                 ) {
                     Menu {
-                        ForEach(SettingsViewModel.ThemeOption.allCases) { option in
+                        ForEach(AppTheme.allCases) { option in
                             Button {
                                 viewModel.setTheme(option)
                             } label: {
@@ -382,6 +382,6 @@ struct SettingsView: View {
         }
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
-        .background(Color.black.opacity(0.03), in: Capsule())
+        .background(DS.ColorToken.controlFill, in: Capsule())
     }
 }

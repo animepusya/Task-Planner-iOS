@@ -170,7 +170,7 @@ struct TaskEditorDateTimeSection: View {
         .overlay {
             if state.isAllDay {
                 RoundedRectangle(cornerRadius: DS.Radius.sm)
-                    .fill(Color.white.opacity(0.35))
+                    .fill(DS.ColorToken.disabledOverlay)
                     .allowsHitTesting(false)
             }
         }

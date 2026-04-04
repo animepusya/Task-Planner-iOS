@@ -69,11 +69,11 @@ struct StatisticsMonthPickerCard: View {
                 .padding(.vertical, 12)
                 .background(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(isSelected ? DS.ColorToken.purple : Color.white.opacity(0.9))
+                        .fill(isSelected ? DS.ColorToken.purple : DS.Surface.chrome)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.black.opacity(isSelected ? 0.0 : 0.06), lineWidth: 1)
+                        .stroke(isSelected ? Color.clear : DS.Border.subtle, lineWidth: 1)
                 )
         }
         .buttonStyle(.plain)
@@ -81,12 +81,12 @@ struct StatisticsMonthPickerCard: View {
 
     private func navButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 34, height: 34)
-                .background(Circle().fill(Color.white.opacity(0.95)))
-                .overlay(Circle().stroke(Color.black.opacity(0.06), lineWidth: 1))
+                Image(systemName: systemName)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(DS.Surface.chrome))
+                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }

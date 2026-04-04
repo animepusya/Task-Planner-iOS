@@ -66,6 +66,7 @@ final class AppRootDependencies: ObservableObject {
     }
 
     func bootstrap() {
+        _ = try? preferencesRepository.getOrCreate()
         try? categoryRepository.ensureSystemCategories()
         widgetSnapshotSyncService.refreshSnapshot()
     }

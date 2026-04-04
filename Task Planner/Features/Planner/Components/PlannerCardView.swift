@@ -86,7 +86,7 @@ struct PlannerCardView<TopRight: View>: View {
     private func thumbContainer(_ ui: UIImage) -> some View {
         ZStack {
             RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                .fill(Color.white.opacity(0.55))
+                .fill(DS.Surface.chrome)
 
             Image(uiImage: ui)
                 .resizable()
@@ -97,7 +97,7 @@ struct PlannerCardView<TopRight: View>: View {
         .clipShape(RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
-                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                .stroke(DS.Border.subtle, lineWidth: 1)
         )
         .padding(.leading, 2)
         .accessibilityLabel("Task photo")

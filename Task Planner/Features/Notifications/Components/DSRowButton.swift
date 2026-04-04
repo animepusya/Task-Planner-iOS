@@ -32,7 +32,7 @@ private struct DSRowContent: View {
         }
         .padding(.vertical, 10)
         .padding(.horizontal, 12)
-        .background(Color.black.opacity(0.04))
+        .background(DS.ColorToken.controlFill)
         .cornerRadius(DS.Radius.sm)
     }
 }

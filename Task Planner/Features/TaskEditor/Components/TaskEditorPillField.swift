@@ -71,7 +71,7 @@ struct TaskEditorPillField<Trailing: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(10)
-            .background(Color.black.opacity(0.04))
+            .background(DS.ColorToken.controlFill)
             .cornerRadius(DS.Radius.sm)
         }
     }

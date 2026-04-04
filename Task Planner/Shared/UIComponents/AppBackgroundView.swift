@@ -32,7 +32,7 @@ struct AppBackgroundView: View {
 
             LinearGradient(
                 colors: [
-                    Color.white.opacity(0.55),
+                    DS.ColorToken.topScrim,
                     Color.clear
                 ],
                 startPoint: .top,

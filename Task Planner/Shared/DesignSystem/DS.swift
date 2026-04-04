@@ -6,8 +6,46 @@
 //
 
 import SwiftUI
+import UIKit
 
 enum DS {
+    fileprivate enum AssetName {
+        static let brandPurple = "DSBrandPurple"
+        static let brandPurpleDark = "DSBrandPurpleDark"
+        static let brandLavender = "DSBrandLavender"
+        static let brandLightPink = "DSBrandLightPink"
+        static let brandPink = "DSBrandPink"
+
+        static let appBackground = "DSAppBackground"
+        static let cardBackground = "DSCardBackground"
+        static let textPrimary = "DSTextPrimary"
+        static let textSecondary = "DSTextSecondary"
+
+        static let borderSubtle = "DSBorderSubtle"
+        static let borderMuted = "DSBorderMuted"
+        static let borderInverted = "DSBorderInverted"
+
+        static let surfaceCard = "DSSurfaceCard"
+        static let surfaceChrome = "DSSurfaceChrome"
+        static let surfaceFrosted = "DSSurfaceFrosted"
+
+        static let controlFill = "DSControlFill"
+        static let controlFillStrong = "DSControlFillStrong"
+        static let disabledOverlay = "DSDisabledOverlay"
+        static let topScrim = "DSBackgroundTopScrim"
+        static let brandCardOverlay = "DSBrandCardOverlay"
+        static let surfaceHighlightStrong = "DSSurfaceHighlightStrong"
+        static let surfaceHighlightSoft = "DSSurfaceHighlightSoft"
+    }
+
+    fileprivate static func assetColor(_ name: String, fallback: Color) -> Color {
+        guard let uiColor = UIColor(named: name) else {
+            return fallback
+        }
+
+        return Color(uiColor)
+    }
+
     enum CardStyle {
         case solid
         case outlined
@@ -35,29 +73,103 @@ enum DS {
     }
 
     enum Border {
-        static let subtle = Color.black.opacity(0.045)
-        static let muted = Color.black.opacity(0.025)
-        static let inverted = Color.white.opacity(0.18)
+        static let subtle = DS.assetColor(
+            AssetName.borderSubtle,
+            fallback: Color.black.opacity(0.045)
+        )
+        static let muted = DS.assetColor(
+            AssetName.borderMuted,
+            fallback: Color.black.opacity(0.025)
+        )
+        static let inverted = DS.assetColor(
+            AssetName.borderInverted,
+            fallback: Color.white.opacity(0.18)
+        )
     }
 
     enum ColorToken {
-        static let purple = Color(red: 0.55, green: 0.39, blue: 0.98)
-        static let purpleDark = Color(red: 0.38, green: 0.23, blue: 0.82)
+        static let purple = DS.assetColor(
+            AssetName.brandPurple,
+            fallback: Color(red: 0.55, green: 0.39, blue: 0.98)
+        )
+        static let purpleDark = DS.assetColor(
+            AssetName.brandPurpleDark,
+            fallback: Color(red: 0.38, green: 0.23, blue: 0.82)
+        )
+        static let brandPink = DS.assetColor(
+            AssetName.brandPink,
+            fallback: Color(red: 0.98, green: 0.42, blue: 0.77)
+        )
 
-        static let appBackground = Color(red: 0.98, green: 0.98, blue: 1.00)
-        static let cardBackground = Color.white
+        static let appBackground = DS.assetColor(
+            AssetName.appBackground,
+            fallback: Color(red: 0.98, green: 0.98, blue: 1.00)
+        )
+        static let cardBackground = DS.assetColor(
+            AssetName.cardBackground,
+            fallback: Color.white
+        )
 
-        static let lavender = Color(red: 0.85, green: 0.82, blue: 0.98)
-        static let lightPink = Color(red: 0.98, green: 0.83, blue: 0.92)
+        static let lavender = DS.assetColor(
+            AssetName.brandLavender,
+            fallback: Color(red: 0.85, green: 0.82, blue: 0.98)
+        )
+        static let lightPink = DS.assetColor(
+            AssetName.brandLightPink,
+            fallback: Color(red: 0.98, green: 0.83, blue: 0.92)
+        )
 
-        static let textPrimary = Color(red: 0.12, green: 0.12, blue: 0.16)
-        static let textSecondary = Color(red: 0.45, green: 0.45, blue: 0.52)
+        static let textPrimary = DS.assetColor(
+            AssetName.textPrimary,
+            fallback: Color(red: 0.12, green: 0.12, blue: 0.16)
+        )
+        static let textSecondary = DS.assetColor(
+            AssetName.textSecondary,
+            fallback: Color(red: 0.45, green: 0.45, blue: 0.52)
+        )
+        static let controlFill = DS.assetColor(
+            AssetName.controlFill,
+            fallback: Color.black.opacity(0.04)
+        )
+        static let controlFillStrong = DS.assetColor(
+            AssetName.controlFillStrong,
+            fallback: Color.black.opacity(0.06)
+        )
+        static let disabledOverlay = DS.assetColor(
+            AssetName.disabledOverlay,
+            fallback: Color.white.opacity(0.35)
+        )
+        static let topScrim = DS.assetColor(
+            AssetName.topScrim,
+            fallback: Color.white.opacity(0.55)
+        )
+        static let brandCardOverlay = DS.assetColor(
+            AssetName.brandCardOverlay,
+            fallback: Color.white.opacity(0.62)
+        )
+        static let surfaceHighlightStrong = DS.assetColor(
+            AssetName.surfaceHighlightStrong,
+            fallback: Color.white.opacity(0.55)
+        )
+        static let surfaceHighlightSoft = DS.assetColor(
+            AssetName.surfaceHighlightSoft,
+            fallback: Color.white.opacity(0.18)
+        )
     }
 
     enum Surface {
-        static let card = Color.white.opacity(0.94)
-        static let chrome = Color.white.opacity(0.90)
-        static let frosted = Color.white.opacity(0.78)
+        static let card = DS.assetColor(
+            AssetName.surfaceCard,
+            fallback: Color.white.opacity(0.94)
+        )
+        static let chrome = DS.assetColor(
+            AssetName.surfaceChrome,
+            fallback: Color.white.opacity(0.90)
+        )
+        static let frosted = DS.assetColor(
+            AssetName.surfaceFrosted,
+            fallback: Color.white.opacity(0.78)
+        )
     }
 
     enum GradientToken {
@@ -75,7 +187,7 @@ enum DS {
 
         static let brandPink = LinearGradient(
             colors: [
-                Color(red: 0.98, green: 0.42, blue: 0.77),
+                ColorToken.brandPink,
                 ColorToken.purple
             ],
             startPoint: .leading,
@@ -91,13 +203,23 @@ enum DS {
             endPoint: .bottomTrailing
         )
 
+        static let cardTopHighlight = LinearGradient(
+            colors: [
+                ColorToken.surfaceHighlightStrong,
+                ColorToken.surfaceHighlightSoft,
+                Color.clear
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+
         @ViewBuilder
         static var pinkPurpleCardBackground: some View {
             ZStack {
                 pinkPurpleSoft
                     .opacity(0.90)
 
-                Color.white.opacity(0.62)
+                ColorToken.brandCardOverlay
             }
         }
     }

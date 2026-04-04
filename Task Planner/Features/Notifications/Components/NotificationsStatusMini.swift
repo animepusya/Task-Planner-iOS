@@ -108,7 +108,7 @@ struct NotificationsStatusMini: View {
                             .padding(.vertical, 7)
                             .background(
                                 RoundedRectangle(cornerRadius: DS.Radius.pill)
-                                    .fill(Color.black.opacity(0.06))
+                                    .fill(DS.ColorToken.controlFillStrong)
                             )
                     }
                     .buttonStyle(.plain)
