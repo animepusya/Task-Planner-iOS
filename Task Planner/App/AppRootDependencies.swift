@@ -19,10 +19,12 @@ final class AppRootDependencies: ObservableObject {
     let notificationService: NotificationService
     let notificationSyncService: NotificationSyncService
     let widgetSnapshotSyncService: WidgetSnapshotSyncService
+    let subscriptionStore: SubscriptionStore
 
     init(container: DependencyContainer, context: ModelContext) {
         let preferencesRepository = container.makePreferencesRepository(context: context)
         let categoryRepository = container.makeCategoryRepository(context: context)
+        let subscriptionStore = container.makeSubscriptionStore()
 
         let calendarSyncService = CalendarSyncService(
             preferencesRepository: preferencesRepository,
@@ -63,11 +65,13 @@ final class AppRootDependencies: ObservableObject {
         self.widgetSnapshotSyncService = widgetSnapshotSyncService
         self.taskRepository = taskRepository
         self.seriesService = TaskSeriesService(taskRepository: taskRepository)
+        self.subscriptionStore = subscriptionStore
     }
 
     func bootstrap() {
         _ = try? preferencesRepository.getOrCreate()
         try? categoryRepository.ensureSystemCategories()
         widgetSnapshotSyncService.refreshSnapshot()
+        subscriptionStore.start()
     }
 }

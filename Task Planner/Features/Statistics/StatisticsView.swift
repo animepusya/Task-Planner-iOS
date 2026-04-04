@@ -11,6 +11,7 @@ import SwiftUI
 struct StatisticsView: View {
     @StateObject private var viewModel: StatisticsViewModel
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @State private var isRangeSheetPresented = false
     @State private var selectedSliceId: String? = nil
@@ -84,6 +85,7 @@ struct StatisticsView: View {
                 anchorDate: $viewModel.anchorDate,
                 weekStartsOnMonday: viewModel.weekStartsOnMonday
             )
+            .environmentObject(subscriptionStore)
         }
     }
 

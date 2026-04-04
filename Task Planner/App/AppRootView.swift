@@ -44,6 +44,7 @@ private struct AppRootContentView: View {
             statisticsNavigationPath: $statisticsNavigationPath,
             sheet: $sheet
         )
+        .environmentObject(dependencies.subscriptionStore)
         .task {
             guard !didBootstrap else { return }
             didBootstrap = true
@@ -131,6 +132,10 @@ private struct AppRootTabShellView: View {
         statisticsNavigationPath.append(.settings)
     }
 
+    private func openPaywall(_ entryPoint: PaywallEntryPoint) {
+        statisticsNavigationPath.append(.paywall(entryPoint))
+    }
+
     @ViewBuilder
     private func destinationView(route: AppRoute) -> some View {
         switch route {
@@ -140,6 +145,7 @@ private struct AppRootTabShellView: View {
                 taskRepository: dependencies.taskRepository,
                 categoryRepository: dependencies.categoryRepository,
                 calendarSync: dependencies.calendarSyncService,
+                onOpenPaywall: openPaywall,
                 makeNotificationsView: {
                     NotificationsView(
                         taskRepository: dependencies.taskRepository,
@@ -152,6 +158,11 @@ private struct AppRootTabShellView: View {
                     )
                 }
             )
+            .environmentObject(dependencies.subscriptionStore)
+
+        case .paywall(let entryPoint):
+            PaywallView(entryPoint: entryPoint)
+                .environmentObject(dependencies.subscriptionStore)
         }
     }
 
@@ -171,6 +182,7 @@ private struct AppRootTabShellView: View {
                     sheet = .notifications
                 }
             )
+            .environmentObject(dependencies.subscriptionStore)
 
         case .notifications:
             NotificationsView(

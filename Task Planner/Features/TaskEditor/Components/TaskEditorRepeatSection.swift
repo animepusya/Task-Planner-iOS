@@ -9,16 +9,28 @@ import SwiftUI
 
 struct TaskEditorRepeatSection: View {
     @ObservedObject var state: TaskEditorViewModel.RepeatSectionState
+    let isAdvancedRepeatLocked: Bool
+    let onRequestUnlock: () -> Void
 
     private var showsInterval: Bool {
         state.repeatRule == .everyNDays
     }
 
+    private var currentRuleRequiresPro: Bool {
+        state.repeatRule.requiresProAccess
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            Text("Repeat")
-                .font(DS.Typography.sectionTitle)
-                .foregroundStyle(DS.ColorToken.textPrimary)
+            HStack(spacing: 8) {
+                Text("Repeat")
+                    .font(DS.Typography.sectionTitle)
+                    .foregroundStyle(DS.ColorToken.textPrimary)
+
+                if isAdvancedRepeatLocked && currentRuleRequiresPro {
+                    ProBadge(size: .small)
+                }
+            }
 
             repeatPill
 
@@ -52,7 +64,12 @@ struct TaskEditorRepeatSection: View {
 
             Spacer(minLength: DS.Spacing.sm)
 
-            RepeatIntervalControl(value: state.repeatIntervalDaysBinding, range: 1...365)
+            RepeatIntervalControl(
+                value: state.repeatIntervalDaysBinding,
+                range: 1...365,
+                isLocked: isAdvancedRepeatLocked && currentRuleRequiresPro,
+                onRequestUnlock: onRequestUnlock
+            )
         }
         .padding(.top, 4)
     }
@@ -61,12 +78,22 @@ struct TaskEditorRepeatSection: View {
         Menu {
             ForEach(RepeatRule.allCases, id: \.self) { rule in
                 Button {
-                    state.repeatRuleBinding.wrappedValue = rule
-                } label: {
-                    if state.repeatRule == rule {
-                        Label(rule.displayName, systemImage: "checkmark")
+                    if rule.requiresProAccess && isAdvancedRepeatLocked {
+                        onRequestUnlock()
                     } else {
-                        Text(rule.displayName)
+                        state.repeatRuleBinding.wrappedValue = rule
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        if state.repeatRule == rule {
+                            Label(rule.displayName, systemImage: "checkmark")
+                        } else {
+                            Text(rule.displayName)
+                        }
+
+                        if rule.requiresProAccess && isAdvancedRepeatLocked {
+                            ProBadge(size: .small)
+                        }
                     }
                 }
             }
@@ -83,6 +110,10 @@ struct TaskEditorRepeatSection: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .layoutPriority(1)
+
+                if isAdvancedRepeatLocked && currentRuleRequiresPro {
+                    ProBadge(size: .small)
+                }
 
                 Spacer(minLength: 8)
 
@@ -104,13 +135,19 @@ struct TaskEditorRepeatSection: View {
 private struct RepeatIntervalControl: View {
     @Binding var value: Int
     let range: ClosedRange<Int>
+    let isLocked: Bool
+    let onRequestUnlock: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
             stepButton(systemName: "minus") {
-                value = max(range.lowerBound, value - 1)
+                if isLocked {
+                    onRequestUnlock()
+                } else {
+                    value = max(range.lowerBound, value - 1)
+                }
             }
-            .disabled(value <= range.lowerBound)
+            .disabled(!isLocked && value <= range.lowerBound)
 
             Text("\(value)")
                 .font(DS.Typography.body)
@@ -119,9 +156,13 @@ private struct RepeatIntervalControl: View {
                 .frame(minWidth: 30, alignment: .center)
 
             stepButton(systemName: "plus") {
-                value = min(range.upperBound, value + 1)
+                if isLocked {
+                    onRequestUnlock()
+                } else {
+                    value = min(range.upperBound, value + 1)
+                }
             }
-            .disabled(value >= range.upperBound)
+            .disabled(!isLocked && value >= range.upperBound)
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)

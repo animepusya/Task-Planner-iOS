@@ -10,11 +10,13 @@ import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @State private var viewModel: TaskEditorViewModel
     @StateObject private var chrome: TaskEditorViewModel.ChromeState
     @StateObject private var visibility: TaskEditorViewModel.VisibilityState
     @StateObject private var alertState: TaskEditorViewModel.AlertState
+    @State private var navigationPath: [TaskEditorRoute] = []
 
     let onOpenNotificationsCenter: () -> Void
 
@@ -79,75 +81,88 @@ struct TaskEditorView: View {
     }
 
     var body: some View {
-        GeometryReader { proxy in
-            let layout = TaskEditorLayoutMetrics(width: proxy.size.width)
+        NavigationStack(path: $navigationPath) {
+            GeometryReader { proxy in
+                let layout = TaskEditorLayoutMetrics(width: proxy.size.width)
 
-            VStack(spacing: 0) {
-                TaskEditorTopBar(
-                    state: chrome,
-                    onBack: {
-                        dismissKeyboard()
-                        dismiss()
-                    },
-                    onSaveNormal: {
-                        dismissKeyboard()
-                        saveNormal()
-                    },
-                    onSaveOnlyThisDay: {
-                        dismissKeyboard()
-                        saveScoped(.onlyThisDay)
-                    },
-                    onSaveAllFuture: {
-                        dismissKeyboard()
-                        saveScoped(.allFutureDays)
-                    }
-                )
-                .frame(width: layout.contentWidth)
-                .padding(.horizontal, layout.horizontalPadding)
-                .padding(.vertical, 10)
-
-                TaskEditorContentView(
-                    layout: layout,
-                    visibility: visibility.content,
-                    viewModel: viewModel,
-                    focusedField: $focusedField,
-                    onOpenNotificationsCenter: {
-                        dismissKeyboard()
-                        onOpenNotificationsCenter()
-                    }
-                )
-            }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .background(DS.ColorToken.appBackground.ignoresSafeArea())
-            .taskEditorDismissKeyboardOnTap {
-                focusedField = nil
-            }
-            .toolbar {
-                if focusedField == .description {
-                    ToolbarItemGroup(placement: .keyboard) {
-                        Spacer()
-                        Button("Done") {
+                VStack(spacing: 0) {
+                    TaskEditorTopBar(
+                        state: chrome,
+                        onBack: {
                             dismissKeyboard()
+                            dismiss()
+                        },
+                        onSaveNormal: {
+                            dismissKeyboard()
+                            saveNormal()
+                        },
+                        onSaveOnlyThisDay: {
+                            dismissKeyboard()
+                            saveScoped(.onlyThisDay)
+                        },
+                        onSaveAllFuture: {
+                            dismissKeyboard()
+                            saveScoped(.allFutureDays)
+                        }
+                    )
+                    .frame(width: layout.contentWidth)
+                    .padding(.horizontal, layout.horizontalPadding)
+                    .padding(.vertical, 10)
+
+                    TaskEditorContentView(
+                        layout: layout,
+                        visibility: visibility.content,
+                        viewModel: viewModel,
+                        focusedField: $focusedField,
+                        isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
+                        onRequestRepeatUnlock: {
+                            navigationPath.append(.paywall(.advancedRepeats))
+                        },
+                        onOpenNotificationsCenter: {
+                            dismissKeyboard()
+                            onOpenNotificationsCenter()
+                        }
+                    )
+                }
+                .frame(width: proxy.size.width, height: proxy.size.height)
+                .background(DS.ColorToken.appBackground.ignoresSafeArea())
+                .taskEditorDismissKeyboardOnTap {
+                    focusedField = nil
+                }
+                .toolbar(.hidden, for: .navigationBar)
+                .toolbar {
+                    if focusedField == .description {
+                        ToolbarItemGroup(placement: .keyboard) {
+                            Spacer()
+                            Button("Done") {
+                                dismissKeyboard()
+                            }
                         }
                     }
                 }
+                .alert(item: $alertState.alert) { alert in
+                    Alert(
+                        title: Text(alert.title),
+                        message: Text(alert.message),
+                        dismissButton: .cancel(Text("Close")) { dismiss() }
+                    )
+                }
+                .task {
+                    viewModel.onAppear(availableCategories: availableCategoryTitles)
+                    viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
+                }
+                .onChange(of: availableCategoryTitles) { _, newValue in
+                    viewModel.ensureCategoryIsValid(available: newValue)
+                }
+                .onChange(of: appNotificationsEnabled) { _, newValue in
+                    viewModel.onAppNotificationsEnabledChanged(newValue)
+                }
             }
-            .alert(item: $alertState.alert) { alert in
-                Alert(
-                    title: Text(alert.title),
-                    message: Text(alert.message),
-                    dismissButton: .cancel(Text("Close")) { dismiss() }
-                )
-            }
-            .task {
-                viewModel.onAppear(availableCategories: availableCategoryTitles)
-                viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
-            }
-            .onChange(of: availableCategoryTitles) { _, newValue in
-                viewModel.ensureCategoryIsValid(available: newValue)
-            }
-            .onChange(of: appNotificationsEnabled) { _, newValue in
-                viewModel.onAppNotificationsEnabledChanged(newValue)
+            .navigationDestination(for: TaskEditorRoute.self) { route in
+                switch route {
+                case .paywall(let entryPoint):
+                    PaywallView(entryPoint: entryPoint)
+                }
             }
         }
     }
@@ -203,6 +218,8 @@ private struct TaskEditorContentView: View {
 
     @FocusState.Binding var focusedField: TaskEditorField?
 
+    let isAdvancedRepeatLocked: Bool
+    let onRequestRepeatUnlock: () -> Void
     let onOpenNotificationsCenter: () -> Void
 
     var body: some View {
@@ -241,7 +258,11 @@ private struct TaskEditorContentView: View {
                 }
 
                 if visibility.showsRepeatSection {
-                    TaskEditorRepeatSection(state: viewModel.repeatSection)
+                    TaskEditorRepeatSection(
+                        state: viewModel.repeatSection,
+                        isAdvancedRepeatLocked: isAdvancedRepeatLocked,
+                        onRequestUnlock: onRequestRepeatUnlock
+                    )
                 }
 
                 if visibility.showsPhotoSection {
@@ -271,4 +292,8 @@ private struct TaskEditorLayoutMetrics {
         if width < 430 { return DS.Spacing.lg }
         return DS.Spacing.xl
     }
+}
+
+private enum TaskEditorRoute: Hashable {
+    case paywall(PaywallEntryPoint)
 }

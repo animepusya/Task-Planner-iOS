@@ -9,18 +9,25 @@ import Foundation
 import SwiftUI
 
 struct SettingsView: View {
+    @Environment(\.openURL) private var openURL
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
+
     @StateObject private var viewModel: SettingsViewModel
 
     private let makeNotificationsView: () -> NotificationsView
+    private let onOpenPaywall: (PaywallEntryPoint) -> Void
 
     @State private var showNotifications = false
     @State private var showClearAllAlert = false
+    @State private var monetizationNotice: MonetizationNotice?
 
     init(
         viewModel: SettingsViewModel,
+        onOpenPaywall: @escaping (PaywallEntryPoint) -> Void,
         makeNotificationsView: @escaping () -> NotificationsView
     ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.onOpenPaywall = onOpenPaywall
         self.makeNotificationsView = makeNotificationsView
     }
 
@@ -29,6 +36,7 @@ struct SettingsView: View {
         taskRepository: TaskRepository,
         categoryRepository: CategoryRepository,
         calendarSync: CalendarSyncService,
+        onOpenPaywall: @escaping (PaywallEntryPoint) -> Void,
         makeNotificationsView: @escaping () -> NotificationsView
     ) {
         _viewModel = StateObject(
@@ -39,6 +47,7 @@ struct SettingsView: View {
                 calendarSync: calendarSync
             )
         )
+        self.onOpenPaywall = onOpenPaywall
         self.makeNotificationsView = makeNotificationsView
     }
 
@@ -49,6 +58,7 @@ struct SettingsView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: DS.Spacing.lg) {
                     appSection
+                    monetizationSection
                     notificationsSection
                     calendarSection
                     categoriesSection
@@ -71,6 +81,13 @@ struct SettingsView: View {
             }
         } message: {
             Text("This action will permanently remove all tasks from the app.")
+        }
+        .alert(item: $monetizationNotice) { notice in
+            Alert(
+                title: Text(notice.title),
+                message: Text(notice.message),
+                dismissButton: .default(Text("OK"))
+            )
         }
         .onAppear {
             viewModel.load()
@@ -231,6 +248,147 @@ struct SettingsView: View {
         }
     }
 
+    private var monetizationSection: some View {
+        SettingsSection(title: String(localized: "Task Planner Pro")) {
+            SettingsCard {
+                monetizationSummaryRow
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Restore purchases"),
+                    subtitle: String(localized: "Recover an existing Pro subscription on this device"),
+                    systemImage: "arrow.clockwise.circle",
+                    action: {
+                        Task {
+                            monetizationNotice = await subscriptionStore.restorePurchases()
+                        }
+                    },
+                    accessory: {
+                        EmptyView()
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Manage subscription"),
+                    subtitle: String(localized: "Open Apple's subscription management screen"),
+                    systemImage: "slider.horizontal.3",
+                    action: {
+                        Task {
+                            monetizationNotice = await subscriptionStore.manageSubscription()
+                        }
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Privacy Policy"),
+                    subtitle: String(localized: "Connect your release policy URL here"),
+                    systemImage: "hand.raised",
+                    action: {
+                        openLegal(.privacyPolicy)
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Terms of Use"),
+                    subtitle: String(localized: "Apple Standard EULA is wired by default"),
+                    systemImage: "doc.text",
+                    action: {
+                        openLegal(.termsOfUse)
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
+
+                #if DEBUG
+                if subscriptionStore.showsDebugControls {
+                    SettingsRowDivider()
+
+                    SettingsRow(
+                        title: subscriptionStore.debugOverrideEnabled
+                            ? String(localized: "Disable Pro Preview")
+                            : String(localized: "Enable Pro Preview"),
+                        subtitle: String(localized: "Debug-only local entitlement override"),
+                        systemImage: "hammer",
+                        action: {
+                            Task {
+                                await subscriptionStore.toggleDebugOverride()
+                            }
+                        },
+                        accessory: {
+                            debugStatePill(isEnabled: subscriptionStore.debugOverrideEnabled)
+                        }
+                    )
+                }
+                #endif
+            }
+        }
+    }
+
+    private var monetizationSummaryRow: some View {
+        Button {
+            if subscriptionStore.hasProAccess {
+                Task {
+                    monetizationNotice = await subscriptionStore.manageSubscription()
+                }
+            } else {
+                onOpenPaywall(.settings)
+            }
+        } label: {
+            HStack(alignment: .center, spacing: DS.Spacing.sm) {
+                ZStack {
+                    Circle()
+                        .fill(DS.ColorToken.purple.opacity(0.10))
+                        .frame(width: 34, height: 34)
+
+                    ProBadge(size: .small)
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(subscriptionStore.hasProAccess ? String(localized: "Current plan") : String(localized: "Upgrade to Pro"))
+                        .font(DS.Typography.body)
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                        .multilineTextAlignment(.leading)
+
+                    Text(subscriptionStore.planSummaryText)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                        .multilineTextAlignment(.leading)
+                }
+
+                Spacer(minLength: DS.Spacing.sm)
+
+                if subscriptionStore.hasProAccess {
+                    Text(subscriptionStore.currentPlanTitle)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.ColorToken.purple)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(DS.ColorToken.purple.opacity(0.10), in: Capsule())
+                } else {
+                    trailingChevron
+                }
+            }
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, 14)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     private var calendarSection: some View {
         SettingsSection(
             title: String(localized: "Calendar"),
@@ -310,7 +468,8 @@ struct SettingsView: View {
             SettingsCard {
                 CategoryInputRow(
                     title: $viewModel.newCategoryTitle,
-                    onAdd: { viewModel.addCategory() }
+                    showsProBadge: subscriptionStore.isLocked(.customCategories),
+                    onAdd: handleAddCategory
                 )
 
                 if !viewModel.categories.isEmpty {
@@ -370,6 +529,15 @@ struct SettingsView: View {
             .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.9))
     }
 
+    private func debugStatePill(isEnabled: Bool) -> some View {
+        Text(isEnabled ? String(localized: "On") : String(localized: "Off"))
+            .font(DS.Typography.caption)
+            .foregroundStyle(isEnabled ? DS.ColorToken.purple : DS.ColorToken.textSecondary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(DS.ColorToken.controlFill, in: Capsule())
+    }
+
     private func rowValueLabel(_ value: String) -> some View {
         HStack(spacing: 6) {
             Text(value)
@@ -383,5 +551,29 @@ struct SettingsView: View {
         .padding(.vertical, 6)
         .padding(.horizontal, 10)
         .background(DS.ColorToken.controlFill, in: Capsule())
+    }
+
+    private func handleAddCategory() {
+        let trimmed = viewModel.newCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        guard subscriptionStore.hasAccess(to: .customCategories) else {
+            onOpenPaywall(.customCategories)
+            return
+        }
+
+        viewModel.addCategory()
+    }
+
+    private func openLegal(_ link: SubscriptionLegalLink) {
+        guard let url = link.url(from: subscriptionStore.catalog) else {
+            monetizationNotice = MonetizationNotice(
+                title: link.title,
+                message: link.unavailableMessage
+            )
+            return
+        }
+
+        openURL(url)
     }
 }

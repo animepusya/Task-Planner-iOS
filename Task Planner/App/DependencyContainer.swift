@@ -75,6 +75,14 @@ final class DependencyContainer {
         UNUserNotificationService()
     }
 
+    func makeSubscriptionService() -> SubscriptionService {
+        StoreKitSubscriptionService()
+    }
+
+    func makeSubscriptionStore() -> SubscriptionStore {
+        SubscriptionStore(service: makeSubscriptionService())
+    }
+
     func makeNotificationSyncService(context: ModelContext) -> NotificationSyncService {
         let prefs = SwiftDataPreferencesRepository(context: context)
         return NotificationSyncService(

@@ -41,4 +41,13 @@ extension RepeatRule {
         case .everyNDays: return String(localized: "Select manually")
         }
     }
+
+    var requiresProAccess: Bool {
+        switch self {
+        case .none, .daily, .weekly, .monthly:
+            return false
+        case .weekdays, .weekends, .everyNDays:
+            return true
+        }
+    }
 }

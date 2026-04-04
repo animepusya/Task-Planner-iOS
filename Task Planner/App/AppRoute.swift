@@ -7,4 +7,5 @@
 
 enum AppRoute: Hashable {
     case settings
+    case paywall(PaywallEntryPoint)
 }

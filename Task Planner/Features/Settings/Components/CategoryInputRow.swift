@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CategoryInputRow: View {
     @Binding var title: String
+    let showsProBadge: Bool
     let onAdd: () -> Void
 
     private var trimmedTitle: String {
@@ -30,6 +31,10 @@ struct CategoryInputRow: View {
                     guard !trimmedTitle.isEmpty else { return }
                     onAdd()
                 }
+
+            if showsProBadge {
+                ProBadge(size: .small)
+            }
 
             Button("Add") {
                 onAdd()
