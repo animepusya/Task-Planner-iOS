@@ -47,4 +47,19 @@ enum WidgetStore {
     static func setSelectedDayKey(_ key: String) {
         userDefaults?.set(key, forKey: WidgetShared.StorageKey.selectedDayKey)
     }
+
+    static func appTheme() -> AppTheme {
+        guard
+            let rawValue = userDefaults?.string(forKey: WidgetShared.StorageKey.appThemeKey),
+            let theme = AppTheme(rawValue: rawValue)
+        else {
+            return .system
+        }
+
+        return theme
+    }
+
+    static func setAppTheme(_ theme: AppTheme) {
+        userDefaults?.set(theme.rawValue, forKey: WidgetShared.StorageKey.appThemeKey)
+    }
 }

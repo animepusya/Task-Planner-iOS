@@ -157,7 +157,8 @@ struct TaskEditorDateTimeSection: View {
             icon: icon,
             trailingMinWidth: Layout.timePickerMinimumWidth,
             trailingAlignment: .leading,
-            reservesTitleSpace: reservesTitleSpace
+            reservesTitleSpace: reservesTitleSpace,
+            pillOverlayFill: state.isAllDay ? DS.ColorToken.disabledOverlay : nil
         ) {
             DatePicker("", selection: selection, displayedComponents: .hourAndMinute)
                 .labelsHidden()
@@ -167,12 +168,5 @@ struct TaskEditorDateTimeSection: View {
         }
         .disabled(state.isAllDay)
         .opacity(state.isAllDay ? 0.85 : 1.0)
-        .overlay {
-            if state.isAllDay {
-                RoundedRectangle(cornerRadius: DS.Radius.sm)
-                    .fill(DS.ColorToken.disabledOverlay)
-                    .allowsHitTesting(false)
-            }
-        }
     }
 }

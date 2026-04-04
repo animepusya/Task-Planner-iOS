@@ -16,6 +16,7 @@ struct TaskEditorPillField<Trailing: View>: View {
     let expandsTrailing: Bool
     let showsIcon: Bool
     let reservesTitleSpace: Bool
+    let pillOverlayFill: Color?
 
     @ViewBuilder var trailing: () -> Trailing
 
@@ -28,6 +29,7 @@ struct TaskEditorPillField<Trailing: View>: View {
         expandsTrailing: Bool = false,
         showsIcon: Bool = true,
         reservesTitleSpace: Bool = true,
+        pillOverlayFill: Color? = nil,
         @ViewBuilder trailing: @escaping () -> Trailing
     ) {
         self.title = title
@@ -38,6 +40,7 @@ struct TaskEditorPillField<Trailing: View>: View {
         self.expandsTrailing = expandsTrailing
         self.showsIcon = showsIcon
         self.reservesTitleSpace = reservesTitleSpace
+        self.pillOverlayFill = pillOverlayFill
         self.trailing = trailing
     }
 
@@ -73,6 +76,13 @@ struct TaskEditorPillField<Trailing: View>: View {
             .padding(10)
             .background(DS.ColorToken.controlFill)
             .cornerRadius(DS.Radius.sm)
+            .overlay {
+                if let pillOverlayFill {
+                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                        .fill(pillOverlayFill)
+                        .allowsHitTesting(false)
+                }
+            }
         }
     }
 }

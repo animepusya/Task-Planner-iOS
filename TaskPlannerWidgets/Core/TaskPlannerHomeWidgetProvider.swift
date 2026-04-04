@@ -14,6 +14,7 @@ struct TaskPlannerHomeEntry: TimelineEntry {
     let configuration: TaskPlannerWidgetConfigurationIntent
     let visibleDays: [PlannerWidgetDaySnapshot]
     let selectedDayKey: String
+    let appTheme: AppTheme
 
     var selectedDay: PlannerWidgetDaySnapshot? {
         visibleDays.first(where: { $0.dayKey == selectedDayKey }) ?? visibleDays.first
@@ -32,7 +33,8 @@ struct TaskPlannerHomeWidgetProvider: AppIntentTimelineProvider {
             date: .now,
             configuration: .init(),
             visibleDays: visible,
-            selectedDayKey: selected
+            selectedDayKey: selected,
+            appTheme: WidgetStore.appTheme()
         )
     }
 
@@ -58,7 +60,8 @@ struct TaskPlannerHomeWidgetProvider: AppIntentTimelineProvider {
             date: now,
             configuration: configuration,
             visibleDays: visibleDays,
-            selectedDayKey: selectedKey
+            selectedDayKey: selectedKey,
+            appTheme: WidgetStore.appTheme()
         )
     }
 

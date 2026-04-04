@@ -24,20 +24,15 @@ final class WidgetSnapshotSyncService {
     func refreshSnapshot(referenceDate: Date = .now) {
         do {
             let tasks = try taskRepository.fetchAll()
-
-            let weekStartsOnMonday: Bool
-            do {
-                weekStartsOnMonday = try preferencesRepository.getOrCreate().weekStartsOnMonday
-            } catch {
-                weekStartsOnMonday = true
-            }
+            let preferences = try preferencesRepository.getOrCreate()
 
             let snapshot = WidgetSnapshotBuilder.build(
                 tasks: tasks,
-                weekStartsOnMonday: weekStartsOnMonday,
+                weekStartsOnMonday: preferences.weekStartsOnMonday,
                 referenceDate: referenceDate
             )
 
+            WidgetStore.setAppTheme(preferences.theme)
             try WidgetStore.saveSnapshot(snapshot)
             WidgetCenter.shared.reloadTimelines(ofKind: WidgetShared.WidgetKind.plannerHome)
         } catch {

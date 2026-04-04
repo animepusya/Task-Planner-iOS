@@ -55,6 +55,7 @@
 		8C916AAF2F63958F002D4FE3 /* Exceptions for "Task Planner" folder in "TaskPlannerWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Data/Model/Enums/AppTheme.swift,
 				Data/Model/Enums/TaskColor.swift,
 				Shared/DesignSystem/DS.swift,
 				Shared/Localization/Localizable.xcstrings,

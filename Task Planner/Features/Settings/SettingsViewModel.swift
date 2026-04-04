@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import SwiftData
 import EventKit
+import WidgetKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
@@ -122,6 +123,8 @@ final class SettingsViewModel: ObservableObject {
 
         do {
             try preferencesRepository.setAppTheme(value)
+            WidgetStore.setAppTheme(value)
+            WidgetCenter.shared.reloadTimelines(ofKind: WidgetShared.WidgetKind.plannerHome)
         } catch {
             selectedTheme = previousValue
         }

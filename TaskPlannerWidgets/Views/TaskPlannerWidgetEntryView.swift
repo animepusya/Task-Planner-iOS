@@ -179,7 +179,7 @@ struct TaskPlannerWidgetEntryView: View {
             .frame(height: taskFooterHeight)
             .background(
                 Capsule(style: .continuous)
-                    .fill(isAccented ? Color.white.opacity(0.10) : Color.white.opacity(0.58))
+                    .fill(isAccented ? Color.white.opacity(0.10) : DS.ColorToken.cardBackground.opacity(0.58))
             )
         } else {
             Color.clear

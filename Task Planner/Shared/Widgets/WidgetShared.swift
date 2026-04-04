@@ -16,6 +16,7 @@ enum WidgetShared {
 
     enum StorageKey {
         static let selectedDayKey = "widget.selectedDayKey"
+        static let appThemeKey = "widget.appThemeKey"
         static let snapshotFileName = "planner-widget-snapshot.json"
     }
 

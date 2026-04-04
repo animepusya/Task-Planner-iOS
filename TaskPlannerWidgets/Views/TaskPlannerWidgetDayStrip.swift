@@ -61,7 +61,7 @@ struct TaskPlannerWidgetDayStrip: View {
                 .widgetAccentable(isAccented)
         } else {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isAccented ? Color.white.opacity(0.08) : Color.white.opacity(0.52))
+                .fill(isAccented ? Color.white.opacity(0.08) : DS.ColorToken.cardBackground.opacity(0.58))
         }
     }
 
