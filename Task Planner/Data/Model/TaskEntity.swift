@@ -93,7 +93,7 @@ extension TaskEntity {
         String(describing: persistentModelID)
     }
 
-    static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
+    nonisolated static func dayKey(for date: Date, calendar: Calendar = .current) -> String {
         let d = calendar.startOfDay(for: date)
         let c = calendar.dateComponents([.year, .month, .day], from: d)
         let y = c.year ?? 0

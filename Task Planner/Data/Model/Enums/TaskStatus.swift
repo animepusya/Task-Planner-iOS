@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum TaskStatus: String, CaseIterable, Codable {
+nonisolated enum TaskStatus: String, CaseIterable, Codable, Sendable {
     case todo
     case done
 }

@@ -59,6 +59,8 @@ final class CalendarSyncService {
         switch authorizationStatus {
         case .authorized, .fullAccess:
             return
+        case .writeOnly:
+            throw SyncError.accessDenied
         case .notDetermined:
             let granted: Bool
             if #available(iOS 17.0, *) {

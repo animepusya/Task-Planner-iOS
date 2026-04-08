@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 import UIKit
 
-enum TaskColor: String, CaseIterable, Codable, Hashable, Sendable {
+nonisolated enum TaskColor: String, CaseIterable, Codable, Hashable, Sendable {
     case blue
     case purple
     case pink

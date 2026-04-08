@@ -8,7 +8,7 @@
 import Foundation
 import SwiftData
 
-struct StatisticsComputedResult: Sendable {
+nonisolated struct StatisticsComputedResult: Sendable {
     let totalMinutes: Int
     let categoryStats: [CategoryStat]
     let taskStats: [TaskStat]
@@ -20,7 +20,7 @@ struct StatisticsComputedResult: Sendable {
     )
 }
 
-struct StatisticsComputationKey: Hashable, Sendable {
+nonisolated struct StatisticsComputationKey: Hashable, Sendable {
     let range: StatisticsRange
     let anchorDate: Date
     let weekStartsOnMonday: Bool
@@ -52,7 +52,7 @@ final class StatisticsComputationCache {
     }
 }
 
-struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
+nonisolated struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
     let title: String
     let categoryTitle: String?
     let isAllDay: Bool
@@ -63,6 +63,7 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
     let repeatIntervalDays: Int?
     let colorRaw: String
 
+    @MainActor
     init(template: TaskSeriesTemplate) {
         self.title = template.title
         self.categoryTitle = template.categoryTitle
@@ -75,6 +76,7 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
         self.colorRaw = template.colorRaw
     }
 
+    @MainActor
     init(task: TaskEntity, calendar: Calendar = .current) {
         let startMinutes = TimeMinutes.minutes(from: task.startTime, calendar: calendar)
         let (endOffset, endMinutes) = TimeMinutes.endOffsetAndMinutes(
@@ -110,11 +112,12 @@ struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
     }
 }
 
-struct StatisticsTaskSeriesSegmentSource: Equatable, Sendable {
+nonisolated struct StatisticsTaskSeriesSegmentSource: Equatable, Sendable {
     let startDay: Date
     let endDay: Date?
     let template: StatisticsTaskSeriesTemplateSource
 
+    @MainActor
     init(segment: TaskSeriesSegment) {
         self.startDay = segment.startDay
         self.endDay = segment.endDay
@@ -122,17 +125,18 @@ struct StatisticsTaskSeriesSegmentSource: Equatable, Sendable {
     }
 }
 
-struct StatisticsTaskSeriesOverrideSource: Equatable, Sendable {
+nonisolated struct StatisticsTaskSeriesOverrideSource: Equatable, Sendable {
     let isDeleted: Bool
     let template: StatisticsTaskSeriesTemplateSource?
 
+    @MainActor
     init(override: TaskSeriesOverride) {
         self.isDeleted = override.isDeleted
         self.template = override.template.map(StatisticsTaskSeriesTemplateSource.init(template:))
     }
 }
 
-struct StatisticsTaskSource: Equatable, Sendable {
+nonisolated struct StatisticsTaskSource: Equatable, Sendable {
     let id: String
     let baseDay: Date
     let seriesEndDay: Date?
@@ -140,6 +144,7 @@ struct StatisticsTaskSource: Equatable, Sendable {
     let segments: [StatisticsTaskSeriesSegmentSource]
     let overridesByDayKey: [String: StatisticsTaskSeriesOverrideSource]
 
+    @MainActor
     init(task: TaskEntity, calendar: Calendar = .current) {
         let baseDay = calendar.startOfDay(for: task.dayDate)
         let baseTemplate = StatisticsTaskSeriesTemplateSource(task: task, calendar: calendar)

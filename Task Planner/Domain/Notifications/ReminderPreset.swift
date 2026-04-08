@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum ReminderPreset: Int, CaseIterable, Identifiable, Hashable {
+nonisolated enum ReminderPreset: Int, CaseIterable, Identifiable, Hashable, Sendable {
     case minutes5 = 5
     case minutes10 = 10
     case minutes15 = 15

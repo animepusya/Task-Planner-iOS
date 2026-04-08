@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum Workweek {
+nonisolated enum Workweek {
 
     private static func weekendWeekdaySet(weekStartsOnMonday: Bool) -> Set<Int> {
         if weekStartsOnMonday {
@@ -51,4 +51,3 @@ enum Workweek {
         return nil
     }
 }
-

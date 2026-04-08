@@ -9,7 +9,7 @@ import Foundation
 
 // MARK: - Template stored inside segments/overrides
 
-struct TaskSeriesTemplate: Codable, Equatable, Hashable, Sendable {
+nonisolated struct TaskSeriesTemplate: Codable, Equatable, Hashable, Sendable {
     var title: String
     var notes: String?
     var isAllDay: Bool
@@ -59,7 +59,7 @@ struct TaskSeriesTemplate: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-struct TaskSeriesSegment: Codable, Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct TaskSeriesSegment: Codable, Identifiable, Equatable, Hashable, Sendable {
     var id: UUID
     var startDayKey: String
     var endDayKey: String?
@@ -75,7 +75,7 @@ struct TaskSeriesSegment: Codable, Identifiable, Equatable, Hashable, Sendable {
     }
 }
 
-struct TaskSeriesOverride: Codable, Identifiable, Equatable, Hashable, Sendable {
+nonisolated struct TaskSeriesOverride: Codable, Identifiable, Equatable, Hashable, Sendable {
     var id: UUID
     var dayKey: String
     var isDeleted: Bool
@@ -83,10 +83,15 @@ struct TaskSeriesOverride: Codable, Identifiable, Equatable, Hashable, Sendable 
 }
 
 // MARK: - DayKey parsing/formatting (LOCAL DAY, stable)
-enum DayKey {
+nonisolated enum DayKey {
 
     static func format(_ day: Date, calendar: Calendar = .current) -> String {
-        TaskEntity.dayKey(for: day, calendar: calendar)
+        let normalizedDay = calendar.startOfDay(for: day)
+        let components = calendar.dateComponents([.year, .month, .day], from: normalizedDay)
+        let year = components.year ?? 0
+        let month = components.month ?? 1
+        let day = components.day ?? 1
+        return String(format: "%04d-%02d-%02d", year, month, day)
     }
 
     static func parse(_ key: String, calendar: Calendar = .current) -> Date {

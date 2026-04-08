@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct PlannerDayContent: Sendable {
+nonisolated struct PlannerDayContent: Sendable {
     let taskRows: [PlannerTaskRowData]
     let mergedItems: [PlannerSelectedDayItemViewData]
     let indicatorColors: [TaskColor]
@@ -19,12 +19,12 @@ struct PlannerDayContent: Sendable {
     )
 }
 
-struct PlannerMonthBuildOutput: Sendable {
+nonisolated struct PlannerMonthBuildOutput: Sendable {
     let monthSnapshot: PlannerMonthSnapshot
     let dayContentByDay: [Date: PlannerDayContent]
 }
 
-struct PlannerScreenSnapshotBuilder {
+nonisolated struct PlannerScreenSnapshotBuilder {
     func buildMonth(
         tasks: [PlannerTaskSource],
         monthAnchor: Date,

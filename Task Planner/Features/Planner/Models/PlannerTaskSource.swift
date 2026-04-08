@@ -8,12 +8,12 @@
 import Foundation
 import SwiftUI
 
-struct PlannerTaskSeriesOverrideValue: Sendable {
+nonisolated struct PlannerTaskSeriesOverrideValue: Sendable {
     let isDeleted: Bool
     let template: TaskSeriesTemplate?
 }
 
-struct PlannerTaskSource: Sendable {
+nonisolated struct PlannerTaskSource: Sendable {
     let taskKey: String
     let baseDay: Date
     let ownerRepeatRule: RepeatRule
@@ -104,7 +104,7 @@ struct PlannerTaskSource: Sendable {
     }
 }
 
-struct PlannerExternalEventSource: Identifiable, Hashable, Sendable {
+nonisolated struct PlannerExternalEventSource: Identifiable, Hashable, Sendable {
     let id: String
     let title: String
     let startDate: Date
@@ -116,6 +116,7 @@ struct PlannerExternalEventSource: Identifiable, Hashable, Sendable {
 }
 
 extension TaskEntity {
+    @MainActor
     func plannerSource(calendar: Calendar = .current) -> PlannerTaskSource {
         let normalizedBaseDay = calendar.startOfDay(for: dayDate)
         let baseTemplate = TaskSeriesEngine.templateFromTask(self, dayStart: normalizedBaseDay, calendar: calendar)

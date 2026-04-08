@@ -189,7 +189,7 @@ enum TaskSeriesEngine {
 
 // MARK: - Time minutes helpers
 
-enum TimeMinutes {
+nonisolated enum TimeMinutes {
     static func minutes(from time: Date, calendar: Calendar) -> Int {
         let c = calendar.dateComponents([.hour, .minute], from: time)
         return max(0, (c.hour ?? 0) * 60 + (c.minute ?? 0))

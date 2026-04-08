@@ -8,17 +8,17 @@
 import Foundation
 
 enum CategorySystem {
-    static let uncategorizedId = "system.uncategorized"
-    static let workId = "system.work"
-    static let studyId = "system.study"
-    static let hobbyId = "system.hobby"
+    nonisolated static let uncategorizedId = "system.uncategorized"
+    nonisolated static let workId = "system.work"
+    nonisolated static let studyId = "system.study"
+    nonisolated static let hobbyId = "system.hobby"
 
-    static let uncategorizedTitle = "Uncategorized"
-    static let workTitle = "Work"
-    static let studyTitle = "Study"
-    static let hobbyTitle = "Hobby"
+    nonisolated static let uncategorizedTitle = "Uncategorized"
+    nonisolated static let workTitle = "Work"
+    nonisolated static let studyTitle = "Study"
+    nonisolated static let hobbyTitle = "Hobby"
 
-    static let nonDeletableIds: Set<String> = [uncategorizedId, workId, studyId, hobbyId]
+    nonisolated static let nonDeletableIds: Set<String> = [uncategorizedId, workId, studyId, hobbyId]
 
     static func isNonDeletable(_ category: CategoryEntity) -> Bool {
         nonDeletableIds.contains(category.id)
@@ -28,11 +28,11 @@ enum CategorySystem {
         category.id == uncategorizedId
     }
 
-    static var defaultSelectableTitles: [String] {
+    nonisolated static var defaultSelectableTitles: [String] {
         [workTitle, studyTitle, hobbyTitle]
     }
 
-    static func localizedDisplayTitle(for rawTitle: String?) -> String {
+    nonisolated static func localizedDisplayTitle(for rawTitle: String?) -> String {
         let trimmed = (rawTitle ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             return String(localized: "Uncategorized")
@@ -52,12 +52,12 @@ enum CategorySystem {
         }
     }
 
-    static func matchesWorkTitle(_ title: String) -> Bool {
+    nonisolated static func matchesWorkTitle(_ title: String) -> Bool {
         let key = normalizedKey(for: title)
         return key == normalizedKey(for: workTitle) || key == normalizedKey(for: "Работа")
     }
 
-    private static func normalizedKey(for title: String) -> String {
+    nonisolated private static func normalizedKey(for title: String) -> String {
         title
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)

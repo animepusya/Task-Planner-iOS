@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct PlannerMonthBuildKey: Hashable, Sendable {
+nonisolated struct PlannerMonthBuildKey: Hashable, Sendable {
     let monthAnchor: Date
     let weekStartsOnMonday: Bool
     let taskRevision: Int

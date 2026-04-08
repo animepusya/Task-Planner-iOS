@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum LocalizedDisplayText {
+nonisolated enum LocalizedDisplayText {
     static func taskTitle(_ rawTitle: String) -> String {
         let trimmed = rawTitle.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {

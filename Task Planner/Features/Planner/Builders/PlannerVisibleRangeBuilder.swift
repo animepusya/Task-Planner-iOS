@@ -7,12 +7,12 @@
 
 import Foundation
 
-struct PlannerVisibleRange {
+nonisolated struct PlannerVisibleRange {
     let gridItems: [DayItem]
     let visibleDays: [Date]
 }
 
-enum PlannerVisibleRangeBuilder {
+nonisolated enum PlannerVisibleRangeBuilder {
     static func build(
         monthAnchor: Date,
         weekStartsOnMonday: Bool,

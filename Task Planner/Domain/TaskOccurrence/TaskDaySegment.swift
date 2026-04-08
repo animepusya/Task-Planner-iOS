@@ -86,7 +86,7 @@ struct DayOccurrence: Identifiable, Hashable {
     }
 }
 
-struct PlannerTaskOccurrence: Identifiable, Hashable, Sendable {
+nonisolated struct PlannerTaskOccurrence: Identifiable, Hashable, Sendable {
     enum Badge: String, Hashable, Sendable {
         case continues = "Continues"
         case ongoing = "Ongoing"
@@ -125,7 +125,7 @@ struct PlannerTaskOccurrence: Identifiable, Hashable, Sendable {
 }
 
 enum TaskDaySegment {
-    static func plannerOccurrencesByDay(
+    nonisolated static func plannerOccurrencesByDay(
         for visibleDays: [Date],
         from tasks: [PlannerTaskSource],
         weekStartsOnMonday: Bool
@@ -291,7 +291,7 @@ enum TaskDaySegment {
         return occurrencesByDay
     }
 
-    private static func appendPlannerOccurrences(
+    nonisolated private static func appendPlannerOccurrences(
         for task: PlannerTaskSource,
         visibleStart: Date,
         visibleEnd: Date,
@@ -402,7 +402,7 @@ enum TaskDaySegment {
         }
     }
 
-    private static func effectivePlannerSegmentEnd(
+    nonisolated private static func effectivePlannerSegmentEnd(
         for segment: TaskSeriesSegment,
         task: PlannerTaskSource,
         searchEnd: Date,
@@ -421,7 +421,7 @@ enum TaskDaySegment {
         return candidates.min()
     }
 
-    private static func plannerOccurrenceIntersectsVisibleRange(
+    nonisolated private static func plannerOccurrenceIntersectsVisibleRange(
         occurrenceStartDay: Date,
         template: TaskSeriesTemplate,
         visibleStart: Date,
@@ -435,7 +435,7 @@ enum TaskDaySegment {
         return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
     }
 
-    private static func appendPlannerStartDays(
+    nonisolated private static func appendPlannerStartDays(
         for task: PlannerTaskSource,
         template: TaskSeriesTemplate,
         anchorDay: Date,
@@ -545,7 +545,7 @@ enum TaskDaySegment {
         }
     }
 
-    private static func appendPlannerOccurrence(
+    nonisolated private static func appendPlannerOccurrence(
         for task: PlannerTaskSource,
         occurrenceStartDay: Date,
         template: TaskSeriesTemplate,
@@ -591,7 +591,7 @@ enum TaskDaySegment {
         }
     }
 
-    private static func makePlannerOccurrence(
+    nonisolated private static func makePlannerOccurrence(
         task: PlannerTaskSource,
         dayStart: Date,
         occurrenceStartDay: Date,
@@ -671,7 +671,7 @@ enum TaskDaySegment {
         )
     }
 
-    private static func strideDays(
+    nonisolated private static func strideDays(
         from start: Date,
         through end: Date,
         step: Int,
@@ -807,7 +807,7 @@ enum TaskDaySegment {
         )
     }
 
-    private static func enumerateDays(from start: Date, to end: Date, calendar: Calendar) -> [Date] {
+    nonisolated private static func enumerateDays(from start: Date, to end: Date, calendar: Calendar) -> [Date] {
         let normalizedStart = calendar.startOfDay(for: start)
         let normalizedEnd = calendar.startOfDay(for: end)
         guard normalizedStart <= normalizedEnd else { return [] }

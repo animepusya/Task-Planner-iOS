@@ -11,7 +11,7 @@ import ImageIO
 import UIKit
 import UniformTypeIdentifiers
 
-enum TaskPhotoProcessor {
+nonisolated enum TaskPhotoProcessor {
     static let cropPreviewSide: CGFloat = 280
     static let maximumZoomScale: CGFloat = 4
     static let thumbnailPixelSize: Int = 112

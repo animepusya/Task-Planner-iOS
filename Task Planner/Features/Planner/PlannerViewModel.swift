@@ -479,7 +479,7 @@ final class PlannerViewModel: ObservableObject {
         Task { [weak self] in
             let output = await buildTask.value
             guard !buildTask.isCancelled else { return }
-            await self?.finishMonthBuild(output, for: key, applyIfCurrent: applyIfCurrent)
+            self?.finishMonthBuild(output, for: key, applyIfCurrent: applyIfCurrent)
         }
     }
 

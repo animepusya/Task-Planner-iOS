@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum RepeatRule: String, CaseIterable, Codable, Sendable {
+nonisolated enum RepeatRule: String, CaseIterable, Codable, Sendable {
     case none
     case daily
     case weekdays
@@ -18,18 +18,6 @@ enum RepeatRule: String, CaseIterable, Codable, Sendable {
 }
 
 extension RepeatRule {
-    static var allCases: [RepeatRule] {
-        [
-            .none,
-            .daily,
-            .weekdays,
-            .weekends,
-            .weekly,
-            .monthly,
-            .everyNDays
-        ]
-    }
-
     var displayName: String {
         switch self {
         case .none: return String(localized: "None")

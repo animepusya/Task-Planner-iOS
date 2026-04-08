@@ -7,14 +7,14 @@
 
 import Foundation
 
-struct DayItem: Identifiable, Hashable {
+nonisolated struct DayItem: Identifiable, Hashable, Sendable {
     let id: String
     let date: Date
     let dayNumber: Int
     let isInDisplayedMonth: Bool
 }
 
-enum CalendarGridBuilder {
+nonisolated enum CalendarGridBuilder {
     static func makeMonthGrid(
         monthAnchor: Date,
         weekStartsOnMonday: Bool,

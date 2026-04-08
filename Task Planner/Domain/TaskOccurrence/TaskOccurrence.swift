@@ -15,7 +15,7 @@ enum TaskOccurrence {
         return cal
     }
 
-    static func combine(day: Date, time: Date, calendar: Calendar) -> Date {
+    nonisolated static func combine(day: Date, time: Date, calendar: Calendar) -> Date {
         let dayStart = calendar.startOfDay(for: day)
         let comps = calendar.dateComponents([.hour, .minute], from: time)
         let hour = comps.hour ?? 0
@@ -23,7 +23,7 @@ enum TaskOccurrence {
         return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: dayStart) ?? dayStart
     }
 
-    static func occursStartOnBase(
+    nonisolated static func occursStartOnBase(
         rule: RepeatRule,
         intervalDays: Int?,
         baseDay: Date,

@@ -223,6 +223,7 @@ final class SettingsViewModel: ObservableObject {
     private func statusText(prefix: String? = nil) -> String {
         let base = switch calendarSync.authorizationStatus {
         case .authorized, .fullAccess: String(localized: "Calendar access: granted")
+        case .writeOnly: String(localized: "Calendar access: write-only")
         case .notDetermined: String(localized: "Calendar access: not requested")
         case .denied: String(localized: "Calendar access: denied")
         case .restricted: String(localized: "Calendar access: restricted")

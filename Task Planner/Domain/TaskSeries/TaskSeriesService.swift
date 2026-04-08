@@ -497,7 +497,7 @@ final class TaskSeriesService {
         _ segments: [TaskSeriesSegment],
         calendar: Calendar
     ) -> [TaskSeriesSegment] {
-        var sorted = segments.sorted { $0.startDay < $1.startDay }
+        let sorted = segments.sorted { $0.startDay < $1.startDay }
         var result: [TaskSeriesSegment] = []
 
         for var segment in sorted {
