@@ -9,7 +9,7 @@ import Foundation
 
 enum TaskOccurrence {
 
-    static func calendar(weekStartsOnMonday: Bool) -> Calendar {
+    nonisolated static func calendar(weekStartsOnMonday: Bool) -> Calendar {
         var cal = Calendar.current
         cal.firstWeekday = weekStartsOnMonday ? 2 : 1
         return cal

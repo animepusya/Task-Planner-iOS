@@ -8,8 +8,7 @@
 import Foundation
 
 extension Date {
-
-    func monthTitle(using calendar: Calendar = .current) -> String {
+    nonisolated func monthTitle(using calendar: Calendar = .current) -> String {
         let f = DateFormatter()
         f.calendar = calendar
         f.locale = .current
@@ -17,7 +16,7 @@ extension Date {
         return f.string(from: self).capitalizedStandaloneMonth()
     }
 
-    func monthName(using calendar: Calendar = .current) -> String {
+    nonisolated func monthName(using calendar: Calendar = .current) -> String {
         let f = DateFormatter()
         f.calendar = calendar
         f.locale = .current
@@ -25,7 +24,7 @@ extension Date {
         return f.string(from: self).capitalizedStandaloneMonth()
     }
 
-    func monthShortName(using calendar: Calendar = .current) -> String {
+    nonisolated func monthShortName(using calendar: Calendar = .current) -> String {
         let f = DateFormatter()
         f.calendar = calendar
         f.locale = .current
@@ -33,7 +32,7 @@ extension Date {
         return f.string(from: self).capitalizedStandaloneMonth()
     }
 
-    func dayTitle(using calendar: Calendar = .current) -> String {
+    nonisolated func dayTitle(using calendar: Calendar = .current) -> String {
         let f = DateFormatter()
         f.calendar = calendar
         f.locale = .current
@@ -43,7 +42,7 @@ extension Date {
 }
 
 private extension String {
-    func capitalizedStandaloneMonth(locale: Locale = .current) -> String {
+    nonisolated func capitalizedStandaloneMonth(locale: Locale = .current) -> String {
         guard let first else { return self }
         return String(first).uppercased(with: locale) + dropFirst()
     }

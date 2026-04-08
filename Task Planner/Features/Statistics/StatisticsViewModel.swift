@@ -15,11 +15,12 @@ final class StatisticsViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
     private let onOpenSettings: () -> Void
+    private let comparisonMode: StatisticsComparisonMode = .previousEquivalent
 
     private let computationCache = StatisticsComputationCache()
 
     private var taskSources: [StatisticsTaskSource] = []
-    private var refreshTask: Task<StatisticsComputedResult, Never>?
+    private var refreshTask: Task<StatisticsRefreshPayload, Never>?
     private var isUpdatingInputs = false
     private var didScheduleInitialLoad = false
 
@@ -59,23 +60,30 @@ final class StatisticsViewModel: ObservableObject {
         }
         
         self.weekStartsOnMonday = initialWeekStartsOnMonday
-        
+
         let initialRange: StatisticsRange = .month
-        let initialAnchor = StatisticsViewModel.normalizedAnchorDate(
+        let initialAnchor = StatisticsPeriodContextBuilder.normalizedAnchorDate(
             for: initialRange,
             anchorDate: Calendar.current.startOfDay(for: .now),
             weekStartsOnMonday: initialWeekStartsOnMonday
         )
-        self.anchorDate = initialAnchor
-        
-        self.snapshot = .placeholder(
-            displayedTitle: StatisticsViewModel.makeDisplayedTitle(
-                for: initialRange,
-                anchorDate: initialAnchor,
-                weekStartsOnMonday: initialWeekStartsOnMonday
-            )
+        let initialContext = StatisticsPeriodContextBuilder.make(
+            range: initialRange,
+            anchorDate: initialAnchor,
+            weekStartsOnMonday: initialWeekStartsOnMonday
         )
-        
+        let comparedContext = StatisticsPeriodContextBuilder.comparisonContext(
+            for: initialContext,
+            mode: comparisonMode
+        )
+        self.anchorDate = initialAnchor
+
+        self.snapshot = .placeholder(
+            currentContext: initialContext,
+            comparedContext: comparedContext,
+            comparisonMode: comparisonMode
+        )
+
         self.range = initialRange
         self.breakdown = .category
     }
@@ -93,41 +101,21 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     func goToPrevious() {
-        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            anchorDate = calendar.date(byAdding: .day, value: -1, to: anchorDate) ?? anchorDate
-
-        case .week:
-            anchorDate = calendar.date(byAdding: .day, value: -7, to: anchorDate) ?? anchorDate
-
-        case .month:
-            let previous = calendar.date(byAdding: .month, value: -1, to: anchorDate) ?? anchorDate
-            anchorDate = calendar.startOfMonth(for: previous)
-
-        case .year:
-            anchorDate = calendar.date(byAdding: .year, value: -1, to: anchorDate) ?? anchorDate
-        }
+        anchorDate = StatisticsPeriodContextBuilder.shiftedAnchorDate(
+            for: range,
+            anchorDate: anchorDate,
+            weekStartsOnMonday: weekStartsOnMonday,
+            direction: .previous
+        )
     }
 
     func goToNext() {
-        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            anchorDate = calendar.date(byAdding: .day, value: 1, to: anchorDate) ?? anchorDate
-
-        case .week:
-            anchorDate = calendar.date(byAdding: .day, value: 7, to: anchorDate) ?? anchorDate
-
-        case .month:
-            let next = calendar.date(byAdding: .month, value: 1, to: anchorDate) ?? anchorDate
-            anchorDate = calendar.startOfMonth(for: next)
-
-        case .year:
-            anchorDate = calendar.date(byAdding: .year, value: 1, to: anchorDate) ?? anchorDate
-        }
+        anchorDate = StatisticsPeriodContextBuilder.shiftedAnchorDate(
+            for: range,
+            anchorDate: anchorDate,
+            weekStartsOnMonday: weekStartsOnMonday,
+            direction: .next
+        )
     }
 
     private func scheduleInitialLoadIfNeeded() {
@@ -141,7 +129,7 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func handleInputChange() {
-        let normalizedAnchor = Self.normalizedAnchorDate(
+        let normalizedAnchor = StatisticsPeriodContextBuilder.normalizedAnchorDate(
             for: range,
             anchorDate: anchorDate,
             weekStartsOnMonday: weekStartsOnMonday
@@ -168,7 +156,7 @@ final class StatisticsViewModel: ObservableObject {
 
         loadPreferences()
 
-        let normalizedAnchor = Self.normalizedAnchorDate(
+        let normalizedAnchor = StatisticsPeriodContextBuilder.normalizedAnchorDate(
             for: range,
             anchorDate: anchorDate,
             weekStartsOnMonday: weekStartsOnMonday
@@ -197,60 +185,107 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func refresh(force: Bool = false) {
-        let key = StatisticsComputationKey(
+        let currentContext = StatisticsPeriodContextBuilder.make(
             range: range,
             anchorDate: anchorDate,
             weekStartsOnMonday: weekStartsOnMonday
         )
-        let displayedTitle = Self.makeDisplayedTitle(
-            for: key.range,
-            anchorDate: key.anchorDate,
-            weekStartsOnMonday: key.weekStartsOnMonday
+        let comparedContext = StatisticsPeriodContextBuilder.comparisonContext(
+            for: currentContext,
+            mode: comparisonMode
         )
+        let currentKey = currentContext.computationKey
+        let comparedKey = comparedContext.computationKey
 
-        if force == false, let cached = computationCache.value(for: key) {
-            apply(result: cached, displayedTitle: displayedTitle)
+        if
+            force == false,
+            let currentCached = computationCache.value(for: currentKey),
+            let comparedCached = computationCache.value(for: comparedKey)
+        {
+            apply(
+                currentResult: currentCached,
+                currentContext: currentContext,
+                comparedResult: comparedCached,
+                comparedContext: comparedContext
+            )
             return
         }
 
         refreshTask?.cancel()
-        snapshot = .placeholder(displayedTitle: displayedTitle)
+        snapshot = .placeholder(
+            currentContext: currentContext,
+            comparedContext: comparedContext,
+            comparisonMode: comparisonMode
+        )
 
         let taskSources = self.taskSources
+        let cachedCurrent = force ? nil : computationCache.value(for: currentKey)
+        let cachedCompared = force ? nil : computationCache.value(for: comparedKey)
         let computeTask = Task.detached(priority: .userInitiated) {
-            StatisticsComputationBuilder.build(tasks: taskSources, key: key)
+            let currentResult = cachedCurrent
+                ?? StatisticsComputationBuilder.build(tasks: taskSources, key: currentKey)
+            let comparedResult = cachedCompared
+                ?? StatisticsComputationBuilder.build(tasks: taskSources, key: comparedKey)
+
+            return StatisticsRefreshPayload(
+                currentKey: currentKey,
+                currentContext: currentContext,
+                currentResult: currentResult,
+                comparedKey: comparedKey,
+                comparedContext: comparedContext,
+                comparedResult: comparedResult
+            )
         }
         refreshTask = computeTask
 
         Task { [weak self] in
-            let result = await computeTask.value
+            let payload = await computeTask.value
             guard let self else { return }
             guard computeTask.isCancelled == false else { return }
 
-            self.computationCache.insert(result, for: key)
+            self.computationCache.insert(payload.currentResult, for: payload.currentKey)
+            self.computationCache.insert(payload.comparedResult, for: payload.comparedKey)
 
-            let currentKey = StatisticsComputationKey(
+            let currentKey = StatisticsPeriodContextBuilder.make(
                 range: self.range,
                 anchorDate: self.anchorDate,
                 weekStartsOnMonday: self.weekStartsOnMonday
             )
-            guard currentKey == key else { return }
+            .computationKey
+            guard currentKey == payload.currentKey else { return }
 
-            self.apply(result: result, displayedTitle: displayedTitle)
+            self.apply(
+                currentResult: payload.currentResult,
+                currentContext: payload.currentContext,
+                comparedResult: payload.comparedResult,
+                comparedContext: payload.comparedContext
+            )
         }
     }
 
-    private func apply(result: StatisticsComputedResult, displayedTitle: String) {
-        let totalMinutesText = result.totalMinutes.formattedHoursMinutes()
+    private func apply(
+        currentResult: StatisticsComputedResult,
+        currentContext: StatisticsPeriodContext,
+        comparedResult: StatisticsComputedResult,
+        comparedContext: StatisticsPeriodContext
+    ) {
+        let totalMinutesText = currentResult.totalMinutes.formattedHoursMinutes()
 
         snapshot = StatisticsScreenSnapshot(
-            displayedTitle: displayedTitle,
-            totalMinutes: result.totalMinutes,
+            displayedTitle: currentContext.displayedTitle,
+            totalMinutes: currentResult.totalMinutes,
             totalMinutesText: totalMinutesText,
+            comparison: StatisticsComparisonBuilder.build(
+                currentResult: currentResult,
+                previousResult: comparedResult,
+                currentContext: currentContext,
+                comparedContext: comparedContext,
+                mode: comparisonMode
+            ),
             category: makeBreakdownSnapshot(
-                totalMinutes: result.totalMinutes,
+                totalMinutes: currentResult.totalMinutes,
                 breakdown: .category,
-                rows: result.categoryStats.map {
+                rows: currentResult.categoryStats.map {
                     StatisticsBreakdownRowSource(
                         id: $0.id,
                         name: $0.name,
@@ -260,9 +295,9 @@ final class StatisticsViewModel: ObservableObject {
                 }
             ),
             task: makeBreakdownSnapshot(
-                totalMinutes: result.totalMinutes,
+                totalMinutes: currentResult.totalMinutes,
                 breakdown: .task,
-                rows: result.taskStats.map {
+                rows: currentResult.taskStats.map {
                     StatisticsBreakdownRowSource(
                         id: $0.id,
                         name: $0.title,
@@ -296,7 +331,7 @@ final class StatisticsViewModel: ObservableObject {
                 minutesText: minutesText,
                 percentText: percentText,
                 valueText: "\(minutesText) (\(percentText))",
-                color: Self.color(forRawValue: row.colorRaw)
+                color: StatisticsPresentationColor.color(forRawValue: row.colorRaw)
             )
         }
 
@@ -352,10 +387,6 @@ final class StatisticsViewModel: ObservableObject {
         }
     }
 
-    private static func color(forRawValue rawValue: String) -> Color {
-        TaskColor(rawValue: rawValue)?.uiColor ?? DS.ColorToken.textSecondary
-    }
-
     private static func makeDonutSliceID(
         breakdown: StatisticsBreakdown,
         rowID: String
@@ -384,59 +415,6 @@ final class StatisticsViewModel: ObservableObject {
     private static func percentText(_ value: Double) -> String {
         "\(Int((value * 100).rounded()))%"
     }
-
-    private static func normalizedAnchorDate(
-        for range: StatisticsRange,
-        anchorDate: Date,
-        weekStartsOnMonday: Bool
-    ) -> Date {
-        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day, .week:
-            return calendar.startOfDay(for: anchorDate)
-
-        case .month:
-            return calendar.startOfMonth(for: anchorDate)
-
-        case .year:
-            let year = calendar.component(.year, from: anchorDate)
-            return calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? anchorDate
-        }
-    }
-
-    private static func makeDisplayedTitle(
-        for range: StatisticsRange,
-        anchorDate: Date,
-        weekStartsOnMonday: Bool
-    ) -> String {
-        let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-
-        switch range {
-        case .day:
-            return anchorDate.dayTitle(using: calendar)
-
-        case .week:
-            let weekStart = calendar.date(
-                from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate)
-            ) ?? calendar.startOfDay(for: anchorDate)
-            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
-
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.dateFormat = "d MMM"
-            return "\(formatter.string(from: weekStart)) – \(formatter.string(from: weekEnd))"
-
-        case .month:
-            return anchorDate.monthTitle(using: calendar)
-
-        case .year:
-            let formatter = DateFormatter()
-            formatter.calendar = calendar
-            formatter.dateFormat = "yyyy"
-            return formatter.string(from: anchorDate)
-        }
-    }
 }
 
 private struct StatisticsBreakdownRowSource {
@@ -444,4 +422,13 @@ private struct StatisticsBreakdownRowSource {
     let name: String
     let minutes: Int
     let colorRaw: String
+}
+
+private struct StatisticsRefreshPayload: Sendable {
+    let currentKey: StatisticsComputationKey
+    let currentContext: StatisticsPeriodContext
+    let currentResult: StatisticsComputedResult
+    let comparedKey: StatisticsComputationKey
+    let comparedContext: StatisticsPeriodContext
+    let comparedResult: StatisticsComputedResult
 }

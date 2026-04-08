@@ -7,6 +7,12 @@
 
 import SwiftUI
 
+enum StatisticsPresentationColor {
+    nonisolated static func color(forRawValue rawValue: String) -> Color {
+        TaskColor(rawValue: rawValue)?.uiColor ?? DS.ColorToken.textSecondary
+    }
+}
+
 struct StatisticsDonutCenterData {
     let title: String
     let valueText: String
@@ -80,6 +86,7 @@ struct StatisticsScreenSnapshot {
     let displayedTitle: String
     let totalMinutes: Int
     let totalMinutesText: String
+    let comparison: StatisticsComparisonSnapshot
     let category: StatisticsBreakdownSnapshot
     let task: StatisticsBreakdownSnapshot
 
@@ -92,14 +99,23 @@ struct StatisticsScreenSnapshot {
         }
     }
 
-    static func placeholder(displayedTitle: String) -> StatisticsScreenSnapshot {
+    static func placeholder(
+        currentContext: StatisticsPeriodContext,
+        comparedContext: StatisticsPeriodContext,
+        comparisonMode: StatisticsComparisonMode
+    ) -> StatisticsScreenSnapshot {
         let totalMinutes = 0
         let totalMinutesText = totalMinutes.formattedHoursMinutes()
 
         return StatisticsScreenSnapshot(
-            displayedTitle: displayedTitle,
+            displayedTitle: currentContext.displayedTitle,
             totalMinutes: totalMinutes,
             totalMinutesText: totalMinutesText,
+            comparison: .placeholder(
+                currentContext: currentContext,
+                comparedContext: comparedContext,
+                mode: comparisonMode
+            ),
             category: .empty(totalMinutesText: totalMinutesText),
             task: .empty(totalMinutesText: totalMinutesText)
         )

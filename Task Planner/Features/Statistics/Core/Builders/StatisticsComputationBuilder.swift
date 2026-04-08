@@ -251,18 +251,20 @@ private extension StatisticsTaskSeriesSegmentSource {
 }
 
 enum StatisticsComputationBuilder {
-    static func build(
+    nonisolated static func build(
         tasks: [StatisticsTaskSource],
         key: StatisticsComputationKey
     ) -> StatisticsComputedResult {
         guard !Task.isCancelled else { return .empty }
 
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: key.weekStartsOnMonday)
-        let (visibleStart, visibleEnd) = dateRange(
-            for: key.range,
+        let context = StatisticsPeriodContextBuilder.make(
+            range: key.range,
             anchorDate: key.anchorDate,
-            calendar: calendar
+            weekStartsOnMonday: key.weekStartsOnMonday
         )
+        let visibleStart = context.startDay
+        let visibleEnd = context.endDay
         let candidateTasks = tasks.filter {
             $0.hasRelevantStarts(between: visibleStart, and: visibleEnd, calendar: calendar)
         }
@@ -310,7 +312,7 @@ enum StatisticsComputationBuilder {
         )
     }
 
-    private static func aggregateOccurrence(
+    nonisolated private static func aggregateOccurrence(
         taskID: String,
         occurrenceStartDay: Date,
         template: StatisticsTaskSeriesTemplateSource,
@@ -382,7 +384,7 @@ enum StatisticsComputationBuilder {
         }
     }
 
-    private static func aggregateTaskOccurrences(
+    nonisolated private static func aggregateTaskOccurrences(
         for task: StatisticsTaskSource,
         visibleStart: Date,
         visibleEnd: Date,
@@ -500,7 +502,7 @@ enum StatisticsComputationBuilder {
         }
     }
 
-    private static func effectiveSegmentEnd(
+    nonisolated private static func effectiveSegmentEnd(
         for segment: StatisticsTaskSeriesSegmentSource,
         task: StatisticsTaskSource,
         searchEnd: Date,
@@ -519,7 +521,7 @@ enum StatisticsComputationBuilder {
         return candidates.min()
     }
 
-    private static func statisticsOccurrenceIntersectsVisibleRange(
+    nonisolated private static func statisticsOccurrenceIntersectsVisibleRange(
         occurrenceStartDay: Date,
         template: StatisticsTaskSeriesTemplateSource,
         visibleStart: Date,
@@ -533,7 +535,7 @@ enum StatisticsComputationBuilder {
         return interval.end > visibleStart && interval.start < dayAfterVisibleEnd
     }
 
-    private static func aggregateStartDays(
+    nonisolated private static func aggregateStartDays(
         for task: StatisticsTaskSource,
         template: StatisticsTaskSeriesTemplateSource,
         rangeStart: Date,
@@ -645,7 +647,7 @@ enum StatisticsComputationBuilder {
         }
     }
 
-    private static func template(
+    nonisolated private static func template(
         for task: StatisticsTaskSource,
         startDay: Date,
         calendar: Calendar
@@ -674,7 +676,7 @@ enum StatisticsComputationBuilder {
         return task.baseTemplate
     }
 
-    private static func occursStartOn(
+    nonisolated private static func occursStartOn(
         _ task: StatisticsTaskSource,
         on date: Date,
         weekStartsOnMonday: Bool,
@@ -720,7 +722,7 @@ enum StatisticsComputationBuilder {
         )
     }
 
-    private static func activeSegmentStartDay(
+    nonisolated private static func activeSegmentStartDay(
         for task: StatisticsTaskSource,
         day: Date
     ) -> Date? {
@@ -741,7 +743,7 @@ enum StatisticsComputationBuilder {
         return segment.startDay
     }
 
-    private static func strideDays(
+    nonisolated private static func strideDays(
         from start: Date,
         through end: Date,
         step: Int,
@@ -761,7 +763,7 @@ enum StatisticsComputationBuilder {
         return days
     }
 
-    private static func enumerateDays(
+    nonisolated private static func enumerateDays(
         from start: Date,
         to end: Date,
         calendar: Calendar
@@ -782,43 +784,13 @@ enum StatisticsComputationBuilder {
         return result
     }
 
-    private static func dateRange(
-        for range: StatisticsRange,
-        anchorDate: Date,
-        calendar: Calendar
-    ) -> (Date, Date) {
-        switch range {
-        case .day:
-            let day = calendar.startOfDay(for: anchorDate)
-            return (day, day)
-
-        case .week:
-            let weekStart = calendar.date(
-                from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchorDate)
-            ) ?? calendar.startOfDay(for: anchorDate)
-            let weekEnd = calendar.date(byAdding: .day, value: 6, to: weekStart) ?? weekStart
-            return (calendar.startOfDay(for: weekStart), calendar.startOfDay(for: weekEnd))
-
-        case .month:
-            let start = calendar.startOfMonth(for: anchorDate)
-            let end = calendar.endOfMonth(for: anchorDate)
-            return (calendar.startOfDay(for: start), calendar.startOfDay(for: end))
-
-        case .year:
-            let components = calendar.dateComponents([.year], from: anchorDate)
-            let start = calendar.date(from: components) ?? calendar.startOfDay(for: anchorDate)
-            let end = calendar.date(byAdding: DateComponents(year: 1, day: -1), to: start) ?? start
-            return (calendar.startOfDay(for: start), calendar.startOfDay(for: end))
-        }
-    }
-
-    private static func minutes(from start: Date, to end: Date) -> Int {
+    nonisolated private static func minutes(from start: Date, to end: Date) -> Int {
         let delta = end.timeIntervalSince(start)
         guard delta > 0 else { return 0 }
         return Int((delta / 60.0).rounded(.toNearestOrAwayFromZero))
     }
 
-    private static func makeTopTasks(
+    nonisolated private static func makeTopTasks(
         from perTask: [String: (title: String, minutes: Int, colorRaw: String)]
     ) -> [TaskStat] {
         let sorted = perTask
@@ -849,11 +821,11 @@ enum StatisticsComputationBuilder {
         return top + [other]
     }
 
-    private static func normalizedCategoryTitle(_ raw: String?) -> String {
+    nonisolated private static func normalizedCategoryTitle(_ raw: String?) -> String {
         CategorySystem.localizedDisplayTitle(for: raw)
     }
 
-    private static func normalizedTaskTitle(_ raw: String) -> String {
+    nonisolated private static func normalizedTaskTitle(_ raw: String) -> String {
         LocalizedDisplayText.taskTitle(raw)
     }
 }

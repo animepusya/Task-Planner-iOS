@@ -8,7 +8,7 @@
 import Foundation
 
 extension Int {
-    func formattedHoursMinutes() -> String {
+    nonisolated func formattedHoursMinutes() -> String {
         let totalMinutes = Swift.max(0, self)
         let hours = totalMinutes / 60
         let minutes = totalMinutes % 60
@@ -17,5 +17,13 @@ extension Int {
         if minutes == 0 { return "\(hours)h" }
         return "\(hours)h \(minutes)m"
     }
-}
 
+    nonisolated func formattedSignedHoursMinutes() -> String {
+        if self == 0 {
+            return "0m"
+        }
+
+        let prefix = self > 0 ? "+" : "-"
+        return prefix + abs(self).formattedHoursMinutes()
+    }
+}

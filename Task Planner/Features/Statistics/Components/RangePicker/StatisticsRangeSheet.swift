@@ -47,7 +47,6 @@ struct StatisticsRangeSheet: View {
                         headerSection
                         quickActionButton
                         pickerContent
-                        insightsPreviewCard
                     }
                     .padding(.horizontal, DS.Spacing.lg)
                     .padding(.top, DS.Spacing.lg)
@@ -151,52 +150,6 @@ struct StatisticsRangeSheet: View {
                 weekStartsOnMonday: weekStartsOnMonday
             )
         }
-    }
-
-    private var insightsPreviewCard: some View {
-        Button {
-            if subscriptionStore.isLocked(.statisticsComparison) {
-                navigationPath.append(.paywall(.statisticsComparison))
-            }
-        } label: {
-            HStack(alignment: .center, spacing: DS.Spacing.sm) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        Text("Compare periods")
-                            .font(DS.Typography.body)
-                            .foregroundStyle(DS.ColorToken.textPrimary)
-
-                        if subscriptionStore.isLocked(.statisticsComparison) {
-                            ProBadge(size: .small)
-                        }
-                    }
-
-                    Text("A future advanced insight for side-by-side range comparison.")
-                        .font(DS.Typography.caption)
-                        .foregroundStyle(DS.ColorToken.textSecondary)
-                        .multilineTextAlignment(.leading)
-                }
-
-                Spacer(minLength: DS.Spacing.sm)
-
-                Text("Coming soon")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(DS.ColorToken.controlFill, in: Capsule())
-            }
-            .padding(DS.Spacing.md)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Surface.card)
-            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(DS.Border.subtle, lineWidth: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .disabled(subscriptionStore.hasAccess(to: .statisticsComparison))
     }
 
     private var quickActionTitle: String {

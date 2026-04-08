@@ -14,6 +14,8 @@ struct StatisticsView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @State private var isRangeSheetPresented = false
+    @State private var isComparisonPresented = false
+    @State private var isComparisonPaywallPresented = false
     @State private var selectedSliceId: String? = nil
 
     init(viewModel: StatisticsViewModel) {
@@ -59,6 +61,7 @@ struct StatisticsView: View {
                             snapshot: breakdownSnapshot,
                             totalMinutesText: snapshot.totalMinutesText
                         )
+                        comparisonPreviewCard(snapshot: snapshot.comparison)
                     }
                     .padding(.horizontal, DS.Spacing.lg)
                     .padding(.top, DS.Spacing.lg)
@@ -69,6 +72,13 @@ struct StatisticsView: View {
             }
         }
         .navigationBarHidden(true)
+        .navigationDestination(isPresented: $isComparisonPresented) {
+            StatisticsComparisonView(viewModel: viewModel)
+        }
+        .navigationDestination(isPresented: $isComparisonPaywallPresented) {
+            PaywallView(entryPoint: .statisticsComparison)
+                .environmentObject(subscriptionStore)
+        }
         .onAppear {
             viewModel.onViewAppear()
         }
@@ -86,6 +96,18 @@ struct StatisticsView: View {
                 weekStartsOnMonday: viewModel.weekStartsOnMonday
             )
             .environmentObject(subscriptionStore)
+        }
+    }
+
+    private func comparisonPreviewCard(
+        snapshot: StatisticsComparisonSnapshot
+    ) -> some View {
+        StatisticsComparisonPreviewCard(snapshot: snapshot) {
+            if subscriptionStore.hasAccess(to: .statisticsComparison) {
+                isComparisonPresented = true
+            } else {
+                isComparisonPaywallPresented = true
+            }
         }
     }
 
