@@ -14,7 +14,6 @@ import Combine
 final class StatisticsViewModel: ObservableObject {
     private let taskRepository: TaskRepository
     private let preferencesRepository: PreferencesRepository
-    private let onOpenSettings: () -> Void
     private let comparisonMode: StatisticsComparisonMode = .previousEquivalent
 
     private let computationCache = StatisticsComputationCache()
@@ -44,12 +43,10 @@ final class StatisticsViewModel: ObservableObject {
     
     init(
         taskRepository: TaskRepository,
-        preferencesRepository: PreferencesRepository,
-        onOpenSettings: @escaping () -> Void
+        preferencesRepository: PreferencesRepository
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
-        self.onOpenSettings = onOpenSettings
         
         let initialWeekStartsOnMonday: Bool
         do {
@@ -94,10 +91,6 @@ final class StatisticsViewModel: ObservableObject {
 
     func handleModelContextDidSave() {
         reloadStoreInputsAndRefresh(force: false)
-    }
-
-    func openSettings() {
-        onOpenSettings()
     }
 
     func goToPrevious() {

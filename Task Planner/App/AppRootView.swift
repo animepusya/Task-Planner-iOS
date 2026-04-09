@@ -76,8 +76,11 @@ private struct AppRootTabShellView: View {
     @Binding var statisticsNavigationPath: [AppRoute]
     @Binding var sheet: SheetRoute?
 
+    @State private var statisticsComparisonViewModel: StatisticsViewModel?
+
     private var showsTabBar: Bool {
-        selectedTab != .statistics || statisticsNavigationPath.isEmpty
+        guard selectedTab == .statistics else { return true }
+        return statisticsNavigationPath.last?.hidesStatisticsTabBar != true
     }
 
     var body: some View {
@@ -103,7 +106,9 @@ private struct AppRootTabShellView: View {
                 StatisticsView(
                     taskRepository: dependencies.taskRepository,
                     preferencesRepository: dependencies.preferencesRepository,
-                    onOpenSettings: openSettings
+                    onOpenSettings: openSettings,
+                    onOpenComparison: openStatisticsComparison,
+                    onOpenPaywall: openPaywall
                 )
                 .navigationDestination(for: AppRoute.self, destination: destinationView)
             }
@@ -132,7 +137,14 @@ private struct AppRootTabShellView: View {
         statisticsNavigationPath.append(.settings)
     }
 
+    private func openStatisticsComparison(using viewModel: StatisticsViewModel) {
+        statisticsComparisonViewModel = viewModel
+        guard statisticsNavigationPath.last != .statisticsComparison else { return }
+        statisticsNavigationPath.append(.statisticsComparison)
+    }
+
     private func openPaywall(_ entryPoint: PaywallEntryPoint) {
+        guard statisticsNavigationPath.last != .paywall(entryPoint) else { return }
         statisticsNavigationPath.append(.paywall(entryPoint))
     }
 
@@ -159,6 +171,11 @@ private struct AppRootTabShellView: View {
                 }
             )
             .environmentObject(dependencies.subscriptionStore)
+
+        case .statisticsComparison:
+            if let statisticsComparisonViewModel {
+                StatisticsComparisonView(viewModel: statisticsComparisonViewModel)
+            }
 
         case .paywall(let entryPoint):
             PaywallView(entryPoint: entryPoint)

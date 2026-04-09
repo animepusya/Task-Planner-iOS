@@ -14,26 +14,28 @@ struct StatisticsView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @State private var isRangeSheetPresented = false
-    @State private var isComparisonPresented = false
-    @State private var isComparisonPaywallPresented = false
     @State private var selectedSliceId: String? = nil
 
-    init(viewModel: StatisticsViewModel) {
-        _viewModel = StateObject(wrappedValue: viewModel)
-    }
+    private let onOpenSettings: () -> Void
+    private let onOpenComparison: (StatisticsViewModel) -> Void
+    private let onOpenPaywall: (PaywallEntryPoint) -> Void
 
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
-        onOpenSettings: @escaping () -> Void
+        onOpenSettings: @escaping () -> Void,
+        onOpenComparison: @escaping (StatisticsViewModel) -> Void,
+        onOpenPaywall: @escaping (PaywallEntryPoint) -> Void
     ) {
         _viewModel = StateObject(
             wrappedValue: StatisticsViewModel(
                 taskRepository: taskRepository,
-                preferencesRepository: preferencesRepository,
-                onOpenSettings: onOpenSettings
+                preferencesRepository: preferencesRepository
             )
         )
+        self.onOpenSettings = onOpenSettings
+        self.onOpenComparison = onOpenComparison
+        self.onOpenPaywall = onOpenPaywall
     }
 
     var body: some View {
@@ -72,13 +74,6 @@ struct StatisticsView: View {
             }
         }
         .navigationBarHidden(true)
-        .navigationDestination(isPresented: $isComparisonPresented) {
-            StatisticsComparisonView(viewModel: viewModel)
-        }
-        .navigationDestination(isPresented: $isComparisonPaywallPresented) {
-            PaywallView(entryPoint: .statisticsComparison)
-                .environmentObject(subscriptionStore)
-        }
         .onAppear {
             viewModel.onViewAppear()
         }
@@ -104,9 +99,9 @@ struct StatisticsView: View {
     ) -> some View {
         StatisticsComparisonPreviewCard(snapshot: snapshot) {
             if subscriptionStore.hasAccess(to: .statisticsComparison) {
-                isComparisonPresented = true
+                onOpenComparison(viewModel)
             } else {
-                isComparisonPaywallPresented = true
+                onOpenPaywall(.statisticsComparison)
             }
         }
     }
@@ -114,7 +109,7 @@ struct StatisticsView: View {
     private var header: some View {
         ScreenTopSection(title: String(localized: "Statistics")) {
             IconCircleButton(systemName: "gearshape") {
-                viewModel.openSettings()
+                onOpenSettings()
             }
             .accessibilityLabel("Settings")
         }
