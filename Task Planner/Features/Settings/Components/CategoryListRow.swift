@@ -12,6 +12,8 @@ struct CategoryListRow: View {
     let isDeletable: Bool
     let onDelete: () -> Void
 
+    @State private var showDeleteConfirmation = false
+
     var body: some View {
         SettingsRow(
             title: displayTitle,
@@ -28,7 +30,9 @@ struct CategoryListRow: View {
         )
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if isDeletable {
-                Button(role: .destructive, action: onDelete) {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
                     Label("Delete", systemImage: "trash")
                 }
             }
@@ -36,7 +40,9 @@ struct CategoryListRow: View {
     }
 
     private var deleteButton: some View {
-        Button(action: onDelete) {
+        Button {
+            showDeleteConfirmation = true
+        } label: {
             Image(systemName: "trash")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(Color.red)
@@ -52,9 +58,26 @@ struct CategoryListRow: View {
                 )
             )
         )
+        .confirmationDialog(
+            deleteDialogTitle,
+            isPresented: $showDeleteConfirmation,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive, action: onDelete)
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Tasks in this category will stay in your planner.")
+        }
     }
 
     private var displayTitle: String {
         CategorySystem.localizedDisplayTitle(for: title)
+    }
+
+    private var deleteDialogTitle: String {
+        String.localizedStringWithFormat(
+            String(localized: "Delete %@?"),
+            displayTitle
+        )
     }
 }

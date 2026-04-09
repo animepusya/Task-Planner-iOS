@@ -22,8 +22,6 @@ struct SettingsView: View {
     @State private var showNotifications = false
     @State private var showClearAllAlert = false
     @State private var showAddCategoryPrompt = false
-    @State private var showDeleteCategoryConfirmation = false
-    @State private var categoryPendingDeletion: CategoryEntity?
     @State private var monetizationNotice: MonetizationNotice?
 
     init(
@@ -102,23 +100,6 @@ struct SettingsView: View {
             }
         } message: {
             Text("Choose a name.")
-        }
-        .confirmationDialog(
-            deleteCategoryDialogTitle,
-            isPresented: $showDeleteCategoryConfirmation,
-            titleVisibility: .visible,
-            presenting: categoryPendingDeletion
-        ) { category in
-            Button("Delete", role: .destructive) {
-                viewModel.deleteCategory(category)
-                categoryPendingDeletion = nil
-            }
-
-            Button("Cancel", role: .cancel) {
-                categoryPendingDeletion = nil
-            }
-        } message: { _ in
-            Text("Tasks in this category will stay in your planner.")
         }
         .alert(item: $monetizationNotice) { notice in
             Alert(
@@ -369,7 +350,7 @@ struct SettingsView: View {
                     CategoryListRow(
                         title: category.title,
                         isDeletable: viewModel.isDeletable(category),
-                        onDelete: { promptDeleteCategory(category) }
+                        onDelete: { viewModel.deleteCategory(category) }
                     )
 
                     if index < viewModel.categories.count - 1 {
@@ -549,18 +530,6 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
-    private var deleteCategoryDialogTitle: String {
-        guard let categoryPendingDeletion else {
-            return String(localized: "Delete Category")
-        }
-
-        let title = CategorySystem.localizedDisplayTitle(for: categoryPendingDeletion.title)
-        return String.localizedStringWithFormat(
-            String(localized: "Delete %@?"),
-            title
-        )
-    }
-
     private var footerTextForCalendar: String? {
         if let error = viewModel.calendarErrorText, !error.isEmpty {
             return error
@@ -631,12 +600,6 @@ struct SettingsView: View {
         }
 
         viewModel.addCategory()
-    }
-
-    private func promptDeleteCategory(_ category: CategoryEntity) {
-        guard viewModel.isDeletable(category) else { return }
-        categoryPendingDeletion = category
-        showDeleteCategoryConfirmation = true
     }
 
     private func openAppSettings() {
