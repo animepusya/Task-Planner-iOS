@@ -5,45 +5,22 @@
 //  Created by Руслан Меланин on 09.02.2026.
 //
 
-import Foundation
-import Combine
-import SwiftData
 import EventKit
+import Combine
+import Foundation
 import WidgetKit
 
 @MainActor
 final class SettingsViewModel: ObservableObject {
-    enum LocalizationOption: String, CaseIterable, Identifiable {
-        case system
-        case english
-        case russian
-        case hebrew
-
-        var id: String { rawValue }
-
-        var title: String {
-            switch self {
-            case .system: return String(localized: "System")
-            case .english: return String(localized: "English")
-            case .russian: return String(localized: "Russian")
-            case .hebrew: return String(localized: "Hebrew")
-            }
-        }
-    }
-
-    private enum StorageKey {
-        static let localization = "settings.localization"
-    }
-
     private let preferencesRepository: PreferencesRepository
     private let taskRepository: TaskRepository
     private let categoryRepository: CategoryRepository
     private let calendarSync: CalendarSyncService
-    private let defaults: UserDefaults
 
     @Published var weekStartsOnMonday: Bool = true
     @Published var categories: [CategoryEntity] = []
     @Published var newCategoryTitle: String = ""
+    @Published private(set) var appLanguageDisplayName: String = ""
 
     @Published var showTasksInAppleCalendar: Bool = false
     @Published var showAppleCalendarEventsInPlanner: Bool = false
@@ -52,20 +29,17 @@ final class SettingsViewModel: ObservableObject {
     @Published var calendarErrorText: String?
 
     @Published var selectedTheme: AppTheme = .system
-    @Published var selectedLocalization: LocalizationOption = .system
 
     init(
         preferencesRepository: PreferencesRepository,
         taskRepository: TaskRepository,
         categoryRepository: CategoryRepository,
-        calendarSync: CalendarSyncService,
-        defaults: UserDefaults = .standard
+        calendarSync: CalendarSyncService
     ) {
         self.preferencesRepository = preferencesRepository
         self.taskRepository = taskRepository
         self.categoryRepository = categoryRepository
         self.calendarSync = calendarSync
-        self.defaults = defaults
     }
 
     func load() {
@@ -81,18 +55,22 @@ final class SettingsViewModel: ObservableObject {
             selectedTheme = .system
         }
 
-        selectedLocalization = loadLocalization()
-
+        refreshAppLanguageDisplayName()
         reloadCategories()
     }
 
     func reloadCategories() {
         do {
             try categoryRepository.ensureSystemCategories()
-            categories = try categoryRepository.fetchAll()
+            let allCategories = try categoryRepository.fetchAll()
+            categories = CategorySystem.userVisibleCategories(from: allCategories)
         } catch {
             categories = []
         }
+    }
+
+    func refreshAppLanguageDisplayName() {
+        appLanguageDisplayName = Self.resolveAppLanguageDisplayName()
     }
 
     func setWeekStartsOnMonday(_ value: Bool) {
@@ -128,11 +106,6 @@ final class SettingsViewModel: ObservableObject {
         } catch {
             selectedTheme = previousValue
         }
-    }
-
-    func setLocalization(_ value: LocalizationOption) {
-        selectedLocalization = value
-        defaults.set(value.rawValue, forKey: StorageKey.localization)
     }
 
     // MARK: - Calendar actions
@@ -251,6 +224,10 @@ final class SettingsViewModel: ObservableObject {
 
     // MARK: - Categories
 
+    func prepareForNewCategory() {
+        newCategoryTitle = ""
+    }
+
     func addCategory() {
         do {
             try categoryRepository.add(title: newCategoryTitle)
@@ -265,9 +242,14 @@ final class SettingsViewModel: ObservableObject {
         do {
             let tasks = try taskRepository.fetchAll()
             let deletedTitle = category.title
+            let fallbackTitle = CategorySystem.storedFallbackTaskCategoryTitle
 
             tasks.forEach { task in
-                clearCategoryReferences(in: task, deletedTitle: deletedTitle)
+                clearCategoryReferences(
+                    in: task,
+                    deletedTitle: deletedTitle,
+                    fallbackTitle: fallbackTitle
+                )
             }
 
             try taskRepository.save()
@@ -286,19 +268,13 @@ final class SettingsViewModel: ObservableObject {
 
     // MARK: - Helpers
 
-    private func loadLocalization() -> LocalizationOption {
-        guard
-            let rawValue = defaults.string(forKey: StorageKey.localization),
-            let value = LocalizationOption(rawValue: rawValue)
-        else {
-            return .system
-        }
-        return value
-    }
-
-    private func clearCategoryReferences(in task: TaskEntity, deletedTitle: String) {
+    private func clearCategoryReferences(
+        in task: TaskEntity,
+        deletedTitle: String,
+        fallbackTitle: String?
+    ) {
         if equalsCategory(task.categoryTitle, deletedTitle) {
-            task.categoryTitle = nil
+            task.categoryTitle = fallbackTitle
         }
 
         if !task.seriesSegments.isEmpty {
@@ -307,7 +283,7 @@ final class SettingsViewModel: ObservableObject {
 
             for idx in segs.indices {
                 if equalsCategory(segs[idx].template.categoryTitle, deletedTitle) {
-                    segs[idx].template.categoryTitle = nil
+                    segs[idx].template.categoryTitle = fallbackTitle
                     changed = true
                 }
             }
@@ -324,7 +300,7 @@ final class SettingsViewModel: ObservableObject {
             for idx in ovs.indices {
                 guard var tpl = ovs[idx].template else { continue }
                 if equalsCategory(tpl.categoryTitle, deletedTitle) {
-                    tpl.categoryTitle = nil
+                    tpl.categoryTitle = fallbackTitle
                     ovs[idx].template = tpl
                     changed = true
                 }
@@ -339,5 +315,38 @@ final class SettingsViewModel: ObservableObject {
     private func equalsCategory(_ lhs: String?, _ rhs: String) -> Bool {
         (lhs ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         == rhs.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+
+    private static func resolveAppLanguageDisplayName() -> String {
+        let preferredIdentifier = resolvedAppLanguageIdentifier()
+        let locale = Locale.autoupdatingCurrent
+
+        if let localizedName = locale.localizedString(forIdentifier: preferredIdentifier) {
+            return localizedName.capitalized(with: locale)
+        }
+
+        if
+            let languageCode = Locale.Language(identifier: preferredIdentifier).languageCode?.identifier,
+            let localizedName = locale.localizedString(forLanguageCode: languageCode)
+        {
+            return localizedName.capitalized(with: locale)
+        }
+
+        return preferredIdentifier
+    }
+
+    private static func resolvedAppLanguageIdentifier() -> String {
+        let preferredLocalization = Bundle.main.preferredLocalizations.first
+        let normalizedPreferredLocalization: String?
+
+        if preferredLocalization == "Base" {
+            normalizedPreferredLocalization = nil
+        } else {
+            normalizedPreferredLocalization = preferredLocalization
+        }
+
+        return normalizedPreferredLocalization
+        ?? Bundle.main.developmentLocalization
+        ?? Locale.autoupdatingCurrent.identifier
     }
 }

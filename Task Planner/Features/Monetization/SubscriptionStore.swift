@@ -56,7 +56,7 @@ final class SubscriptionStore: ObservableObject {
             }
 
             return String(
-                localized: "Advanced repeats, custom categories, and extended statistics are active."
+                localized: "Advanced repeats, custom categories, and deeper statistics are unlocked."
             )
         }
 

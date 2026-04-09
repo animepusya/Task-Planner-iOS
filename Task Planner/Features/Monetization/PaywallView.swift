@@ -82,7 +82,7 @@ struct PaywallView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("A lighter way to unlock more")
+                Text("A little more, when you need it")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
@@ -130,7 +130,7 @@ struct PaywallView: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text("What changes")
+                    Text("What's included")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
 
@@ -295,7 +295,7 @@ private struct PaywallPlanCard: View {
                                 .padding(.vertical, 5)
                                 .background(DS.ColorToken.purple.opacity(0.10), in: Capsule())
                         } else if isCurrentPlan && isUnlocked {
-                            Text("Active")
+                            Text("Current")
                                 .font(DS.Typography.caption)
                                 .foregroundStyle(DS.ColorToken.purple)
                                 .padding(.horizontal, 10)
@@ -376,28 +376,25 @@ private enum PaywallComparisonRowData: CaseIterable, Identifiable {
     case advancedRepeats
     case monthlyStatistics
     case extendedStatistics
-    case advancedInsights
 
     var id: String { title }
 
     var title: String {
         switch self {
         case .basicTasks:
-            return String(localized: "Basic tasks")
+            return String(localized: "Tasks")
         case .basicCategories:
-            return String(localized: "Basic categories")
+            return String(localized: "Built-in categories")
         case .customCategories:
-            return String(localized: "Create custom categories")
+            return String(localized: "Custom categories")
         case .basicRepeats:
-            return String(localized: "Basic repeats")
+            return String(localized: "Standard repeats")
         case .advancedRepeats:
             return String(localized: "Advanced repeats")
         case .monthlyStatistics:
             return String(localized: "Monthly statistics")
         case .extendedStatistics:
-            return String(localized: "Day / Week / Year statistics")
-        case .advancedInsights:
-            return String(localized: "Future advanced insights")
+            return String(localized: "Day, week, and year statistics")
         }
     }
 
@@ -405,7 +402,7 @@ private enum PaywallComparisonRowData: CaseIterable, Identifiable {
         switch self {
         case .basicTasks, .basicCategories, .basicRepeats, .monthlyStatistics:
             return true
-        case .customCategories, .advancedRepeats, .extendedStatistics, .advancedInsights:
+        case .customCategories, .advancedRepeats, .extendedStatistics:
             return false
         }
     }

@@ -76,7 +76,13 @@ struct StatisticsWeekCalendarPicker: View {
     private var selectedWeekCaption: some View {
         let range = StatisticsCalendarLogic.weekRange(for: selectedDate, calendar: calendar)
 
-        return Text("\(range.lowerBound.dayTitleShort(using: calendar)) – \(range.upperBound.dayTitleShort(using: calendar))")
+        return Text(
+            String.localizedStringWithFormat(
+                String(localized: "%@ – %@"),
+                range.lowerBound.dayTitleShort(using: calendar),
+                range.upperBound.dayTitleShort(using: calendar)
+            )
+        )
             .font(.system(size: 14, weight: .semibold, design: .rounded))
             .foregroundStyle(DS.ColorToken.purple)
             .padding(.horizontal, 12)

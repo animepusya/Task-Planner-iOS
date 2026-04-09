@@ -26,8 +26,6 @@ struct TaskEditorView: View {
     @Query
     private var preferences: [AppPreferencesEntity]
 
-    private let fallbackCategories = CategorySystem.defaultSelectableTitles
-
     @FocusState private var focusedField: TaskEditorField?
 
     init(
@@ -69,11 +67,7 @@ struct TaskEditorView: View {
     }
 
     private var availableCategoryTitles: [String] {
-        let titles = categories
-            .filter { $0.id != CategorySystem.uncategorizedId }
-            .map(\.title)
-
-        return titles.isEmpty ? fallbackCategories : titles
+        CategorySystem.selectableTitles(from: categories)
     }
 
     private var appNotificationsEnabled: Bool {

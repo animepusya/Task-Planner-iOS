@@ -28,7 +28,7 @@ enum StatisticsComparisonBuilder {
                 mode: mode
             )
             let message = String.localizedStringWithFormat(
-                String(localized: "Need tracked time in the %@."),
+                String(localized: "Add tracked time in the %@ to compare periods."),
                 reference
             )
 

@@ -19,6 +19,8 @@ enum CategorySystem {
     nonisolated static let hobbyTitle = "Hobby"
 
     nonisolated static let nonDeletableIds: Set<String> = [uncategorizedId, workId, studyId, hobbyId]
+    nonisolated static let orderedBaseCategoryIds: [String] = [workId, studyId, hobbyId]
+    nonisolated static let storedFallbackTaskCategoryTitle: String? = nil
 
     static func isNonDeletable(_ category: CategoryEntity) -> Bool {
         nonDeletableIds.contains(category.id)
@@ -30,6 +32,39 @@ enum CategorySystem {
 
     nonisolated static var defaultSelectableTitles: [String] {
         [workTitle, studyTitle, hobbyTitle]
+    }
+
+    @MainActor
+    static func isUserVisible(_ category: CategoryEntity) -> Bool {
+        !isUncategorized(category)
+    }
+
+    @MainActor
+    static func userVisibleCategories(from categories: [CategoryEntity]) -> [CategoryEntity] {
+        let baseRanks = Dictionary(
+            uniqueKeysWithValues: orderedBaseCategoryIds.enumerated().map { ($1, $0) }
+        )
+
+        return categories
+            .filter(isUserVisible(_:))
+            .sorted { lhs, rhs in
+                switch (baseRanks[lhs.id], baseRanks[rhs.id]) {
+                case let (left?, right?):
+                    return left < right
+                case (_?, nil):
+                    return true
+                case (nil, _?):
+                    return false
+                default:
+                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
+                }
+            }
+    }
+
+    @MainActor
+    static func selectableTitles(from categories: [CategoryEntity]) -> [String] {
+        let visibleTitles = userVisibleCategories(from: categories).map(\.title)
+        return visibleTitles.isEmpty ? defaultSelectableTitles : visibleTitles
     }
 
     nonisolated static func localizedDisplayTitle(for rawTitle: String?) -> String {

@@ -45,7 +45,7 @@ struct TaskEditorTopBar: View {
         Group {
             if state.showSaveScopeMenu {
                 Menu {
-                    Text("How to apply changes?")
+                    Text("Save changes to")
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .disabled(true)
 

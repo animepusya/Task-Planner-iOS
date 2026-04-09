@@ -7,9 +7,11 @@
 
 import Foundation
 import SwiftUI
+import UIKit
 
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @StateObject private var viewModel: SettingsViewModel
@@ -19,6 +21,9 @@ struct SettingsView: View {
 
     @State private var showNotifications = false
     @State private var showClearAllAlert = false
+    @State private var showAddCategoryPrompt = false
+    @State private var showDeleteCategoryConfirmation = false
+    @State private var categoryPendingDeletion: CategoryEntity?
     @State private var monetizationNotice: MonetizationNotice?
 
     init(
@@ -57,11 +62,12 @@ struct SettingsView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: DS.Spacing.lg) {
-                    appSection
-                    monetizationSection
-                    notificationsSection
+                    preferencesSection
+                    generalSection
                     calendarSection
                     categoriesSection
+                    proSection
+                    legalSection
                     dataSection
                 }
                 .padding(.horizontal, DS.Spacing.md)
@@ -82,6 +88,38 @@ struct SettingsView: View {
         } message: {
             Text("This action will permanently remove all tasks from the app.")
         }
+        .alert("New Category", isPresented: $showAddCategoryPrompt) {
+            TextField("Category name", text: $viewModel.newCategoryTitle)
+                .textInputAutocapitalization(.words)
+                .disableAutocorrection(true)
+
+            Button("Cancel", role: .cancel) {
+                viewModel.prepareForNewCategory()
+            }
+
+            Button("Add") {
+                confirmAddCategory()
+            }
+        } message: {
+            Text("Choose a name.")
+        }
+        .confirmationDialog(
+            deleteCategoryDialogTitle,
+            isPresented: $showDeleteCategoryConfirmation,
+            titleVisibility: .visible,
+            presenting: categoryPendingDeletion
+        ) { category in
+            Button("Delete", role: .destructive) {
+                viewModel.deleteCategory(category)
+                categoryPendingDeletion = nil
+            }
+
+            Button("Cancel", role: .cancel) {
+                categoryPendingDeletion = nil
+            }
+        } message: { _ in
+            Text("Tasks in this category will stay in your planner.")
+        }
         .alert(item: $monetizationNotice) { notice in
             Alert(
                 title: Text(notice.title),
@@ -92,12 +130,16 @@ struct SettingsView: View {
         .onAppear {
             viewModel.load()
         }
+        .onChange(of: scenePhase) { _, newValue in
+            guard newValue == .active else { return }
+            viewModel.refreshAppLanguageDisplayName()
+        }
     }
 
     // MARK: - Sections
 
-    private var appSection: some View {
-        SettingsSection(title: String(localized: "App")) {
+    private var preferencesSection: some View {
+        SettingsSection(title: String(localized: "Preferences")) {
             SettingsCard {
                 weekStartsOnRow
 
@@ -124,30 +166,36 @@ struct SettingsView: View {
                         rowValueLabel(viewModel.selectedTheme.title)
                     }
                 }
+            }
+        }
+    }
+
+    private var generalSection: some View {
+        SettingsSection(title: String(localized: "General")) {
+            SettingsCard {
+                SettingsRow(
+                    title: String(localized: "App Language"),
+                    subtitle: String(localized: "Change in iPhone Settings"),
+                    systemImage: "globe",
+                    action: openAppSettings,
+                    accessory: {
+                        trailingValueChevron(viewModel.appLanguageDisplayName)
+                    }
+                )
 
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: String(localized: "Localization"),
-                    subtitle: String(localized: "UI is ready. App localization can be connected later"),
-                    systemImage: "globe"
-                ) {
-                    Menu {
-                        ForEach(SettingsViewModel.LocalizationOption.allCases) { option in
-                            Button {
-                                viewModel.setLocalization(option)
-                            } label: {
-                                if option == viewModel.selectedLocalization {
-                                    Label(option.title, systemImage: "checkmark")
-                                } else {
-                                    Text(option.title)
-                                }
-                            }
-                        }
-                    } label: {
-                        rowValueLabel(viewModel.selectedLocalization.title)
+                    title: String(localized: "Notifications"),
+                    subtitle: String(localized: "Scheduled reminders, defaults and permission status"),
+                    systemImage: "bell.badge",
+                    action: {
+                        showNotifications = true
+                    },
+                    accessory: {
+                        trailingChevron
                     }
-                }
+                )
             }
         }
     }
@@ -230,25 +278,109 @@ struct SettingsView: View {
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }
 
-    private var notificationsSection: some View {
-        SettingsSection(title: String(localized: "Notifications")) {
+    private var calendarSection: some View {
+        SettingsSection(
+            title: String(localized: "Calendar"),
+            footer: footerTextForCalendar
+        ) {
             SettingsCard {
                 SettingsRow(
-                    title: String(localized: "Notifications"),
-                    subtitle: String(localized: "Scheduled reminders, defaults and permission status"),
-                    systemImage: "bell.badge",
+                    title: String(localized: "Show tasks in Apple Calendar"),
+                    subtitle: String(localized: "Exports to the “Task Planner” calendar"),
+                    systemImage: "calendar.badge.plus",
+                    accessory: {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { viewModel.showTasksInAppleCalendar },
+                                set: { viewModel.setShowTasksInAppleCalendar($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(DS.ColorToken.purple)
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Show Apple Calendar events in Planner"),
+                    subtitle: String(localized: "Shown in Planner only. Not saved in the app."),
+                    systemImage: "calendar.badge.clock",
+                    accessory: {
+                        Toggle(
+                            "",
+                            isOn: Binding(
+                                get: { viewModel.showAppleCalendarEventsInPlanner },
+                                set: { viewModel.setShowAppleCalendarEventsInPlanner($0) }
+                            )
+                        )
+                        .labelsHidden()
+                        .tint(DS.ColorToken.purple)
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Export now"),
+                    subtitle: String(localized: "Force sync current tasks to Apple Calendar"),
+                    systemImage: "arrow.up.right.square",
                     action: {
-                        showNotifications = true
+                        viewModel.exportNow()
                     },
                     accessory: {
-                        trailingChevron
+                        EmptyView()
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Remove exported events"),
+                    subtitle: String(localized: "Delete all events created by Task Planner"),
+                    systemImage: "trash",
+                    isDestructive: true,
+                    action: {
+                        viewModel.removeExportedEvents()
+                    },
+                    accessory: {
+                        EmptyView()
                     }
                 )
             }
         }
     }
 
-    private var monetizationSection: some View {
+    private var categoriesSection: some View {
+        SettingsSection(title: String(localized: "Categories")) {
+            SettingsCard {
+                CategoryInputRow(
+                    title: String(localized: "Add Category"),
+                    showsProBadge: true,
+                    action: handleAddCategoryEntryTap
+                )
+
+                if !viewModel.categories.isEmpty {
+                    SettingsRowDivider()
+                }
+
+                ForEach(Array(viewModel.categories.enumerated()), id: \.element.id) { index, category in
+                    CategoryListRow(
+                        title: category.title,
+                        isDeletable: viewModel.isDeletable(category),
+                        onDelete: { promptDeleteCategory(category) }
+                    )
+
+                    if index < viewModel.categories.count - 1 {
+                        SettingsRowDivider()
+                    }
+                }
+            }
+        }
+    }
+
+    private var proSection: some View {
         SettingsSection(title: String(localized: "Task Planner Pro")) {
             SettingsCard {
                 monetizationSummaryRow
@@ -256,8 +388,8 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: String(localized: "Restore purchases"),
-                    subtitle: String(localized: "Recover an existing Pro subscription on this device"),
+                    title: String(localized: "Restore Purchases"),
+                    subtitle: String(localized: "Use this if you've already bought Pro."),
                     systemImage: "arrow.clockwise.circle",
                     action: {
                         Task {
@@ -272,41 +404,13 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: String(localized: "Manage subscription"),
-                    subtitle: String(localized: "Open Apple's subscription management screen"),
+                    title: String(localized: "Manage Subscription"),
+                    subtitle: String(localized: "Open Apple's subscription settings."),
                     systemImage: "slider.horizontal.3",
                     action: {
                         Task {
                             monetizationNotice = await subscriptionStore.manageSubscription()
                         }
-                    },
-                    accessory: {
-                        trailingChevron
-                    }
-                )
-
-                SettingsRowDivider()
-
-                SettingsRow(
-                    title: String(localized: "Privacy Policy"),
-                    subtitle: String(localized: "Connect your release policy URL here"),
-                    systemImage: "hand.raised",
-                    action: {
-                        openLegal(.privacyPolicy)
-                    },
-                    accessory: {
-                        trailingChevron
-                    }
-                )
-
-                SettingsRowDivider()
-
-                SettingsRow(
-                    title: String(localized: "Terms of Use"),
-                    subtitle: String(localized: "Apple Standard EULA is wired by default"),
-                    systemImage: "doc.text",
-                    action: {
-                        openLegal(.termsOfUse)
                     },
                     accessory: {
                         trailingChevron
@@ -334,6 +438,38 @@ struct SettingsView: View {
                     )
                 }
                 #endif
+            }
+        }
+    }
+
+    private var legalSection: some View {
+        SettingsSection(title: String(localized: "Legal")) {
+            SettingsCard {
+                SettingsRow(
+                    title: String(localized: "Privacy Policy"),
+                    subtitle: String(localized: "How Task Planner handles your data."),
+                    systemImage: "hand.raised",
+                    action: {
+                        openLegal(.privacyPolicy)
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
+
+                SettingsRowDivider()
+
+                SettingsRow(
+                    title: String(localized: "Terms of Use"),
+                    subtitle: String(localized: "Review the terms that apply to the app."),
+                    systemImage: "doc.text",
+                    action: {
+                        openLegal(.termsOfUse)
+                    },
+                    accessory: {
+                        trailingChevron
+                    }
+                )
             }
         }
     }
@@ -389,108 +525,6 @@ struct SettingsView: View {
         .buttonStyle(.plain)
     }
 
-    private var calendarSection: some View {
-        SettingsSection(
-            title: String(localized: "Calendar"),
-            footer: footerTextForCalendar
-        ) {
-            SettingsCard {
-                SettingsRow(
-                    title: String(localized: "Show tasks in Apple Calendar"),
-                    subtitle: String(localized: "Exports to calendar “Task Planner”"),
-                    systemImage: "calendar.badge.plus",
-                    accessory: {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { viewModel.showTasksInAppleCalendar },
-                                set: { viewModel.setShowTasksInAppleCalendar($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .tint(DS.ColorToken.purple)
-                    }
-                )
-
-                SettingsRowDivider()
-
-                SettingsRow(
-                    title: String(localized: "Show Apple Calendar events in Planner"),
-                    subtitle: String(localized: "Read-only overlay, not saved in SwiftData"),
-                    systemImage: "calendar.badge.clock",
-                    accessory: {
-                        Toggle(
-                            "",
-                            isOn: Binding(
-                                get: { viewModel.showAppleCalendarEventsInPlanner },
-                                set: { viewModel.setShowAppleCalendarEventsInPlanner($0) }
-                            )
-                        )
-                        .labelsHidden()
-                        .tint(DS.ColorToken.purple)
-                    }
-                )
-
-                SettingsRowDivider()
-
-                SettingsRow(
-                    title: String(localized: "Export now"),
-                    subtitle: String(localized: "Force sync current tasks to Apple Calendar"),
-                    systemImage: "arrow.up.right.square",
-                    action: {
-                        viewModel.exportNow()
-                    },
-                    accessory: {
-                        EmptyView()
-                    }
-                )
-
-                SettingsRowDivider()
-
-                SettingsRow(
-                    title: String(localized: "Remove exported events"),
-                    subtitle: String(localized: "Delete all events created by Task Planner"),
-                    systemImage: "trash",
-                    isDestructive: true,
-                    action: {
-                        viewModel.removeExportedEvents()
-                    },
-                    accessory: {
-                        EmptyView()
-                    }
-                )
-            }
-        }
-    }
-
-    private var categoriesSection: some View {
-        SettingsSection(title: String(localized: "Categories")) {
-            SettingsCard {
-                CategoryInputRow(
-                    title: $viewModel.newCategoryTitle,
-                    showsProBadge: subscriptionStore.isLocked(.customCategories),
-                    onAdd: handleAddCategory
-                )
-
-                if !viewModel.categories.isEmpty {
-                    SettingsRowDivider()
-                }
-
-                ForEach(Array(viewModel.categories.enumerated()), id: \.element.id) { index, category in
-                    CategoryListRow(
-                        title: category.title,
-                        isDeletable: viewModel.isDeletable(category),
-                        onDelete: { viewModel.deleteCategory(category) }
-                    )
-
-                    if index < viewModel.categories.count - 1 {
-                        SettingsRowDivider()
-                    }
-                }
-            }
-        }
-    }
-
     private var dataSection: some View {
         SettingsSection(
             title: String(localized: "Data"),
@@ -515,6 +549,18 @@ struct SettingsView: View {
 
     // MARK: - Helpers
 
+    private var deleteCategoryDialogTitle: String {
+        guard let categoryPendingDeletion else {
+            return String(localized: "Delete Category")
+        }
+
+        let title = CategorySystem.localizedDisplayTitle(for: categoryPendingDeletion.title)
+        return String.localizedStringWithFormat(
+            String(localized: "Delete %@?"),
+            title
+        )
+    }
+
     private var footerTextForCalendar: String? {
         if let error = viewModel.calendarErrorText, !error.isEmpty {
             return error
@@ -527,6 +573,20 @@ struct SettingsView: View {
         Image(systemName: "chevron.right")
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.9))
+    }
+
+    @ViewBuilder
+    private func trailingValueChevron(_ value: String) -> some View {
+        HStack(spacing: 6) {
+            if !value.isEmpty {
+                Text(value)
+                    .font(DS.Typography.body)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+                    .lineLimit(1)
+            }
+
+            trailingChevron
+        }
     }
 
     private func debugStatePill(isEnabled: Bool) -> some View {
@@ -553,16 +613,35 @@ struct SettingsView: View {
         .background(DS.ColorToken.controlFill, in: Capsule())
     }
 
-    private func handleAddCategory() {
-        let trimmed = viewModel.newCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-
+    private func handleAddCategoryEntryTap() {
         guard subscriptionStore.hasAccess(to: .customCategories) else {
             onOpenPaywall(.customCategories)
             return
         }
 
+        viewModel.prepareForNewCategory()
+        showAddCategoryPrompt = true
+    }
+
+    private func confirmAddCategory() {
+        let trimmed = viewModel.newCategoryTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            viewModel.prepareForNewCategory()
+            return
+        }
+
         viewModel.addCategory()
+    }
+
+    private func promptDeleteCategory(_ category: CategoryEntity) {
+        guard viewModel.isDeletable(category) else { return }
+        categoryPendingDeletion = category
+        showDeleteCategoryConfirmation = true
+    }
+
+    private func openAppSettings() {
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        openURL(url)
     }
 
     private func openLegal(_ link: SubscriptionLegalLink) {

@@ -170,7 +170,12 @@ struct TaskPlannerWidgetEntryView: View {
                     .frame(width: 5, height: 5)
                     .widgetAccentable(isAccented)
 
-                Text("+\(hiddenCount) more")
+                Text(
+                    String.localizedStringWithFormat(
+                        String(localized: "+%lld more"),
+                        Int64(hiddenCount)
+                    )
+                )
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

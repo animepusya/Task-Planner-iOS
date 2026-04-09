@@ -143,7 +143,7 @@ struct PlannerView: View {
 
                                     if occurrence.isRepeatingTask {
                                         Menu {
-                                            Text("How to delete?")
+                                            Text("Delete from")
                                                 .foregroundStyle(DS.ColorToken.textSecondary)
                                                 .disabled(true)
 
@@ -341,14 +341,24 @@ struct PlannerView: View {
 
     private func tasksHeader(snapshot: PlannerSelectedDaySnapshot) -> some View {
         HStack {
-            Text("Tasks for \(snapshot.title)")
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Tasks for %@"),
+                    snapshot.title
+                )
+            )
                 .font(DS.Typography.sectionTitle)
                 .foregroundColor(DS.ColorToken.textPrimary)
 
             Spacer()
 
             HStack(spacing: 10) {
-                Text("\(snapshot.taskCount) tasks")
+                Text(
+                    String.localizedStringWithFormat(
+                        String(localized: "%lld tasks"),
+                        Int64(snapshot.taskCount)
+                    )
+                )
                     .font(.system(size: 14, weight: .semibold, design: .rounded))
                     .foregroundColor(DS.ColorToken.purple)
 

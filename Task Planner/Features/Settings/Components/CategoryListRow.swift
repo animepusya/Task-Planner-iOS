@@ -13,26 +13,19 @@ struct CategoryListRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: DS.Spacing.sm) {
-            Image(systemName: isDeletable ? "folder" : "lock.fill")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(isDeletable ? DS.ColorToken.textSecondary : DS.ColorToken.textSecondary)
-
-            Text(displayTitle)
-                .font(DS.Typography.body)
-                .foregroundStyle(DS.ColorToken.textPrimary)
-
-            Spacer()
-
-            if !isDeletable {
-                Text("System")
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
+        SettingsRow(
+            title: displayTitle,
+            systemImage: "tag",
+            accessory: {
+                Group {
+                    if isDeletable {
+                        deleteButton
+                    } else {
+                        EmptyView()
+                    }
+                }
             }
-        }
-        .padding(.horizontal, DS.Spacing.md)
-        .padding(.vertical, 14)
-        .contentShape(Rectangle())
+        )
         .swipeActions(edge: .trailing, allowsFullSwipe: true) {
             if isDeletable {
                 Button(role: .destructive, action: onDelete) {
@@ -42,7 +35,26 @@ struct CategoryListRow: View {
         }
     }
 
+    private var deleteButton: some View {
+        Button(action: onDelete) {
+            Image(systemName: "trash")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Color.red)
+                .frame(width: 28, height: 28)
+                .background(Color.red.opacity(0.12), in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Delete %@"),
+                    displayTitle
+                )
+            )
+        )
+    }
+
     private var displayTitle: String {
-        isDeletable ? title : CategorySystem.localizedDisplayTitle(for: title)
+        CategorySystem.localizedDisplayTitle(for: title)
     }
 }

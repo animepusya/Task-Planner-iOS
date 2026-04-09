@@ -58,13 +58,13 @@ struct TaskEditorReminderSection: View {
             case .openNotificationsCenter:
                 if let onOpenNotificationsCenter {
                     Button(action: onOpenNotificationsCenter) {
-                        Text("Open Notifications Center")
+                        Text("Open Notifications")
                             .font(DS.Typography.caption)
                             .foregroundStyle(DS.ColorToken.purple)
                     }
                     .buttonStyle(.plain)
                 } else {
-                    Text("Go to Notifications screen.")
+                    Text("Open Notifications in the app.")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
                 }

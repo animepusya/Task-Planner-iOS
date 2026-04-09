@@ -60,7 +60,7 @@ struct RecurringTasksView: View {
                                     }
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         Menu {
-                                            Text("Deletes the whole recurring series.")
+                                            Text("Deletes the entire series.")
                                                 .foregroundStyle(DS.ColorToken.textSecondary)
                                                 .disabled(true)
 
@@ -94,7 +94,7 @@ struct RecurringTasksView: View {
                                     }
                                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                         Menu {
-                                            Text("Deletes the whole recurring series.")
+                                            Text("Deletes the entire series.")
                                                 .foregroundStyle(DS.ColorToken.textSecondary)
                                                 .disabled(true)
 

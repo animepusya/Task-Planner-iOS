@@ -55,7 +55,12 @@ struct TaskEditorRepeatSection: View {
 
     private var intervalRow: some View {
         HStack(alignment: .center, spacing: DS.Spacing.sm) {
-            Text("Every \(state.repeatIntervalDays) days")
+            Text(
+                String.localizedStringWithFormat(
+                    String(localized: "Every %lld days"),
+                    Int64(state.repeatIntervalDays)
+                )
+            )
                 .font(DS.Typography.body)
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .lineLimit(1)

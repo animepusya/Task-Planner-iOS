@@ -16,9 +16,9 @@ enum SubscriptionPlan: String, CaseIterable, Identifiable, Hashable, Sendable {
     var title: String {
         switch self {
         case .monthly:
-            return String(localized: "Monthly")
+            return String(localized: "Monthly plan")
         case .yearly:
-            return String(localized: "Annual")
+            return String(localized: "Annual plan")
         }
     }
 }
@@ -100,15 +100,15 @@ enum PaywallEntryPoint: Hashable, Sendable {
     var subtitle: String {
         switch self {
         case .settings:
-            return String(localized: "Unlock a little more flexibility when you want it: custom categories, advanced repeats, and deeper statistics.")
+            return String(localized: "Unlock more flexibility with custom categories, advanced repeats, and deeper statistics.")
         case .customCategories:
-            return String(localized: "Create your own categories, keep flexible repeat patterns, and unlock broader planning insights.")
+            return String(localized: "Create your own categories, use flexible repeats, and unlock deeper planning insights.")
         case .advancedRepeats:
-            return String(localized: "Use more flexible repeat patterns alongside custom categories and extended statistics.")
+            return String(localized: "Use flexible repeats with custom categories and deeper statistics.")
         case .statisticsRange:
-            return String(localized: "Unlock day, week, and year views in Statistics, plus future advanced insights.")
+            return String(localized: "Unlock day, week, and year views in Statistics, plus future insights.")
         case .statisticsComparison:
-            return String(localized: "Task Planner Pro is where future advanced insights will live, including compare periods.")
+            return String(localized: "Unlock period comparison and future insights in Statistics.")
         }
     }
 }
@@ -140,9 +140,9 @@ enum SubscriptionLegalLink: CaseIterable, Identifiable, Sendable {
     var unavailableMessage: String {
         switch self {
         case .privacyPolicy:
-            return String(localized: "Connect your production privacy policy URL in SubscriptionCatalog before release.")
+            return String(localized: "The privacy policy will be available here before release.")
         case .termsOfUse:
-            return String(localized: "Connect your production terms URL in SubscriptionCatalog before release.")
+            return String(localized: "The terms of use will be available here before release.")
         }
     }
 }
@@ -197,7 +197,7 @@ struct SubscriptionCatalog: Sendable {
                 plan: .yearly,
                 // Replace with the real App Store Connect product identifier later.
                 productID: "taskplanner.pro.yearly",
-                subtitle: String(localized: "Best for steady planning"),
+                subtitle: String(localized: "Best for regular planning"),
                 // Standard UI pricing for the pre-connect phase. Real localized StoreKit
                 // pricing should override this automatically once products are available.
                 fallbackPrice: SubscriptionPricePresentation(
@@ -283,4 +283,3 @@ extension StatisticsRange {
         }
     }
 }
-

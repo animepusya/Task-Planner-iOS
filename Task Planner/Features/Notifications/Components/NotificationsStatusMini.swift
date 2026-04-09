@@ -11,8 +11,6 @@ import UIKit
 struct NotificationsStatusMini: View {
     @ObservedObject var viewModel: NotificationsViewModel
 
-    @State private var showInfoPopover = false
-
     private var pillTitle: String {
         viewModel.notificationsEnabled ? String(localized: "Enabled") : String(localized: "Disabled")
     }
@@ -33,17 +31,6 @@ struct NotificationsStatusMini: View {
         }
     }
 
-    private var infoText: String {
-        switch viewModel.systemStatus {
-        case .notDetermined:
-            return String(localized: "Notification access hasn't been requested yet. Tap “Enable” to show the system prompt.")
-        case .denied:
-            return String(localized: "Notification access is denied. Tap “Settings” to allow it in iOS Settings.")
-        case .authorized:
-            return String(localized: "Notification access is enabled.")
-        }
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
@@ -53,23 +40,6 @@ struct NotificationsStatusMini: View {
 
                 StatusPill(title: pillTitle, isOn: viewModel.notificationsEnabled)
                     .scaleEffect(0.92, anchor: .leading)
-
-                if systemStatusTitle != nil {
-                    Button {
-                        showInfoPopover = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
-                            .padding(4)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Permission info")
-                    .popover(isPresented: $showInfoPopover) {
-                        infoPopover
-                            .presentationCompactAdaptation(.popover)
-                    }
-                }
 
                 Spacer(minLength: 8)
 
@@ -83,17 +53,13 @@ struct NotificationsStatusMini: View {
                 .accessibilityValue(viewModel.notificationsEnabled ? "On" : "Off")
             }
 
-            if let action = primaryActionTitle {
+            if let action = primaryActionTitle, let systemStatusTitle {
                 HStack(spacing: 8) {
-                    if let oneLine = systemStatusTitle {
-                        Text(oneLine)
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.ColorToken.textSecondary)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    } else {
-                        Spacer(minLength: 0)
-                    }
+                    Text(systemStatusTitle)
+                        .font(DS.Typography.caption)
+                        .foregroundStyle(DS.ColorToken.textSecondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
 
                     Spacer(minLength: 8)
 
@@ -120,24 +86,6 @@ struct NotificationsStatusMini: View {
         }
         .padding(.vertical, 2)
         .accessibilityElement(children: .contain)
-    }
-
-    private var infoPopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Notifications")
-                .font(DS.Typography.sectionTitle)
-                .foregroundStyle(DS.ColorToken.textPrimary)
-
-            Text(infoText)
-                .font(DS.Typography.body)
-                .foregroundStyle(DS.ColorToken.textSecondary)
-
-            Text("This is a one-time setup. Scheduled reminders will appear below.")
-                .font(DS.Typography.caption)
-                .foregroundStyle(DS.ColorToken.textSecondary)
-        }
-        .padding(DS.Spacing.lg)
-        .background(DS.ColorToken.appBackground)
     }
 
     private func lightHaptic() {
