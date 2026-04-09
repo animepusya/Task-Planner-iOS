@@ -22,6 +22,7 @@ struct StatisticsComparisonView: View {
 
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    StatisticsPeriodCard(viewModel: viewModel)
                     summaryCard(snapshot)
 
                     if snapshot.metrics.isEmpty == false {

@@ -13,7 +13,6 @@ struct StatisticsView: View {
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
-    @State private var isRangeSheetPresented = false
     @State private var selectedSliceId: String? = nil
 
     private let onOpenSettings: () -> Void
@@ -54,7 +53,7 @@ struct StatisticsView: View {
 
                 ScrollView(.vertical, showsIndicators: false) {
                     VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        periodCard(displayedTitle: snapshot.displayedTitle)
+                        StatisticsPeriodCard(viewModel: viewModel)
                         donutCard(
                             snapshot: breakdownSnapshot,
                             totalMinutesText: snapshot.totalMinutesText
@@ -84,14 +83,6 @@ struct StatisticsView: View {
             guard let context = note.object as? ModelContext, context == modelContext else { return }
             viewModel.handleModelContextDidSave()
         }
-        .sheet(isPresented: $isRangeSheetPresented) {
-            StatisticsRangeSheet(
-                range: $viewModel.range,
-                anchorDate: $viewModel.anchorDate,
-                weekStartsOnMonday: viewModel.weekStartsOnMonday
-            )
-            .environmentObject(subscriptionStore)
-        }
     }
 
     private func comparisonPreviewCard(
@@ -113,53 +104,6 @@ struct StatisticsView: View {
             }
             .accessibilityLabel("Settings")
         }
-    }
-
-    private func periodCard(displayedTitle: String) -> some View {
-        HStack {
-            navCircle("chevron.left", action: viewModel.goToPrevious)
-
-            Spacer()
-
-            Button {
-                isRangeSheetPresented = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(DS.ColorToken.purple)
-
-                    Text(displayedTitle)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundStyle(DS.ColorToken.textPrimary)
-                }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 12)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Select period")
-
-            Spacer()
-
-            navCircle("chevron.right", action: viewModel.goToNext)
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .dsSurface(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous),
-            fill: DS.Surface.chrome
-        )
-    }
-
-    private func navCircle(_ systemName: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: systemName)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundColor(DS.ColorToken.textSecondary)
-                .frame(width: 36, height: 36)
-                .dsSurface(Circle(), fill: DS.Surface.chrome)
-        }
-        .buttonStyle(.plain)
     }
 
     private func donutCard(
