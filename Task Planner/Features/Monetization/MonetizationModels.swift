@@ -106,9 +106,9 @@ enum PaywallEntryPoint: Hashable, Sendable {
         case .advancedRepeats:
             return String(localized: "Use flexible repeats with custom categories and deeper statistics.")
         case .statisticsRange:
-            return String(localized: "Unlock day, week, and year views in Statistics, plus future insights.")
+            return String(localized: "Unlock day, week, and year views in Statistics.")
         case .statisticsComparison:
-            return String(localized: "Unlock period comparison and future insights in Statistics.")
+            return String(localized: "Unlock period comparison.")
         }
     }
 }

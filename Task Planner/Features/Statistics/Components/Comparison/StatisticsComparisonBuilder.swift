@@ -41,35 +41,10 @@ enum StatisticsComparisonBuilder {
                 currentPeriodTitle: currentContext.displayedTitle,
                 previousPeriodTitle: comparedContext.displayedTitle,
                 totalDeltaText: nil,
+                totalDeltaDirection: .neutral,
                 totalDeltaCaption: nil,
                 currentTotalText: currentTotalText,
                 previousTotalText: previousTotalText,
-                metrics: [
-                    StatisticsComparisonMetricSnapshot(
-                        id: "delta",
-                        title: String(localized: "Total change"),
-                        valueText: String(localized: "Not enough data"),
-                        subtitle: message,
-                        direction: .neutral,
-                        showsTrendIndicator: true
-                    ),
-                    StatisticsComparisonMetricSnapshot(
-                        id: "current",
-                        title: String(localized: "Current total"),
-                        valueText: currentTotalText,
-                        subtitle: currentContext.displayedTitle,
-                        direction: .neutral,
-                        showsTrendIndicator: false
-                    ),
-                    StatisticsComparisonMetricSnapshot(
-                        id: "previous",
-                        title: String(localized: "Previous total"),
-                        valueText: previousTotalText,
-                        subtitle: comparedContext.displayedTitle,
-                        direction: .neutral,
-                        showsTrendIndicator: false
-                    )
-                ],
                 categoryRows: [],
                 taskRows: [],
                 growthInsight: nil,
@@ -82,6 +57,7 @@ enum StatisticsComparisonBuilder {
             currentMinutes: currentResult.totalMinutes,
             previousMinutes: previousResult.totalMinutes
         ) ?? "0%"
+        let totalDeltaDirection = direction(for: totalDeltaMinutes)
         let totalDeltaCaption = String.localizedStringWithFormat(
             String(localized: "%@ now vs %@ before"),
             currentTotalText,
@@ -106,35 +82,10 @@ enum StatisticsComparisonBuilder {
             currentPeriodTitle: currentContext.displayedTitle,
             previousPeriodTitle: comparedContext.displayedTitle,
             totalDeltaText: totalDeltaText,
+            totalDeltaDirection: totalDeltaDirection,
             totalDeltaCaption: totalDeltaCaption,
             currentTotalText: currentTotalText,
             previousTotalText: previousTotalText,
-            metrics: [
-                StatisticsComparisonMetricSnapshot(
-                    id: "delta",
-                    title: String(localized: "Total change"),
-                    valueText: totalDeltaText,
-                    subtitle: totalDeltaCaption,
-                    direction: direction(for: totalDeltaMinutes),
-                    showsTrendIndicator: true
-                ),
-                StatisticsComparisonMetricSnapshot(
-                    id: "current",
-                    title: String(localized: "Current total"),
-                    valueText: currentTotalText,
-                    subtitle: currentContext.displayedTitle,
-                    direction: .neutral,
-                    showsTrendIndicator: false
-                ),
-                StatisticsComparisonMetricSnapshot(
-                    id: "previous",
-                    title: String(localized: "Previous total"),
-                    valueText: previousTotalText,
-                    subtitle: comparedContext.displayedTitle,
-                    direction: .neutral,
-                    showsTrendIndicator: false
-                )
-            ],
             categoryRows: categoryRows,
             taskRows: taskRows,
             growthInsight: growthInsight(from: categoryRows),

@@ -25,10 +25,6 @@ struct StatisticsComparisonView: View {
                     StatisticsPeriodCard(viewModel: viewModel)
                     summaryCard(snapshot)
 
-                    if snapshot.metrics.isEmpty == false {
-                        metricsGrid(snapshot)
-                    }
-
                     if snapshot.isLoading, let message = snapshot.message {
                         stateCard(message: message, showsProgress: true)
                     } else if snapshot.showsEmptyState, let message = snapshot.message {
@@ -92,7 +88,7 @@ struct StatisticsComparisonView: View {
                 if let totalDeltaText = snapshot.totalDeltaText {
                     trendBadge(
                         text: totalDeltaText,
-                        direction: snapshot.metrics.first?.direction ?? .neutral
+                        direction: snapshot.totalDeltaDirection
                     )
                 }
             }
@@ -118,19 +114,6 @@ struct StatisticsComparisonView: View {
             }
         }
         .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
-    }
-
-    private func metricsGrid(_ snapshot: StatisticsComparisonSnapshot) -> some View {
-        LazyVGrid(
-            columns: [
-                GridItem(.adaptive(minimum: 110), spacing: 12)
-            ],
-            spacing: 12
-        ) {
-            ForEach(snapshot.metrics) { metric in
-                StatisticsComparisonMetricCard(metric: metric)
-            }
-        }
     }
 
     private func deltaSection(

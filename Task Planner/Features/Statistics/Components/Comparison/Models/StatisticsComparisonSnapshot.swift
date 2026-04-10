@@ -59,15 +59,6 @@ struct StatisticsComparisonPreviewInsightSnapshot: Identifiable {
     let direction: StatisticsComparisonDirection
 }
 
-struct StatisticsComparisonMetricSnapshot: Identifiable {
-    let id: String
-    let title: String
-    let valueText: String
-    let subtitle: String?
-    let direction: StatisticsComparisonDirection
-    let showsTrendIndicator: Bool
-}
-
 struct StatisticsComparisonDeltaRowSnapshot: Identifiable {
     let id: String
     let title: String
@@ -91,10 +82,10 @@ struct StatisticsComparisonSnapshot {
     let currentPeriodTitle: String
     let previousPeriodTitle: String
     let totalDeltaText: String?
+    let totalDeltaDirection: StatisticsComparisonDirection
     let totalDeltaCaption: String?
     let currentTotalText: String
     let previousTotalText: String
-    let metrics: [StatisticsComparisonMetricSnapshot]
     let categoryRows: [StatisticsComparisonDeltaRowSnapshot]
     let taskRows: [StatisticsComparisonDeltaRowSnapshot]
     let growthInsight: StatisticsComparisonPreviewInsightSnapshot?
@@ -125,10 +116,10 @@ struct StatisticsComparisonSnapshot {
             currentPeriodTitle: currentContext.displayedTitle,
             previousPeriodTitle: comparedContext.displayedTitle,
             totalDeltaText: nil,
+            totalDeltaDirection: .neutral,
             totalDeltaCaption: nil,
             currentTotalText: 0.formattedHoursMinutes(),
             previousTotalText: 0.formattedHoursMinutes(),
-            metrics: [],
             categoryRows: [],
             taskRows: [],
             growthInsight: nil,
