@@ -12,6 +12,7 @@ struct PaywallView: View {
     @Environment(\.openURL) private var openURL
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
+    @ScaledMetric(relativeTo: .caption) private var comparisonPlanColumnWidth: CGFloat = 60
     @State private var selectedPlan: SubscriptionPlan = .yearly
     @State private var notice: MonetizationNotice?
 
@@ -116,35 +117,41 @@ struct PaywallView: View {
 
     private var comparisonSection: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack {
+            HStack(spacing: DS.Spacing.sm) {
                 Text("Free vs Pro")
                     .font(DS.Typography.sectionTitle)
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
-                Spacer()
-
                 if subscriptionStore.hasProAccess == false {
                     ProBadge(size: .small)
                 }
+
+                Spacer(minLength: 0)
             }
 
             VStack(spacing: 0) {
-                HStack {
+                HStack(spacing: DS.Spacing.sm) {
                     Text("What's included")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
-
-                    Spacer()
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
 
                     Text("Free")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
-                        .frame(width: 44)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.92)
+                        .allowsTightening(true)
+                        .frame(width: comparisonPlanColumnWidth)
 
                     Text("Pro")
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.textSecondary)
-                        .frame(width: 44)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.92)
+                        .allowsTightening(true)
+                        .frame(width: comparisonPlanColumnWidth)
                 }
                 .padding(.horizontal, DS.Spacing.md)
                 .padding(.top, DS.Spacing.md)
@@ -153,7 +160,10 @@ struct PaywallView: View {
                 let rows = PaywallComparisonRowData.allCases
 
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
-                    PaywallComparisonRow(row: row)
+                    PaywallComparisonRow(
+                        row: row,
+                        planColumnWidth: comparisonPlanColumnWidth
+                    )
 
                     if index < rows.count - 1 {
                         Divider()
@@ -414,6 +424,7 @@ private enum PaywallComparisonRowData: CaseIterable, Identifiable {
 
 private struct PaywallComparisonRow: View {
     let row: PaywallComparisonRowData
+    let planColumnWidth: CGFloat
 
     var body: some View {
         HStack(spacing: DS.Spacing.sm) {
@@ -423,10 +434,10 @@ private struct PaywallComparisonRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             ComparisonAvailabilityDot(isIncluded: row.freeIncluded)
-                .frame(width: 44)
+                .frame(width: planColumnWidth)
 
             ComparisonAvailabilityDot(isIncluded: row.proIncluded)
-                .frame(width: 44)
+                .frame(width: planColumnWidth)
         }
         .padding(.horizontal, DS.Spacing.md)
         .padding(.vertical, 13)
