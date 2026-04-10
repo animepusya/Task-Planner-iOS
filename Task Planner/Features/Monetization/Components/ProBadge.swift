@@ -38,6 +38,15 @@ struct ProBadge: View {
                 return CGSize(width: 8, height: -6)
             }
         }
+
+        var opticalCenterOffset: CGSize {
+            switch self {
+            case .small:
+                return CGSize(width: -2, height: 1.5)
+            case .regular:
+                return CGSize(width: -2.5, height: 1.75)
+            }
+        }
     }
 
     let size: Size
@@ -57,6 +66,7 @@ struct ProBadge: View {
                 .foregroundStyle(DS.ColorToken.purple.opacity(0.95))
                 .offset(size.symbolOffset)
         }
+        .offset(size.opticalCenterOffset)
         .accessibilityHidden(true)
     }
 }

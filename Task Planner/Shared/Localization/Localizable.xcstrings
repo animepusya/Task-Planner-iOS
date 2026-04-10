@@ -1285,22 +1285,6 @@
         }
       }
     },
-    "Current total" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Current total"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Текущий итог"
-          }
-        }
-      }
-    },
     "Custom categories" : {
       "localizations" : {
         "ru" : {
@@ -2745,22 +2729,6 @@
         }
       }
     },
-    "Previous total" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Previous total"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Предыдущий итог"
-          }
-        }
-      }
-    },
     "previous week" : {
       "localizations" : {
         "en" : {
@@ -3717,22 +3685,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Всего"
-          }
-        }
-      }
-    },
-    "Total change" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Total change"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Общее изменение"
           }
         }
       }
