@@ -8,6 +8,15 @@
 import SwiftUI
 
 extension View {
+    func dsPrimaryCard(
+        padding: CGFloat = DS.Spacing.md,
+        cornerRadius: CGFloat = DS.Radius.md
+    ) -> some View {
+        dsCard(padding: padding, cornerRadius: cornerRadius) {
+            DS.Surface.card
+        }
+    }
+
     func dsSurface<Shape: InsettableShape, Fill: ShapeStyle>(
         _ shape: Shape,
         fill: Fill,

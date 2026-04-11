@@ -113,7 +113,7 @@ struct StatisticsComparisonView: View {
                 )
             }
         }
-        .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
+        .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
 
     private func deltaSection(
@@ -135,9 +135,7 @@ struct StatisticsComparisonView: View {
                     }
                 }
             }
-            .dsCard(padding: 0, cornerRadius: DS.Radius.lg) {
-                DS.Surface.card
-            }
+            .dsPrimaryCard(padding: 0, cornerRadius: DS.Radius.lg)
         }
     }
 
@@ -210,9 +208,7 @@ struct StatisticsComparisonView: View {
 
             Spacer(minLength: 0)
         }
-        .dsCard(padding: DS.Spacing.md, cornerRadius: DS.Radius.md) {
-            DS.Surface.chrome
-        }
+        .dsPrimaryCard(padding: DS.Spacing.md, cornerRadius: DS.Radius.md)
     }
 
     private func periodColumn(

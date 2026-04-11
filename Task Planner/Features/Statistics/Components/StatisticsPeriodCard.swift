@@ -44,10 +44,7 @@ struct StatisticsPeriodCard: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .dsSurface(
-            RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous),
-            fill: DS.Surface.chrome
-        )
+        .dsPrimaryCard(padding: 0, cornerRadius: DS.Radius.md)
         .sheet(isPresented: $isRangeSheetPresented) {
             StatisticsRangeSheet(
                 range: $viewModel.range,

@@ -10,15 +10,29 @@ import SwiftUI
 
 struct IconCircleButton: View {
     let systemName: String
+    let foregroundColor: Color
+    let backgroundColor: Color
     let action: () -> Void
+
+    init(
+        systemName: String,
+        foregroundColor: Color = DS.ColorToken.textPrimary,
+        backgroundColor: Color = DS.Surface.chrome,
+        action: @escaping () -> Void
+    ) {
+        self.systemName = systemName
+        self.foregroundColor = foregroundColor
+        self.backgroundColor = backgroundColor
+        self.action = action
+    }
 
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(DS.ColorToken.textPrimary)
+                .foregroundStyle(foregroundColor)
                 .frame(width: 42, height: 42)
-                .dsSurface(Circle(), fill: DS.Surface.chrome)
+                .dsSurface(Circle(), fill: backgroundColor)
         }
         .buttonStyle(.plain)
         .contentShape(Circle())

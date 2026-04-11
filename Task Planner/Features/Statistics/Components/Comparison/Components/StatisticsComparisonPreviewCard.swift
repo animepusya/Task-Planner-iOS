@@ -26,9 +26,7 @@ struct StatisticsComparisonPreviewCard: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg) {
-                DS.Surface.card
-            }
+            .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
             .contentShape(Rectangle())
         }
         .buttonStyle(StatisticsComparisonPreviewButtonStyle())

@@ -466,13 +466,8 @@ struct SettingsView: View {
             }
         } label: {
             HStack(alignment: .center, spacing: DS.Spacing.sm) {
-                ZStack {
-                    Circle()
-                        .fill(DS.ColorToken.purple.opacity(0.10))
-                        .frame(width: 34, height: 34)
-
-                    ProBadge(size: .small)
-                }
+                ProBadge(size: .regular)
+                    .frame(width: 22, height: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(subscriptionStore.hasProAccess ? String(localized: "Current plan") : String(localized: "Upgrade to Pro"))

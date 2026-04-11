@@ -99,7 +99,10 @@ struct StatisticsView: View {
 
     private var header: some View {
         ScreenTopSection(title: String(localized: "Statistics")) {
-            IconCircleButton(systemName: "gearshape") {
+            IconCircleButton(
+                systemName: "gearshape",
+                backgroundColor: DS.Surface.card
+            ) {
                 onOpenSettings()
             }
             .accessibilityLabel("Settings")
@@ -133,7 +136,7 @@ struct StatisticsView: View {
             .padding(.top, 6)
             .padding(.bottom, 2)
         }
-        .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
+        .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
 
     private func donut(
@@ -233,6 +236,6 @@ struct StatisticsView: View {
                 }
             }
         }
-        .dsCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
+        .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
 }
