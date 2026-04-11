@@ -45,34 +45,34 @@ struct StatisticsView: View {
             AppBackgroundView(
                 gradient: DS.GradientToken.pinkPurpleSoft,
                 gradientOpacity: 0.55,
-                blurRadius: 22
+                blurRadius: 22,
+                showsTopScrim: false
             )
 
-            VStack(spacing: 0) {
-                header
-
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        StatisticsPeriodCard(viewModel: viewModel)
-                        donutCard(
-                            snapshot: breakdownSnapshot,
-                            totalMinutesText: snapshot.totalMinutesText
-                        )
-                        totalCard(
-                            snapshot: breakdownSnapshot,
-                            totalMinutesText: snapshot.totalMinutesText
-                        )
-                        comparisonPreviewCard(snapshot: snapshot.comparison)
-                    }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.lg)
-                    .padding(.bottom, 24)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    StatisticsPeriodCard(viewModel: viewModel)
+                    donutCard(
+                        snapshot: breakdownSnapshot,
+                        totalMinutesText: snapshot.totalMinutesText
+                    )
+                    totalCard(
+                        snapshot: breakdownSnapshot,
+                        totalMinutesText: snapshot.totalMinutesText
+                    )
+                    comparisonPreviewCard(snapshot: snapshot.comparison)
                 }
-                .background(Color.clear)
-                .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
+                .padding(.horizontal, DS.Spacing.lg)
+                .padding(.top, DS.Spacing.lg)
+                .padding(.bottom, 24)
             }
+            .background(Color.clear)
+            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         }
         .navigationBarHidden(true)
+        .safeAreaInset(edge: .top) {
+            header
+        }
         .onAppear {
             viewModel.onViewAppear()
         }

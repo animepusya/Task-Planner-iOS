@@ -41,7 +41,10 @@ private struct PlannerSceneView: View {
 
     var body: some View {
         ZStack {
-            AppBackgroundView(gradient: DS.GradientToken.splash)
+            AppBackgroundView(
+                gradient: DS.GradientToken.splash,
+                showsTopScrim: false
+            )
 
             AppRootView(container: container)
                 .opacity(showSplash ? 0 : 1)
