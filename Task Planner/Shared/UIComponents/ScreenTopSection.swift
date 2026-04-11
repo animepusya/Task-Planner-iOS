@@ -44,6 +44,43 @@ struct ScreenTopSection<Trailing: View>: View {
         .padding(.top, DS.Spacing.sm)
         .padding(.bottom, DS.Spacing.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.clear)
+        .background {
+            ScreenTopSectionBackground()
+        }
+    }
+}
+
+private struct ScreenTopSectionBackground: View {
+    var body: some View {
+        Rectangle()
+            .fill(.thinMaterial)
+            .overlay {
+                LinearGradient(
+                    stops: [
+                        .init(color: DS.ColorToken.appBackground.opacity(0.42), location: 0.0),
+                        .init(color: DS.ColorToken.appBackground.opacity(0.28), location: 0.40),
+                        .init(color: DS.ColorToken.appBackground.opacity(0.18), location: 0.74),
+                        .init(color: Color.clear, location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .compositingGroup()
+            .mask {
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.70), location: 0.0),
+                        .init(color: .black.opacity(0.70), location: 0.28),
+                        .init(color: .black.opacity(0.70), location: 0.58),
+                        .init(color: .black.opacity(0.28), location: 0.84),
+                        .init(color: .clear, location: 1.0)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            }
+            .ignoresSafeArea(edges: .top)
+            .allowsHitTesting(false)
     }
 }
