@@ -29,7 +29,7 @@ final class UNUserNotificationService: NotificationService {
     func requestAuthorization() async -> Bool {
         do {
             return try await UNUserNotificationCenter.current()
-                .requestAuthorization(options: [.alert, .badge, .sound])
+                .requestAuthorization(options: [.alert, .sound])
         } catch {
             return false
         }

@@ -115,27 +115,10 @@ final class SettingsViewModel: ObservableObject {
         calendarErrorText = nil
 
         Task {
-            do {
-                let prefs = try preferencesRepository.getOrCreate()
-                prefs.showTasksInAppleCalendar = value
-                try preferencesRepository.save()
-
-                if value {
-                    _ = try await calendarSync.ensureTaskPlannerCalendarExists()
-                    let tasks = try taskRepository.fetchAll()
-                    try await calendarSync.exportAllTasks(tasks)
-                }
-
-                calendarStatusText = statusText()
-            } catch {
-                calendarErrorText = error.localizedDescription
-                showTasksInAppleCalendar = false
-                do {
-                    let prefs = try preferencesRepository.getOrCreate()
-                    prefs.showTasksInAppleCalendar = false
-                    try preferencesRepository.save()
-                } catch {}
-                calendarStatusText = statusText()
+            if value {
+                await enableTaskExport()
+            } else {
+                await disableTaskExportAndRemoveEvents()
             }
         }
     }
@@ -151,7 +134,7 @@ final class SettingsViewModel: ObservableObject {
                 try preferencesRepository.save()
 
                 if value {
-                    try await calendarSync.requestAccessIfNeeded()
+                    try await calendarSync.requestAccessIfNeeded(canPrompt: true)
                 }
 
                 calendarStatusText = statusText()
@@ -172,8 +155,15 @@ final class SettingsViewModel: ObservableObject {
         calendarErrorText = nil
         Task {
             do {
+                guard showTasksInAppleCalendar else {
+                    calendarErrorText = String(localized: "Turn on Show tasks in Apple Calendar first.")
+                    calendarStatusText = statusText()
+                    return
+                }
+
                 let tasks = try taskRepository.fetchAll()
-                try await calendarSync.exportAllTasks(tasks)
+                _ = try await calendarSync.removeAllExportedEvents(tasks: tasks, canPrompt: true)
+                try await calendarSync.exportAllTasks(tasks, canPrompt: true)
                 calendarStatusText = statusText(prefix: String(localized: "Export complete"))
             } catch {
                 calendarErrorText = error.localizedDescription
@@ -184,12 +174,65 @@ final class SettingsViewModel: ObservableObject {
     func removeExportedEvents() {
         calendarErrorText = nil
         Task {
-            do {
-                try await calendarSync.removeAllExportedEvents()
-                calendarStatusText = statusText(prefix: String(localized: "Exported events removed"))
-            } catch {
-                calendarErrorText = error.localizedDescription
-            }
+            await disableTaskExportAndRemoveEvents(showRemovalStatus: true, canPromptForRemoval: true)
+        }
+    }
+
+    private func enableTaskExport() async {
+        do {
+            try setTaskExportEnabled(true)
+            _ = try await calendarSync.ensureTaskPlannerCalendarExists(canPrompt: true)
+            let tasks = try taskRepository.fetchAll()
+            try await calendarSync.exportAllTasks(tasks)
+            calendarStatusText = statusText()
+        } catch {
+            calendarErrorText = error.localizedDescription
+            showTasksInAppleCalendar = false
+            try? setTaskExportEnabled(false)
+            calendarStatusText = statusText()
+        }
+    }
+
+    private func disableTaskExportAndRemoveEvents(
+        showRemovalStatus: Bool = false,
+        canPromptForRemoval: Bool = false
+    ) async {
+        do {
+            try setTaskExportEnabled(false)
+        } catch {
+            calendarErrorText = error.localizedDescription
+            showTasksInAppleCalendar = true
+            calendarStatusText = statusText()
+            return
+        }
+
+        do {
+            let tasks = try taskRepository.fetchAll()
+            _ = try await calendarSync.removeAllExportedEvents(
+                tasks: tasks,
+                canPrompt: canPromptForRemoval
+            )
+            clearAppleEventIdentifiers(in: tasks)
+            try taskRepository.save()
+            calendarStatusText = statusText(
+                prefix: showRemovalStatus ? String(localized: "Exported events removed") : nil
+            )
+        } catch {
+            calendarErrorText = error.localizedDescription
+            calendarStatusText = statusText()
+        }
+    }
+
+    private func setTaskExportEnabled(_ enabled: Bool) throws {
+        let prefs = try preferencesRepository.getOrCreate()
+        prefs.showTasksInAppleCalendar = enabled
+        try preferencesRepository.save()
+        showTasksInAppleCalendar = enabled
+    }
+
+    private func clearAppleEventIdentifiers(in tasks: [TaskEntity]) {
+        for task in tasks where task.appleEventIdentifier != nil {
+            task.appleEventIdentifier = nil
         }
     }
 

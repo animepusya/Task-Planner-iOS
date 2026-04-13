@@ -14,6 +14,7 @@ final class CalendarSyncService {
 
     enum SyncError: LocalizedError {
         case accessDenied
+        case fullAccessRequired
         case restricted
         case calendarCreateFailed
         case calendarNotFound
@@ -24,6 +25,8 @@ final class CalendarSyncService {
             switch self {
             case .accessDenied:
                 return String(localized: "Calendar access is denied. Allow it in Settings > Privacy > Calendars.")
+            case .fullAccessRequired:
+                return String(localized: "Full Calendar access is required to sync tasks and show Apple Calendar events. Allow it in Settings.")
             case .restricted:
                 return String(localized: "Calendar access is restricted by the system.")
             case .calendarCreateFailed:
@@ -40,6 +43,7 @@ final class CalendarSyncService {
 
     private let eventStore = EKEventStore()
     private let calendarTitle = "Task Planner"
+    private let eventMarker = "[Task Planner]"
 
     private let preferencesRepository: PreferencesRepository
     private let modelContext: ModelContext
@@ -55,24 +59,20 @@ final class CalendarSyncService {
         EKEventStore.authorizationStatus(for: .event)
     }
 
-    func requestAccessIfNeeded() async throws {
+    // Export sync reads and deletes previously created events, so full access is required.
+    func requestAccessIfNeeded(canPrompt: Bool = false) async throws {
         switch authorizationStatus {
         case .authorized, .fullAccess:
             return
         case .writeOnly:
-            throw SyncError.accessDenied
-        case .notDetermined:
-            let granted: Bool
-            if #available(iOS 17.0, *) {
-                granted = try await eventStore.requestFullAccessToEvents()
-            } else {
-                granted = try await withCheckedThrowingContinuation { cont in
-                    eventStore.requestAccess(to: .event) { ok, err in
-                        if let err { cont.resume(throwing: err) }
-                        else { cont.resume(returning: ok) }
-                    }
-                }
+            guard canPrompt else { throw SyncError.fullAccessRequired }
+            let granted = try await eventStore.requestFullAccessToEvents()
+            guard granted, isFullAccessGranted else {
+                throw SyncError.fullAccessRequired
             }
+        case .notDetermined:
+            guard canPrompt else { throw SyncError.fullAccessRequired }
+            let granted = try await eventStore.requestFullAccessToEvents()
             if !granted { throw SyncError.accessDenied }
         case .denied:
             throw SyncError.accessDenied
@@ -85,8 +85,8 @@ final class CalendarSyncService {
 
     // MARK: - Calendar
 
-    func ensureTaskPlannerCalendarExists() async throws -> EKCalendar {
-        try await requestAccessIfNeeded()
+    func ensureTaskPlannerCalendarExists(canPrompt: Bool = false) async throws -> EKCalendar {
+        try await requestAccessIfNeeded(canPrompt: canPrompt)
 
         let prefs = try preferencesRepository.getOrCreate()
 
@@ -132,11 +132,11 @@ final class CalendarSyncService {
     // MARK: - Export (one-way)
 
     /// Export all tasks (simple & robust). Updates task.appleEventIdentifier if needed.
-    func exportAllTasks(_ tasks: [TaskEntity]) async throws {
+    func exportAllTasks(_ tasks: [TaskEntity], canPrompt: Bool = false) async throws {
         let prefs = try preferencesRepository.getOrCreate()
         guard prefs.showTasksInAppleCalendar else { return }
 
-        let taskPlannerCalendar = try await ensureTaskPlannerCalendarExists()
+        let taskPlannerCalendar = try await ensureTaskPlannerCalendarExists(canPrompt: canPrompt)
 
         var didChangeAnyIdentifier = false
 
@@ -154,12 +154,12 @@ final class CalendarSyncService {
         }
     }
 
-    func deleteExportedEventIfNeeded(for task: TaskEntity) async throws {
+    func deleteExportedEventIfNeeded(for task: TaskEntity, canPrompt: Bool = false) async throws {
         let prefs = try preferencesRepository.getOrCreate()
         guard prefs.showTasksInAppleCalendar else { return }
         guard let id = task.appleEventIdentifier else { return }
 
-        try await requestAccessIfNeeded()
+        try await requestAccessIfNeeded(canPrompt: canPrompt)
 
         guard let event = eventStore.event(withIdentifier: id) else { return }
         do {
@@ -169,33 +169,75 @@ final class CalendarSyncService {
         }
     }
 
-    func removeAllExportedEvents() async throws {
-        let cal = try await ensureTaskPlannerCalendarExists()
+    @discardableResult
+    func removeAllExportedEvents(
+        tasks: [TaskEntity] = [],
+        canPrompt: Bool = false
+    ) async throws -> Int {
+        try await requestAccessIfNeeded(canPrompt: canPrompt)
 
-        // Wide range cleanup (10 years back/forward) — simple, predictable.
-        let start = Calendar.current.date(byAdding: .year, value: -10, to: .now) ?? .distantPast
-        let end = Calendar.current.date(byAdding: .year, value: 10, to: .now) ?? .distantFuture
+        var removedKeys: Set<String> = []
+        var removedCount = 0
 
-        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: [cal])
-        let events = eventStore.events(matching: predicate)
+        for task in tasks {
+            guard let id = task.appleEventIdentifier,
+                  let event = eventStore.event(withIdentifier: id) else { continue }
 
-        for e in events {
-            do { try eventStore.remove(e, span: .futureEvents, commit: false) }
-            catch { throw SyncError.eventRemoveFailed }
+            let removalKey = eventRemovalKey(for: event)
+            guard removedKeys.insert(removalKey).inserted else { continue }
+
+            do {
+                try eventStore.remove(event, span: .futureEvents, commit: false)
+                removedCount += 1
+            } catch {
+                throw SyncError.eventRemoveFailed
+            }
         }
-        do { try eventStore.commit() }
-        catch { throw SyncError.eventRemoveFailed }
+
+        if let cal = try findTaskPlannerCalendarIfExists() {
+            let start = Calendar.current.date(byAdding: .year, value: -10, to: .now) ?? .distantPast
+            let end = Calendar.current.date(byAdding: .year, value: 10, to: .now) ?? .distantFuture
+
+            let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: [cal])
+            let events = eventStore.events(matching: predicate)
+
+            for event in events where isManagedTaskPlannerEvent(event) {
+                let removalKey = eventRemovalKey(for: event)
+                guard removedKeys.insert(removalKey).inserted else { continue }
+
+                do {
+                    try eventStore.remove(event, span: .futureEvents, commit: false)
+                    removedCount += 1
+                } catch {
+                    throw SyncError.eventRemoveFailed
+                }
+            }
+        }
+
+        guard removedCount > 0 else { return 0 }
+
+        do {
+            try eventStore.commit()
+            return removedCount
+        } catch {
+            throw SyncError.eventRemoveFailed
+        }
     }
 
     // MARK: - Import (read-only)
 
     /// Fetch Apple Calendar events for range (read-only, not persisted).
     /// By default excludes our own "Task Planner" calendar to avoid duplicates with tasks.
-    func fetchReadOnlyEvents(start: Date, end: Date, excludeTaskPlannerCalendar: Bool = true) async throws -> [ExternalCalendarEvent] {
+    func fetchReadOnlyEvents(
+        start: Date,
+        end: Date,
+        excludeTaskPlannerCalendar: Bool = true,
+        canPrompt: Bool = false
+    ) async throws -> [ExternalCalendarEvent] {
         let prefs = try preferencesRepository.getOrCreate()
         guard prefs.showAppleCalendarEventsInPlanner else { return [] }
 
-        try await requestAccessIfNeeded()
+        try await requestAccessIfNeeded(canPrompt: canPrompt)
 
         var calendars = eventStore.calendars(for: .event)
 
@@ -243,11 +285,10 @@ final class CalendarSyncService {
         event.title = task.title
 
         let notesPart = task.notes?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let marker = "[Task Planner]"
         if let notesPart, !notesPart.isEmpty {
-            event.notes = "\(marker)\n\(notesPart)"
+            event.notes = "\(eventMarker)\n\(notesPart)"
         } else {
-            event.notes = marker
+            event.notes = eventMarker
         }
 
         if task.isAllDay {
@@ -265,6 +306,47 @@ final class CalendarSyncService {
         let prefs = try? preferencesRepository.getOrCreate()
         let weekStartsOnMonday = prefs?.weekStartsOnMonday ?? true
         event.recurrenceRules = makeRecurrenceRules(for: task, weekStartsOnMonday: weekStartsOnMonday)
+    }
+
+    private var isFullAccessGranted: Bool {
+        switch authorizationStatus {
+        case .authorized, .fullAccess:
+            return true
+        case .writeOnly, .notDetermined, .denied, .restricted:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private func findTaskPlannerCalendarIfExists() throws -> EKCalendar? {
+        let prefs = try preferencesRepository.getOrCreate()
+
+        if let id = prefs.taskPlannerCalendarIdentifier,
+           let cal = eventStore.calendar(withIdentifier: id) {
+            return cal
+        }
+
+        if let found = eventStore.calendars(for: .event).first(where: { $0.title == calendarTitle }) {
+            prefs.taskPlannerCalendarIdentifier = found.calendarIdentifier
+            try preferencesRepository.save()
+            return found
+        }
+
+        return nil
+    }
+
+    private func isManagedTaskPlannerEvent(_ event: EKEvent) -> Bool {
+        guard let notes = event.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
+              notes.isEmpty == false else {
+            return false
+        }
+
+        return notes.contains(eventMarker)
+    }
+
+    private func eventRemovalKey(for event: EKEvent) -> String {
+        event.calendarItemIdentifier
     }
 
     private func makeRecurrenceRules(for task: TaskEntity, weekStartsOnMonday: Bool) -> [EKRecurrenceRule]? {

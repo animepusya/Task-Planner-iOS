@@ -267,7 +267,7 @@ struct SettingsView: View {
             SettingsCard {
                 SettingsRow(
                     title: String(localized: "Show tasks in Apple Calendar"),
-                    subtitle: String(localized: "Exports to the “Task Planner” calendar"),
+                    subtitle: String(localized: "Keeps tasks synced in the “Task Planner” calendar"),
                     systemImage: "calendar.badge.plus",
                     accessory: {
                         Toggle(
@@ -304,7 +304,7 @@ struct SettingsView: View {
                 SettingsRowDivider()
 
                 SettingsRow(
-                    title: String(localized: "Export now"),
+                    title: String(localized: "Resync now"),
                     subtitle: String(localized: "Force sync current tasks to Apple Calendar"),
                     systemImage: "arrow.up.right.square",
                     action: {
@@ -319,7 +319,7 @@ struct SettingsView: View {
 
                 SettingsRow(
                     title: String(localized: "Remove exported events"),
-                    subtitle: String(localized: "Delete all events created by Task Planner"),
+                    subtitle: String(localized: "Turns off sync and deletes Task Planner events from Apple Calendar"),
                     systemImage: "trash",
                     isDestructive: true,
                     action: {

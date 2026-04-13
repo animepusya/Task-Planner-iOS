@@ -466,7 +466,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Task-Planner-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Task Planner uses Calendar to export tasks and show Apple Calendar events.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Task Planner needs full Calendar access to sync tasks with Apple Calendar and show your existing calendar events in Planner.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
@@ -503,7 +503,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = "Task-Planner-Info.plist";
 				INFOPLIST_KEY_LSApplicationCategoryType = "";
-				INFOPLIST_KEY_NSCalendarsUsageDescription = "Task Planner uses Calendar to export tasks and show Apple Calendar events.";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Task Planner needs full Calendar access to sync tasks with Apple Calendar and show your existing calendar events in Planner.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen;
