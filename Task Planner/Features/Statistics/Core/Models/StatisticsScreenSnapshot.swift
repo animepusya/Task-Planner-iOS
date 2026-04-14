@@ -7,8 +7,9 @@
 
 import SwiftUI
 
+@MainActor
 enum StatisticsPresentationColor {
-    nonisolated static func color(forRawValue rawValue: String) -> Color {
+    static func color(forRawValue rawValue: String) -> Color {
         TaskColor(rawValue: rawValue)?.uiColor ?? DS.ColorToken.textSecondary
     }
 }

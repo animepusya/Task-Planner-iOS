@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import SwiftUI
 
 nonisolated struct PlannerMonthDaySnapshot: Identifiable, Hashable, Sendable {
     let id: String

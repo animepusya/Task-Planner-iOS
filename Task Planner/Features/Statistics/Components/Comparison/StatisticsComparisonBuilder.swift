@@ -8,7 +8,8 @@
 import SwiftUI
 
 enum StatisticsComparisonBuilder {
-    nonisolated static func build(
+    @MainActor
+    static func build(
         currentResult: StatisticsComputedResult,
         previousResult: StatisticsComputedResult,
         currentContext: StatisticsPeriodContext,
@@ -93,7 +94,8 @@ enum StatisticsComparisonBuilder {
         )
     }
 
-    nonisolated private static func buildCategoryRows(
+    @MainActor
+    private static func buildCategoryRows(
         current: [CategoryStat],
         previous: [CategoryStat]
     ) -> [StatisticsComparisonDeltaRowSnapshot] {
@@ -117,7 +119,8 @@ enum StatisticsComparisonBuilder {
         )
     }
 
-    nonisolated private static func buildTaskRows(
+    @MainActor
+    private static func buildTaskRows(
         current: [TaskStat],
         previous: [TaskStat]
     ) -> [StatisticsComparisonDeltaRowSnapshot] {
@@ -141,7 +144,8 @@ enum StatisticsComparisonBuilder {
         )
     }
 
-    nonisolated private static func buildRows(
+    @MainActor
+    private static func buildRows(
         current: [DeltaSource],
         previous: [DeltaSource]
     ) -> [StatisticsComparisonDeltaRowSnapshot] {

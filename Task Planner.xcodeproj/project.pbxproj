@@ -58,6 +58,7 @@
 				Data/Model/Enums/AppTheme.swift,
 				Data/Model/Enums/TaskColor.swift,
 				Shared/DesignSystem/DS.swift,
+				"Shared/DesignSystem/TaskColor+UI.swift",
 				Shared/Localization/Localizable.xcstrings,
 				Shared/Widgets/WidgetRouteCenter.swift,
 				Shared/Widgets/WidgetShared.swift,
