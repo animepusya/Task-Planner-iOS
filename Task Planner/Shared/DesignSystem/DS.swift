@@ -230,5 +230,13 @@ enum DS {
         static let sectionTitle = Font.system(size: 18, weight: .semibold, design: .rounded)
         static let body = Font.system(size: 15, weight: .regular, design: .rounded)
         static let caption = Font.system(size: 12, weight: .medium, design: .rounded)
+
+        static func screenTitle(size: CGFloat) -> Font {
+            .system(size: size, weight: .bold, design: .rounded)
+        }
+
+        static func screenSubtitle(size: CGFloat = 15) -> Font {
+            .system(size: size, weight: .medium, design: .rounded)
+        }
     }
 }

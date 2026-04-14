@@ -14,6 +14,7 @@ struct StatisticsView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @State private var selectedSliceId: String? = nil
+    @State private var headerCollapseProgress: CGFloat = 0
 
     private let onOpenSettings: () -> Void
     private let onOpenComparison: (StatisticsViewModel) -> Void
@@ -68,6 +69,9 @@ struct StatisticsView: View {
             }
             .background(Color.clear)
             .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
+            .onScrollViewOffsetChange { offset in
+                updateHeaderCollapse(offset, style: .statistics)
+            }
         }
         .navigationBarHidden(true)
         .safeAreaInset(edge: .top) {
@@ -98,7 +102,11 @@ struct StatisticsView: View {
     }
 
     private var header: some View {
-        ScreenTopSection(title: String(localized: "Statistics")) {
+        ScreenTopSection(
+            title: String(localized: "Statistics"),
+            collapseProgress: headerCollapseProgress,
+            style: .statistics
+        ) {
             IconCircleButton(
                 systemName: "gearshape",
                 backgroundColor: DS.Surface.card
@@ -237,5 +245,14 @@ struct StatisticsView: View {
             }
         }
         .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
+    }
+
+    private func updateHeaderCollapse(
+        _ scrollOffset: CGFloat,
+        style: ScreenTopSectionStyle
+    ) {
+        let nextProgress = style.collapseProgress(for: scrollOffset)
+        guard abs(nextProgress - headerCollapseProgress) > 0.001 else { return }
+        headerCollapseProgress = nextProgress
     }
 }

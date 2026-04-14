@@ -21,6 +21,7 @@ struct PlannerView: View {
     private var tasks: [TaskEntity]
 
     @State private var didTriggerSwipe = false
+    @State private var headerCollapseProgress: CGFloat = 0
     private let swipeThreshold: CGFloat = 72
     private let monthAnim = PlannerViewModel.monthTransitionAnimation
 
@@ -195,6 +196,9 @@ struct PlannerView: View {
         .scrollContentBackground(.hidden)
         .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
+        .onScrollViewOffsetChange { offset in
+            updateHeaderCollapse(offset, style: .planner)
+        }
         .navigationBarHidden(true)
         .safeAreaInset(edge: .top) {
             header
@@ -215,7 +219,9 @@ struct PlannerView: View {
     private var header: some View {
         ScreenTopSection(
             title: String(localized: "Task Planner"),
-            subtitle: String(localized: "Organize your day with ease")
+            subtitle: String(localized: "Organize your day with ease"),
+            collapseProgress: headerCollapseProgress,
+            style: .planner
         ) {
             HStack(spacing: 10) {
                 IconCircleButton(systemName: "square.stack.3d.up") {
@@ -376,5 +382,14 @@ struct PlannerView: View {
                 .accessibilityLabel("Create Task")
             }
         }
+    }
+
+    private func updateHeaderCollapse(
+        _ scrollOffset: CGFloat,
+        style: ScreenTopSectionStyle
+    ) {
+        let nextProgress = style.collapseProgress(for: scrollOffset)
+        guard abs(nextProgress - headerCollapseProgress) > 0.001 else { return }
+        headerCollapseProgress = nextProgress
     }
 }
