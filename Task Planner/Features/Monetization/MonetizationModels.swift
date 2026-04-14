@@ -190,7 +190,7 @@ struct SubscriptionCatalog: Sendable {
     static let taskPlanner = SubscriptionCatalog(
         displayName: String(localized: "Task Planner Pro"),
         subscriptionGroupID: nil,
-        privacyPolicyURL: nil,
+        privacyPolicyURL: URL(string: "https://animepusya.github.io/Task-Planner-site/privacy.html"),
         termsOfUseURL: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"),
         orderedPlans: [
             PlanConfiguration(
