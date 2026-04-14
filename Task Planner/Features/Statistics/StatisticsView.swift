@@ -64,7 +64,7 @@ struct StatisticsView: View {
                     comparisonPreviewCard(snapshot: snapshot.comparison)
                 }
                 .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.lg)
+                .padding(.top, DS.Spacing.sm)
                 .padding(.bottom, 24)
             }
             .background(Color.clear)

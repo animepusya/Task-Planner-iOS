@@ -8,11 +8,20 @@
 import SwiftUI
 import UIKit
 
+enum ScrollViewOffsetMeasurement {
+    case adjustedContentInsetTop
+    case relativeToInitialOffset
+}
+
 struct ScrollViewOffsetObserver: UIViewRepresentable {
+    let measurement: ScrollViewOffsetMeasurement
     let onOffsetChange: (CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onOffsetChange: onOffsetChange)
+        Coordinator(
+            measurement: measurement,
+            onOffsetChange: onOffsetChange
+        )
     }
 
     func makeUIView(context: Context) -> ObservationView {
@@ -24,6 +33,7 @@ struct ScrollViewOffsetObserver: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ObservationView, context: Context) {
+        context.coordinator.measurement = measurement
         context.coordinator.onOffsetChange = onOffsetChange
         uiView.coordinator = context.coordinator
 
@@ -35,12 +45,18 @@ struct ScrollViewOffsetObserver: UIViewRepresentable {
 
 extension ScrollViewOffsetObserver {
     final class Coordinator: NSObject {
+        var measurement: ScrollViewOffsetMeasurement
         var onOffsetChange: (CGFloat) -> Void
 
         private weak var scrollView: UIScrollView?
         private var contentOffsetObservation: NSKeyValueObservation?
+        private var initialContentOffsetY: CGFloat?
 
-        init(onOffsetChange: @escaping (CGFloat) -> Void) {
+        init(
+            measurement: ScrollViewOffsetMeasurement,
+            onOffsetChange: @escaping (CGFloat) -> Void
+        ) {
+            self.measurement = measurement
             self.onOffsetChange = onOffsetChange
         }
 
@@ -50,6 +66,7 @@ extension ScrollViewOffsetObserver {
             if scrollView !== resolvedScrollView {
                 contentOffsetObservation = nil
                 scrollView = resolvedScrollView
+                initialContentOffsetY = nil
                 observe(scrollView: resolvedScrollView)
             }
 
@@ -66,7 +83,29 @@ extension ScrollViewOffsetObserver {
         }
 
         private func notifyOffset(from scrollView: UIScrollView) {
-            let effectiveOffset = max(0, scrollView.contentOffset.y + scrollView.adjustedContentInset.top)
+            let effectiveOffset: CGFloat
+
+            switch measurement {
+            case .adjustedContentInsetTop:
+                effectiveOffset = max(
+                    0,
+                    scrollView.contentOffset.y + scrollView.adjustedContentInset.top
+                )
+            case .relativeToInitialOffset:
+                let currentOffsetY = scrollView.contentOffset.y
+
+                if let baseline = initialContentOffsetY {
+                    let isInteracting = scrollView.isTracking || scrollView.isDragging || scrollView.isDecelerating
+                    if !isInteracting && currentOffsetY < baseline {
+                        initialContentOffsetY = currentOffsetY
+                    }
+                } else {
+                    initialContentOffsetY = currentOffsetY
+                }
+
+                effectiveOffset = max(0, currentOffsetY - (initialContentOffsetY ?? currentOffsetY))
+            }
+
             onOffsetChange(effectiveOffset)
         }
 
@@ -119,11 +158,15 @@ final class ObservationView: UIView {
 
 extension View {
     func onScrollViewOffsetChange(
+        measurement: ScrollViewOffsetMeasurement = .adjustedContentInsetTop,
         perform action: @escaping (CGFloat) -> Void
     ) -> some View {
         background {
-            ScrollViewOffsetObserver(onOffsetChange: action)
-                .frame(width: 0, height: 0)
+            ScrollViewOffsetObserver(
+                measurement: measurement,
+                onOffsetChange: action
+            )
+            .frame(width: 0, height: 0)
         }
     }
 }

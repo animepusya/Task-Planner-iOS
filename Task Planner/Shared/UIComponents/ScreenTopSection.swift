@@ -49,8 +49,8 @@ struct ScreenTopSectionStyle {
         horizontalPadding: DS.Spacing.lg,
         expandedTopPadding: DS.Spacing.sm,
         compactTopPadding: 7,
-        expandedBottomPadding: DS.Spacing.md,
-        compactBottomPadding: 11,
+        expandedBottomPadding: DS.Spacing.sm,
+        compactBottomPadding: 7,
         expandedTitleSize: 28,
         compactTitleSize: 24.5,
         expandedTitleSubtitleSpacing: 6,
@@ -65,8 +65,8 @@ struct ScreenTopSectionStyle {
         horizontalPadding: DS.Spacing.lg,
         expandedTopPadding: DS.Spacing.sm,
         compactTopPadding: 4,
-        expandedBottomPadding: DS.Spacing.md,
-        compactBottomPadding: 8,
+        expandedBottomPadding: DS.Spacing.sm,
+        compactBottomPadding: 6,
         expandedTitleSize: 28,
         compactTitleSize: 21.5,
         expandedTitleSubtitleSpacing: 0,
@@ -119,14 +119,25 @@ struct ScreenTopSection<Trailing: View>: View {
             to: style.compactTitleSubtitleSpacing,
             progress: progress
         )
+        let subtitleProgress = remappedProgress(
+            progress,
+            start: 0.04,
+            end: 0.58
+        )
         let subtitleHeight = interpolated(
             from: style.expandedSubtitleHeight,
             to: style.compactSubtitleHeight,
-            progress: progress
+            progress: subtitleProgress
+        )
+        let subtitleVerticalOffset = -5 * subtitleProgress
+        let subtitleFadeStart = interpolated(
+            from: 0.98,
+            to: 0.42,
+            progress: subtitleProgress
         )
         let subtitleOpacity = style.expandedSubtitleHeight == 0
             ? 0
-            : max(0, 1 - (progress * 1.2))
+            : pow(max(0, 1 - subtitleProgress), 1.15)
 
         HStack(alignment: style.contentAlignment, spacing: DS.Spacing.md) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : subtitleSpacing) {
@@ -143,8 +154,20 @@ struct ScreenTopSection<Trailing: View>: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.88)
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .offset(y: subtitleVerticalOffset)
                         .frame(height: subtitleHeight, alignment: .topLeading)
                         .clipped()
+                        .mask {
+                            LinearGradient(
+                                stops: [
+                                    .init(color: .black, location: 0),
+                                    .init(color: .black, location: subtitleFadeStart),
+                                    .init(color: .clear, location: 1)
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        }
                         .opacity(subtitleOpacity)
                 }
             }
@@ -169,6 +192,15 @@ struct ScreenTopSection<Trailing: View>: View {
         progress: CGFloat
     ) -> CGFloat {
         start + ((end - start) * progress)
+    }
+
+    private func remappedProgress(
+        _ progress: CGFloat,
+        start: CGFloat,
+        end: CGFloat
+    ) -> CGFloat {
+        guard end > start else { return progress >= end ? 1 : 0 }
+        return max(0, min(1, (progress - start) / (end - start)))
     }
 }
 
