@@ -25,6 +25,7 @@ struct AppRootView: View {
 
 private struct AppRootContentView: View {
     @StateObject private var dependencies: AppRootDependencies
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var selectedTab: AppTab = .planner
     @State private var statisticsNavigationPath: [AppRoute] = []
@@ -49,6 +50,13 @@ private struct AppRootContentView: View {
             guard !didBootstrap else { return }
             didBootstrap = true
             dependencies.bootstrap()
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            guard didBootstrap, newValue == .active else { return }
+
+            Task {
+                await dependencies.subscriptionStore.refreshOnAppForeground()
+            }
         }
         .onOpenURL(perform: handleOpenURL)
     }

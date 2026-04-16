@@ -13,7 +13,7 @@ struct PaywallView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @ScaledMetric(relativeTo: .caption) private var comparisonPlanColumnWidth: CGFloat = 60
-    @State private var selectedPlan: SubscriptionPlan = .yearly
+    @State private var selectedPlan: SubscriptionPlan = .annual
     @State private var notice: MonetizationNotice?
 
     let entryPoint: PaywallEntryPoint
@@ -47,7 +47,7 @@ struct PaywallView: View {
             )
         }
         .onAppear {
-            if subscriptionStore.hasProAccess, let activePlan = subscriptionStore.catalog.plan(for: subscriptionStore.entitlement.activeProductID) {
+            if subscriptionStore.isPro, let activePlan = subscriptionStore.catalog.plan(for: subscriptionStore.entitlement.activeProductID) {
                 selectedPlan = activePlan
             }
         }
@@ -107,7 +107,7 @@ struct PaywallView: View {
                         product: product,
                         isSelected: selectedPlan == configuration.plan,
                         isCurrentPlan: subscriptionStore.catalog.plan(for: subscriptionStore.entitlement.activeProductID) == configuration.plan,
-                        isUnlocked: subscriptionStore.hasProAccess
+                        isUnlocked: subscriptionStore.isPro
                     )
                 }
                 .buttonStyle(.plain)
@@ -122,7 +122,7 @@ struct PaywallView: View {
                     .font(DS.Typography.sectionTitle)
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
-                if subscriptionStore.hasProAccess == false {
+                if subscriptionStore.isPro == false {
                     ProBadge(size: .small)
                 }
 
@@ -246,20 +246,20 @@ struct PaywallView: View {
     }
 
     private var primaryActionTitle: String {
-        if subscriptionStore.hasProAccess {
+        if subscriptionStore.isPro {
             return String(localized: "Manage Subscription")
         }
 
         switch selectedPlan {
         case .monthly:
             return String(localized: "Continue Monthly")
-        case .yearly:
+        case .annual:
             return String(localized: "Continue Annual")
         }
     }
 
     private func handlePrimaryAction() async {
-        if subscriptionStore.hasProAccess {
+        if subscriptionStore.isPro {
             notice = await subscriptionStore.manageSubscription()
             return
         }

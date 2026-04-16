@@ -13,109 +13,78 @@ import UIKit
 final class StoreKitSubscriptionService: SubscriptionService {
     let catalog: SubscriptionCatalog
 
-    private var storeKitProductsByID: [String: Product] = [:]
-    private let debugOverrideStore: SubscriptionDebugOverrideStore
+    private let storeKitManager: StoreKitManager
 
     convenience init() {
+        let catalog = SubscriptionCatalog.taskPlanner()
         self.init(
-            catalog: .taskPlanner,
-            debugOverrideStore: SubscriptionDebugOverrideStore()
+            catalog: catalog,
+            storeKitManager: StoreKitManager(productIDs: catalog.productIDs)
         )
     }
 
     init(
         catalog: SubscriptionCatalog,
-        debugOverrideStore: SubscriptionDebugOverrideStore
+        storeKitManager: StoreKitManager
     ) {
         self.catalog = catalog
-        self.debugOverrideStore = debugOverrideStore
+        self.storeKitManager = storeKitManager
     }
 
     func loadProducts() async -> [SubscriptionProduct] {
+        let productsByID: [String: StoreKitProductSnapshot]
+
         do {
-            let products = try await Product.products(for: catalog.productIDs)
-            storeKitProductsByID = Dictionary(uniqueKeysWithValues: products.map { ($0.id, $0) })
+            let storeKitProducts = try await storeKitManager.loadProducts()
+            productsByID = Dictionary(uniqueKeysWithValues: storeKitProducts.map { ($0.id, $0) })
         } catch {
-            storeKitProductsByID = [:]
+            productsByID = [:]
         }
 
         return catalog.orderedPlans.map { configuration in
-            let source: SubscriptionProduct.Source = storeKitProductsByID[configuration.productID] == nil
+            let source: SubscriptionProduct.Source = productsByID[configuration.productID] == nil
                 ? .fallback
                 : .storeKit
 
             return catalog.makeProduct(
                 for: configuration.plan,
-                localizedPrice: storeKitProductsByID[configuration.productID]?.displayPrice,
+                localizedPrice: productsByID[configuration.productID]?.displayPrice,
                 source: source
             )
         }
     }
 
-    func currentEntitlement() async -> SubscriptionEntitlement {
-        #if DEBUG
-        if debugOverrideStore.isEnabled {
-            return .pro(productID: nil, source: .debugOverride)
-        }
-        #endif
-
-        for await result in Transaction.currentEntitlements {
-            guard
-                let transaction = verifiedTransaction(from: result),
-                catalog.productIDs.contains(transaction.productID)
-            else {
-                continue
-            }
-
-            return .pro(productID: transaction.productID, source: .storeKit)
-        }
-
-        return .free
+    func refreshEntitlements() async -> SubscriptionEntitlement {
+        entitlement(from: await storeKitManager.refreshEntitlements())
     }
 
     func purchase(plan: SubscriptionPlan) async throws -> SubscriptionPurchaseResult {
         let productID = catalog.productID(for: plan)
-
-        if storeKitProductsByID[productID] == nil {
-            _ = await loadProducts()
-        }
-
-        guard let product = storeKitProductsByID[productID] else {
-            #if DEBUG
-            debugOverrideStore.setEnabled(true)
-            return .purchased(.pro(productID: productID, source: .debugOverride))
-            #else
-            return .unavailable
-            #endif
-        }
-
-        let purchaseResult = try await product.purchase()
-
-        switch purchaseResult {
-        case .success(let verification):
-            guard let transaction = verifiedTransaction(from: verification) else {
-                return .unavailable
-            }
-
-            await transaction.finish()
-            return .purchased(
-                .pro(productID: transaction.productID, source: .storeKit)
-            )
-
-        case .pending:
-            return .pending
-
-        case .userCancelled:
-            return .cancelled
-
-        @unknown default:
-            return .unavailable
-        }
+        let purchaseOutcome = try await storeKitManager.purchase(productID: productID)
+        return purchaseResult(from: purchaseOutcome)
     }
 
     func restorePurchases() async throws -> SubscriptionEntitlement {
-        try await AppStore.sync()
-        return await currentEntitlement()
+        entitlement(from: try await storeKitManager.restorePurchases())
+    }
+
+    func observeTransactionUpdates() -> AsyncStream<SubscriptionEntitlement> {
+        return AsyncStream { continuation in
+            let updatesTask = Task {
+                let transactionUpdates = await storeKitManager.observeTransactionUpdates()
+
+                for await entitlementSnapshot in transactionUpdates {
+                    guard Task.isCancelled == false else { break }
+                    continuation.yield(entitlement(from: entitlementSnapshot))
+                }
+
+                continuation.finish()
+            }
+
+            continuation.onTermination = { @Sendable _ in
+                updatesTask.cancel()
+            }
+        }
     }
 
     func manageSubscription() async throws -> Bool {
@@ -124,7 +93,9 @@ final class StoreKitSubscriptionService: SubscriptionService {
         }
 
         do {
-            if let subscriptionGroupID = catalog.subscriptionGroupID, !subscriptionGroupID.isEmpty {
+            let subscriptionGroupID = try await resolvedSubscriptionGroupID()
+
+            if let subscriptionGroupID, !subscriptionGroupID.isEmpty {
                 try await AppStore.showManageSubscriptions(
                     in: scene,
                     subscriptionGroupID: subscriptionGroupID
@@ -143,55 +114,38 @@ final class StoreKitSubscriptionService: SubscriptionService {
         }
     }
 
-    #if DEBUG
-    var debugOverrideEnabled: Bool {
-        debugOverrideStore.isEnabled
-    }
-
-    func setDebugOverrideEnabled(_ value: Bool) {
-        debugOverrideStore.setEnabled(value)
-    }
-    #endif
-
     private var activeWindowScene: UIWindowScene? {
         UIApplication.shared.connectedScenes
             .compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive }
     }
 
-    private func verifiedTransaction<T>(from result: VerificationResult<T>) -> T? {
-        switch result {
-        case .verified(let value):
-            return value
-        case .unverified:
-            return nil
+    private func resolvedSubscriptionGroupID() async throws -> String? {
+        if let configuredGroupID = catalog.subscriptionGroupID, configuredGroupID.isEmpty == false {
+            return configuredGroupID
+        }
+
+        return try await storeKitManager.subscriptionGroupID()
+    }
+
+    private func purchaseResult(from outcome: StoreKitPurchaseOutcome) -> SubscriptionPurchaseResult {
+        switch outcome {
+        case .purchased(let entitlementSnapshot):
+            return .purchased(entitlement(from: entitlementSnapshot))
+        case .pending:
+            return .pending
+        case .cancelled:
+            return .cancelled
+        case .unavailable:
+            return .unavailable
         }
     }
-}
 
-struct SubscriptionDebugOverrideStore {
-    private let defaults: UserDefaults
-    private let key: String
+    private func entitlement(from snapshot: StoreKitEntitlementSnapshot) -> SubscriptionEntitlement {
+        guard let activeProductID = snapshot.activeProductID else {
+            return .free
+        }
 
-    init(
-        defaults: UserDefaults = .standard,
-        key: String = "subscription.debug.proOverrideEnabled"
-    ) {
-        self.defaults = defaults
-        self.key = key
-    }
-
-    var isEnabled: Bool {
-        #if DEBUG
-        defaults.bool(forKey: key)
-        #else
-        false
-        #endif
-    }
-
-    func setEnabled(_ value: Bool) {
-        #if DEBUG
-        defaults.set(value, forKey: key)
-        #endif
+        return .pro(productID: activeProductID, source: .storeKit)
     }
 }

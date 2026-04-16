@@ -20,6 +20,7 @@ final class SubscriptionStore: ObservableObject {
 
     private let service: SubscriptionService
     private var didStart = false
+    private var transactionUpdatesTask: Task<Void, Never>?
 
     init(service: SubscriptionService) {
         self.service = service
@@ -33,7 +34,7 @@ final class SubscriptionStore: ObservableObject {
         }
     }
 
-    var hasProAccess: Bool {
+    var isPro: Bool {
         entitlement.isPro
     }
 
@@ -42,19 +43,11 @@ final class SubscriptionStore: ObservableObject {
             return product(for: plan).title
         }
 
-        if entitlement.source == .debugOverride {
-            return String(localized: "Pro Preview")
-        }
-
         return String(localized: "Free")
     }
 
     var planSummaryText: String {
-        if hasProAccess {
-            if entitlement.source == .debugOverride {
-                return String(localized: "Debug Pro entitlement is active on this device.")
-            }
-
+        if isPro {
             return String(
                 localized: "Advanced repeats, custom categories, and deeper statistics are unlocked."
             )
@@ -68,6 +61,7 @@ final class SubscriptionStore: ObservableObject {
     func start() {
         guard didStart == false else { return }
         didStart = true
+        observeTransactionUpdates()
 
         Task {
             await refresh()
@@ -76,9 +70,22 @@ final class SubscriptionStore: ObservableObject {
 
     func refresh() async {
         isRefreshing = true
-        products = await service.loadProducts()
-        entitlement = await service.currentEntitlement()
+        async let loadedProducts = service.loadProducts()
+        async let refreshedEntitlement = service.refreshEntitlements()
+
+        products = await loadedProducts
+        entitlement = await refreshedEntitlement
         isRefreshing = false
+    }
+
+    func refreshOnAppForeground() async {
+        entitlement = await service.refreshEntitlements()
+
+        guard products.contains(where: { $0.source == .fallback }) else {
+            return
+        }
+
+        products = await service.loadProducts()
     }
 
     func hasAccess(to feature: ProFeature) -> Bool {
@@ -89,7 +96,7 @@ final class SubscriptionStore: ObservableObject {
              .statisticsWeekRange,
              .statisticsYearRange,
              .statisticsComparison:
-            return hasProAccess
+            return isPro
         }
     }
 
@@ -125,8 +132,8 @@ final class SubscriptionStore: ObservableObject {
 
             case .unavailable:
                 return MonetizationNotice(
-                    title: String(localized: "Products Not Connected Yet"),
-                    message: String(localized: "Attach a StoreKit Configuration file or connect the real App Store products to finish purchases.")
+                    title: String(localized: "Subscriptions Unavailable"),
+                    message: String(localized: "We couldn't load subscription products right now. Please try again in a moment.")
                 )
             }
         } catch {
@@ -173,7 +180,7 @@ final class SubscriptionStore: ObservableObject {
 
             return MonetizationNotice(
                 title: String(localized: "Manage Subscription Unavailable"),
-                message: String(localized: "Subscription management becomes available once StoreKit products are connected.")
+                message: String(localized: "Subscription settings are unavailable right now. Please try again later.")
             )
         } catch {
             return MonetizationNotice(
@@ -183,22 +190,21 @@ final class SubscriptionStore: ObservableObject {
         }
     }
 
-    #if DEBUG
-    var showsDebugControls: Bool {
-        true
+    deinit {
+        transactionUpdatesTask?.cancel()
     }
 
-    var debugOverrideEnabled: Bool {
-        service.debugOverrideEnabled
-    }
+    private func observeTransactionUpdates() {
+        transactionUpdatesTask?.cancel()
 
-    func toggleDebugOverride() async {
-        service.setDebugOverrideEnabled(service.debugOverrideEnabled == false)
-        entitlement = await service.currentEntitlement()
+        let updates = service.observeTransactionUpdates()
+        transactionUpdatesTask = Task { [weak self] in
+            guard let self else { return }
+
+            for await refreshedEntitlement in updates {
+                guard Task.isCancelled == false else { break }
+                self.entitlement = refreshedEntitlement
+            }
+        }
     }
-    #else
-    var showsDebugControls: Bool {
-        false
-    }
-    #endif
 }

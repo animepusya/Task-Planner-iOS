@@ -397,28 +397,6 @@ struct SettingsView: View {
                         trailingChevron
                     }
                 )
-
-                #if DEBUG
-                if subscriptionStore.showsDebugControls {
-                    SettingsRowDivider()
-
-                    SettingsRow(
-                        title: subscriptionStore.debugOverrideEnabled
-                            ? String(localized: "Disable Pro Preview")
-                            : String(localized: "Enable Pro Preview"),
-                        subtitle: String(localized: "Debug-only local entitlement override"),
-                        systemImage: "hammer",
-                        action: {
-                            Task {
-                                await subscriptionStore.toggleDebugOverride()
-                            }
-                        },
-                        accessory: {
-                            debugStatePill(isEnabled: subscriptionStore.debugOverrideEnabled)
-                        }
-                    )
-                }
-                #endif
             }
         }
     }
@@ -457,7 +435,7 @@ struct SettingsView: View {
 
     private var monetizationSummaryRow: some View {
         Button {
-            if subscriptionStore.hasProAccess {
+            if subscriptionStore.isPro {
                 Task {
                     monetizationNotice = await subscriptionStore.manageSubscription()
                 }
@@ -470,7 +448,7 @@ struct SettingsView: View {
                     .frame(width: 22, height: 22)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(subscriptionStore.hasProAccess ? String(localized: "Current plan") : String(localized: "Upgrade to Pro"))
+                    Text(subscriptionStore.isPro ? String(localized: "Current plan") : String(localized: "Upgrade to Pro"))
                         .font(DS.Typography.body)
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .multilineTextAlignment(.leading)
@@ -483,7 +461,7 @@ struct SettingsView: View {
 
                 Spacer(minLength: DS.Spacing.sm)
 
-                if subscriptionStore.hasProAccess {
+                if subscriptionStore.isPro {
                     Text(subscriptionStore.currentPlanTitle)
                         .font(DS.Typography.caption)
                         .foregroundStyle(DS.ColorToken.purple)
@@ -551,15 +529,6 @@ struct SettingsView: View {
 
             trailingChevron
         }
-    }
-
-    private func debugStatePill(isEnabled: Bool) -> some View {
-        Text(isEnabled ? String(localized: "On") : String(localized: "Off"))
-            .font(DS.Typography.caption)
-            .foregroundStyle(isEnabled ? DS.ColorToken.purple : DS.ColorToken.textSecondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-            .background(DS.ColorToken.controlFill, in: Capsule())
     }
 
     private func rowValueLabel(_ value: String) -> some View {

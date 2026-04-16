@@ -9,7 +9,7 @@ import Foundation
 
 enum SubscriptionPlan: String, CaseIterable, Identifiable, Hashable, Sendable {
     case monthly
-    case yearly
+    case annual
 
     var id: String { rawValue }
 
@@ -17,7 +17,7 @@ enum SubscriptionPlan: String, CaseIterable, Identifiable, Hashable, Sendable {
         switch self {
         case .monthly:
             return String(localized: "Monthly plan")
-        case .yearly:
+        case .annual:
             return String(localized: "Annual plan")
         }
     }
@@ -47,7 +47,6 @@ struct SubscriptionProduct: Identifiable, Equatable, Sendable {
 enum SubscriptionEntitlement: Equatable, Sendable {
     enum Source: Equatable, Sendable {
         case storeKit
-        case debugOverride
     }
 
     case free
@@ -186,40 +185,6 @@ struct SubscriptionCatalog: Sendable {
             uniqueKeysWithValues: orderedPlans.map { ($0.plan, $0) }
         )
     }
-
-    static let taskPlanner = SubscriptionCatalog(
-        displayName: String(localized: "Task Planner Pro"),
-        subscriptionGroupID: nil,
-        privacyPolicyURL: URL(string: "https://animepusya.github.io/Task-Planner-site/privacy.html"),
-        termsOfUseURL: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"),
-        orderedPlans: [
-            PlanConfiguration(
-                plan: .yearly,
-                // Replace with the real App Store Connect product identifier later.
-                productID: "taskplanner.pro.yearly",
-                subtitle: String(localized: "Best for regular planning"),
-                // Standard UI pricing for the pre-connect phase. Real localized StoreKit
-                // pricing should override this automatically once products are available.
-                fallbackPrice: SubscriptionPricePresentation(
-                    amount: "$19.99",
-                    unit: String(localized: "/ year"),
-                    note: String(localized: "About $1.67 / month")
-                ),
-                isRecommended: true
-            ),
-            PlanConfiguration(
-                plan: .monthly,
-                productID: "taskplanner.pro.monthly",
-                subtitle: String(localized: "Flexible month to month"),
-                fallbackPrice: SubscriptionPricePresentation(
-                    amount: "$2.99",
-                    unit: String(localized: "/ month"),
-                    note: String(localized: "Billed monthly")
-                ),
-                isRecommended: false
-            )
-        ]
-    )
 
     var orderedPlans: [PlanConfiguration] {
         orderedPlansStorage.compactMap { planConfigurations[$0] }
