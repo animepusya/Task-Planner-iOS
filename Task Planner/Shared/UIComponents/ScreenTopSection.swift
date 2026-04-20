@@ -11,6 +11,7 @@ struct ScreenTopSectionStyle {
     let contentAlignment: VerticalAlignment
     let collapseDistance: CGFloat
     let horizontalPadding: CGFloat
+    let leadingTrailingSpacing: CGFloat
     let expandedTopPadding: CGFloat
     let compactTopPadding: CGFloat
     let expandedBottomPadding: CGFloat
@@ -19,6 +20,7 @@ struct ScreenTopSectionStyle {
     let compactTitleSize: CGFloat
     let expandedTitleSubtitleSpacing: CGFloat
     let compactTitleSubtitleSpacing: CGFloat
+    let subtitleLineLimit: Int
     let expandedSubtitleHeight: CGFloat
     let compactSubtitleHeight: CGFloat
 
@@ -31,6 +33,7 @@ struct ScreenTopSectionStyle {
         contentAlignment: .top,
         collapseDistance: 64,
         horizontalPadding: DS.Spacing.lg,
+        leadingTrailingSpacing: 12,
         expandedTopPadding: DS.Spacing.sm,
         compactTopPadding: 6,
         expandedBottomPadding: DS.Spacing.md,
@@ -39,6 +42,7 @@ struct ScreenTopSectionStyle {
         compactTitleSize: 24,
         expandedTitleSubtitleSpacing: 6,
         compactTitleSubtitleSpacing: 0,
+        subtitleLineLimit: 1,
         expandedSubtitleHeight: 20,
         compactSubtitleHeight: 0
     )
@@ -47,6 +51,7 @@ struct ScreenTopSectionStyle {
         contentAlignment: .top,
         collapseDistance: 68,
         horizontalPadding: DS.Spacing.lg,
+        leadingTrailingSpacing: 8,
         expandedTopPadding: DS.Spacing.sm,
         compactTopPadding: 7,
         expandedBottomPadding: DS.Spacing.sm,
@@ -55,7 +60,8 @@ struct ScreenTopSectionStyle {
         compactTitleSize: 24.5,
         expandedTitleSubtitleSpacing: 6,
         compactTitleSubtitleSpacing: 0,
-        expandedSubtitleHeight: 20,
+        subtitleLineLimit: 2,
+        expandedSubtitleHeight: 40,
         compactSubtitleHeight: 0
     )
 
@@ -63,6 +69,7 @@ struct ScreenTopSectionStyle {
         contentAlignment: .center,
         collapseDistance: 52,
         horizontalPadding: DS.Spacing.lg,
+        leadingTrailingSpacing: 12,
         expandedTopPadding: DS.Spacing.sm,
         compactTopPadding: 4,
         expandedBottomPadding: DS.Spacing.sm,
@@ -71,6 +78,7 @@ struct ScreenTopSectionStyle {
         compactTitleSize: 21.5,
         expandedTitleSubtitleSpacing: 0,
         compactTitleSubtitleSpacing: 0,
+        subtitleLineLimit: 1,
         expandedSubtitleHeight: 0,
         compactSubtitleHeight: 0
     )
@@ -139,23 +147,27 @@ struct ScreenTopSection<Trailing: View>: View {
             ? 0
             : pow(max(0, 1 - subtitleProgress), 1.15)
 
-        HStack(alignment: style.contentAlignment, spacing: DS.Spacing.md) {
+        HStack(alignment: style.contentAlignment, spacing: style.leadingTrailingSpacing) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : subtitleSpacing) {
                 Text(title)
                     .font(DS.Typography.screenTitle(size: titleSize))
                     .foregroundStyle(DS.ColorToken.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.92)
+                    .allowsTightening(true)
 
                 if let subtitle {
                     Text(subtitle)
                         .font(DS.Typography.screenSubtitle())
                         .foregroundStyle(DS.ColorToken.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.88)
+                        .lineLimit(style.subtitleLineLimit)
+                        .multilineTextAlignment(.leading)
+                        .minimumScaleFactor(0.92)
+                        .allowsTightening(true)
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .offset(y: subtitleVerticalOffset)
-                        .frame(height: subtitleHeight, alignment: .topLeading)
+                        .frame(maxHeight: subtitleHeight, alignment: .topLeading)
                         .clipped()
                         .mask {
                             LinearGradient(
@@ -171,8 +183,8 @@ struct ScreenTopSection<Trailing: View>: View {
                         .opacity(subtitleOpacity)
                 }
             }
-
-            Spacer(minLength: 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .layoutPriority(1)
 
             trailing()
                 .fixedSize()
