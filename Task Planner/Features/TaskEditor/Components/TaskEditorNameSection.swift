@@ -51,7 +51,7 @@ private struct TaskEditorTitleRow: View {
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             HStack(spacing: 10) {
-                TextField("Enter task name", text: state.titleBinding)
+                TextField("Enter title", text: state.titleBinding)
                     .font(DS.Typography.body)
                     .textInputAutocapitalization(.sentences)
                     .disableAutocorrection(false)
