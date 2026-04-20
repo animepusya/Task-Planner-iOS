@@ -32,5 +32,6 @@ protocol NotificationService {
 
     func scheduleReminders(_ reminders: [PendingReminder]) async
     func cancel(ids: [String]) async
+    func cancel(taskIDs: [String]) async
     func cancelAll() async
 }

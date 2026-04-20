@@ -22,6 +22,10 @@ final class StatisticsViewModel: ObservableObject {
     private var refreshTask: Task<StatisticsRefreshPayload, Never>?
     private var isUpdatingInputs = false
     private var didScheduleInitialLoad = false
+    private var isViewActive = false
+    private var needsStoreReloadOnActivate = false
+    private var needsPreferenceReloadOnActivate = false
+    private var cancellables: Set<AnyCancellable> = []
 
     @Published var range: StatisticsRange = .month {
         didSet {
@@ -83,14 +87,38 @@ final class StatisticsViewModel: ObservableObject {
 
         self.range = initialRange
         self.breakdown = .category
+
+        bindTaskRepositoryChanges()
     }
 
     func onViewAppear() {
+        isViewActive = true
         scheduleInitialLoadIfNeeded()
+
+        if needsPreferenceReloadOnActivate {
+            needsPreferenceReloadOnActivate = false
+            reloadPreferenceInputsAndRefresh(force: false)
+        }
+
+        if needsStoreReloadOnActivate {
+            needsStoreReloadOnActivate = false
+            reloadStoreInputsAndRefresh(force: false)
+        }
+    }
+
+    func onViewDisappear() {
+        isViewActive = false
+        refreshTask?.cancel()
+        refreshTask = nil
     }
 
     func handleModelContextDidSave() {
-        reloadStoreInputsAndRefresh(force: false)
+        guard isViewActive else {
+            needsPreferenceReloadOnActivate = true
+            return
+        }
+
+        reloadPreferenceInputsAndRefresh(force: false)
     }
 
     func goToPrevious() {
@@ -121,6 +149,22 @@ final class StatisticsViewModel: ObservableObject {
         }
     }
 
+    private func bindTaskRepositoryChanges() {
+        taskRepository.changePublisher
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in
+                    guard self.isViewActive else {
+                        self.needsStoreReloadOnActivate = true
+                        return
+                    }
+
+                    self.reloadStoreInputsAndRefresh(force: false)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
     private func handleInputChange() {
         let normalizedAnchor = StatisticsPeriodContextBuilder.normalizedAnchorDate(
             for: range,
@@ -144,8 +188,35 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private func reloadStoreInputs() -> Bool {
-        let previousWeekStartsOnMonday = weekStartsOnMonday
         let previousTaskSources = taskSources
+
+        let newTaskSources: [StatisticsTaskSource]
+        do {
+            newTaskSources = try taskRepository.fetchAll().map { StatisticsTaskSource(task: $0) }
+        } catch {
+            assertionFailure("Statistics fetch failed: \(error)")
+            newTaskSources = []
+        }
+
+        let didChange = previousTaskSources != newTaskSources
+        if didChange {
+            taskSources = newTaskSources
+            computationCache.invalidateAll()
+        }
+
+        return didChange
+    }
+
+    private func reloadPreferenceInputsAndRefresh(force: Bool) {
+        let didChange = reloadPreferenceInputs()
+        guard force || didChange else { return }
+        computationCache.invalidateAll()
+        refresh(force: true)
+    }
+
+    private func reloadPreferenceInputs() -> Bool {
+        let previousWeekStartsOnMonday = weekStartsOnMonday
+        let previousAnchorDate = anchorDate
 
         loadPreferences()
 
@@ -160,21 +231,7 @@ final class StatisticsViewModel: ObservableObject {
             isUpdatingInputs = false
         }
 
-        let newTaskSources: [StatisticsTaskSource]
-        do {
-            newTaskSources = try taskRepository.fetchAll().map { StatisticsTaskSource(task: $0) }
-        } catch {
-            assertionFailure("Statistics fetch failed: \(error)")
-            newTaskSources = []
-        }
-
-        let didChange = previousWeekStartsOnMonday != weekStartsOnMonday || previousTaskSources != newTaskSources
-        if didChange {
-            taskSources = newTaskSources
-            computationCache.invalidateAll()
-        }
-
-        return didChange
+        return previousWeekStartsOnMonday != weekStartsOnMonday || previousAnchorDate != anchorDate
     }
 
     private func refresh(force: Bool = false) {
@@ -392,21 +449,31 @@ final class StatisticsViewModel: ObservableObject {
     }
 
     private static func normalizedDonutSlices(_ slices: [DonutChartSlice]) -> [DonutChartSlice] {
-        let total = slices.reduce(0.0) { $0 + max(0, $1.fraction) }
-        guard total > 0 else { return [] }
+        let sanitizedSlices = slices.compactMap { slice -> DonutChartSlice? in
+            guard slice.fraction.isFinite, slice.fraction > 0 else { return nil }
+            return slice
+        }
 
-        return slices.map { slice in
+        let total = sanitizedSlices.reduce(0.0) { $0 + $1.fraction }
+        guard total.isFinite, total > 0 else { return [] }
+
+        return sanitizedSlices.map { slice in
             DonutChartSlice(
                 id: slice.id,
                 renderKey: slice.renderKey,
-                fraction: max(0, slice.fraction) / total,
+                fraction: slice.fraction / total,
                 color: slice.color
             )
         }
     }
 
     private static func percentText(_ value: Double) -> String {
-        "\(Int((value * 100).rounded()))%"
+        guard value.isFinite else { return "0%" }
+
+        let roundedPercent = (value * 100).rounded()
+        guard roundedPercent.isFinite else { return "0%" }
+
+        return "\(Int(roundedPercent))%"
     }
 }
 

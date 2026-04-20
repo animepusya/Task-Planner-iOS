@@ -7,12 +7,12 @@
 
 import Foundation
 
-nonisolated struct PlannerTaskSeriesOverrideValue: Sendable {
+nonisolated struct PlannerTaskSeriesOverrideValue: Equatable, Sendable {
     let isDeleted: Bool
     let template: TaskSeriesTemplate?
 }
 
-nonisolated struct PlannerTaskSource: Sendable {
+nonisolated struct PlannerTaskSource: Equatable, Sendable {
     let taskKey: String
     let baseDay: Date
     let ownerRepeatRule: RepeatRule

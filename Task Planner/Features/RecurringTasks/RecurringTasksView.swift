@@ -12,10 +12,6 @@ struct RecurringTasksView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: RecurringTasksViewModel
 
-    @Query(sort: [SortDescriptor(\TaskEntity.title, order: .forward),
-                  SortDescriptor(\TaskEntity.dayDate, order: .forward)])
-    private var tasks: [TaskEntity]
-
     init(viewModel: RecurringTasksViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
@@ -35,7 +31,7 @@ struct RecurringTasksView: View {
     }
 
     var body: some View {
-        let sections = viewModel.sections(from: tasks)
+        let sections = viewModel.sections
 
         VStack(spacing: 0) {
             NotificationsTopBar(
@@ -44,7 +40,14 @@ struct RecurringTasksView: View {
             )
 
             List {
-                if sections.active.isEmpty && sections.past.isEmpty {
+                if viewModel.isLoading && sections.active.isEmpty && sections.past.isEmpty {
+                    ProgressView()
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, DS.Spacing.xl)
+                        .listRowInsets(.init(top: DS.Spacing.md, leading: DS.Spacing.lg, bottom: 28, trailing: DS.Spacing.lg))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                } else if sections.active.isEmpty && sections.past.isEmpty {
                     emptyState
                         .listRowInsets(.init(top: DS.Spacing.md, leading: DS.Spacing.lg, bottom: 28, trailing: DS.Spacing.lg))
                         .listRowBackground(Color.clear)
@@ -65,7 +68,7 @@ struct RecurringTasksView: View {
                                                 .disabled(true)
 
                                             Button(role: .destructive) {
-                                                viewModel.deleteSeries(taskId: task.persistentModelID)
+                                                viewModel.deleteSeries(taskId: task.id)
                                             } label: {
                                                 Text("Delete series")
                                             }
@@ -99,7 +102,7 @@ struct RecurringTasksView: View {
                                                 .disabled(true)
 
                                             Button(role: .destructive) {
-                                                viewModel.deleteSeries(taskId: task.persistentModelID)
+                                                viewModel.deleteSeries(taskId: task.id)
                                             } label: {
                                                 Text("Delete series")
                                             }
@@ -124,7 +127,10 @@ struct RecurringTasksView: View {
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear {
-            viewModel.loadPreferences()
+            viewModel.onViewAppear()
+        }
+        .onDisappear {
+            viewModel.onViewDisappear()
         }
     }
 

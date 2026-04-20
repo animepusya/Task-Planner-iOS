@@ -12,14 +12,6 @@ struct PlannerView: View {
     @StateObject private var viewModel: PlannerViewModel
     @Environment(\.modelContext) private var modelContext
 
-    @Query(
-        sort: [
-            SortDescriptor(\TaskEntity.dayDate, order: .forward),
-            SortDescriptor(\TaskEntity.startTime, order: .forward)
-        ]
-    )
-    private var tasks: [TaskEntity]
-
     @State private var didTriggerSwipe = false
     @State private var headerCollapseProgress: CGFloat = 0
     @State private var headerReservedHeight: CGFloat = 0
@@ -219,11 +211,14 @@ struct PlannerView: View {
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear {
-            viewModel.onViewAppear(tasks: tasks)
+            viewModel.onViewAppear()
+        }
+        .onDisappear {
+            viewModel.onViewDisappear()
         }
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { note in
             guard let context = note.object as? ModelContext, context == modelContext else { return }
-            viewModel.handleModelContextDidSave(tasks: tasks)
+            viewModel.handleModelContextDidSave()
         }
         .onReceive(NotificationCenter.default.publisher(for: .widgetPlannerDayRequested)) { note in
             guard let day = note.object as? Date else { return }

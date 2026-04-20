@@ -32,27 +32,27 @@ final class NotifyingTaskRepository: TaskRepository {
         try base.fetchAll()
     }
 
+    func fetchRecurring() throws -> [TaskEntity] {
+        try base.fetchRecurring()
+    }
+
     func fetch(by id: PersistentIdentifier) throws -> TaskEntity? {
         try base.fetch(by: id)
     }
 
     func add(_ task: TaskEntity) throws {
         try base.add(task)
-        Task { [weak self] in
-            await self?.rescheduleAllIfAllowed()
+        Task { [weak self, task] in
+            await self?.replaceRemindersIfAllowed(for: [task])
         }
     }
 
     func delete(_ task: TaskEntity) throws {
-        // cancel specific ids best-effort then reschedule
+        // delete only affects this task's pending requests.
         Task { [notificationSync] in
             await notificationSync.cancelForTask(task: task)
         }
         try base.delete(task)
-
-        Task { [weak self] in
-            await self?.rescheduleAllIfAllowed()
-        }
     }
 
     func deleteAll() throws {
@@ -66,6 +66,13 @@ final class NotifyingTaskRepository: TaskRepository {
         try base.save()
         Task { [weak self] in
             await self?.rescheduleAllIfAllowed()
+        }
+    }
+
+    func save(_ tasks: [TaskEntity]) throws {
+        try base.save(tasks)
+        Task { [weak self] in
+            await self?.replaceRemindersIfAllowed(for: tasks)
         }
     }
 
@@ -93,5 +100,28 @@ final class NotifyingTaskRepository: TaskRepository {
         } catch {
             // best-effort
         }
+    }
+
+    private func replaceRemindersIfAllowed(for tasks: [TaskEntity]) async {
+        guard !tasks.isEmpty else { return }
+        guard !isSyncing else { return }
+        isSyncing = true
+        defer { isSyncing = false }
+
+        let prefs: AppPreferencesEntity
+        do {
+            prefs = try preferencesRepository.getOrCreate()
+        } catch {
+            return
+        }
+
+        if prefs.notificationsEnabled == false {
+            for task in tasks {
+                await notificationSync.cancelForTask(task: task)
+            }
+            return
+        }
+
+        await notificationSync.replacePendingReminders(for: tasks)
     }
 }

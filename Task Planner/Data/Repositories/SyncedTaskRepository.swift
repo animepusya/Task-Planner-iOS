@@ -32,35 +32,42 @@ final class SyncedTaskRepository: TaskRepository {
         try base.fetchAll()
     }
 
+    func fetchRecurring() throws -> [TaskEntity] {
+        try base.fetchRecurring()
+    }
+
     func fetch(by id: PersistentIdentifier) throws -> TaskEntity? {
         try base.fetch(by: id)
     }
 
     func add(_ task: TaskEntity) throws {
         try base.add(task)
-        try triggerResyncIfEnabled(reason: "add")
+        try exportTasksIfEnabled([task])
     }
 
     func delete(_ task: TaskEntity) throws {
-        // delete exported event first (best-effort)
+        // delete exported event best-effort; no full re-export needed for unrelated tasks.
         Task { [calendarSync] in
             try? await calendarSync.deleteExportedEventIfNeeded(for: task)
         }
         try base.delete(task)
-        try triggerResyncIfEnabled(reason: "delete")
     }
 
     func deleteAll() throws {
         try base.deleteAll()
-        try triggerResyncIfEnabled(reason: "deleteAll")
     }
 
     func save() throws {
         try base.save()
-        try triggerResyncIfEnabled(reason: "save")
+        try resyncAllIfEnabled()
     }
 
-    private func triggerResyncIfEnabled(reason: String) throws {
+    func save(_ tasks: [TaskEntity]) throws {
+        try base.save(tasks)
+        try exportTasksIfEnabled(tasks)
+    }
+
+    private func resyncAllIfEnabled() throws {
         guard !isResyncing else { return }
 
         let prefs = try preferencesRepository.getOrCreate()
@@ -73,6 +80,21 @@ final class SyncedTaskRepository: TaskRepository {
         let tasks = try base.fetchAll()
         Task { [calendarSync] in
             try? await calendarSync.exportAllTasks(tasks)
+        }
+    }
+
+    private func exportTasksIfEnabled(_ tasks: [TaskEntity]) throws {
+        guard !tasks.isEmpty else { return }
+        guard !isResyncing else { return }
+
+        let prefs = try preferencesRepository.getOrCreate()
+        guard prefs.showTasksInAppleCalendar else { return }
+
+        isResyncing = true
+        defer { isResyncing = false }
+
+        Task { [calendarSync] in
+            try? await calendarSync.exportTasks(tasks)
         }
     }
 }

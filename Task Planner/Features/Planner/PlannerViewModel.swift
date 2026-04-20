@@ -34,11 +34,13 @@ final class PlannerViewModel: ObservableObject {
     private var sortDoneOverride: [String: Bool] = [:]
     private var selectedDayStorage: Date
     private var monthAnchorStorage: Date
-    private var didAttachView = false
     private var taskRevision = 0
     private var externalEventsRevision = 0
     private var activeMonthBuildKey: PlannerMonthBuildKey?
     private var activeMonthBuild: PlannerMonthBuildOutput?
+    private var isViewActive = false
+    private var needsStoreReloadOnActivate = false
+    private var needsPreferenceReloadOnActivate = false
 
     @Published private(set) var visualDoneOverride: [String: Bool] = [:]
     @Published private(set) var snapshot: PlannerScreenSnapshot = .empty
@@ -48,6 +50,7 @@ final class PlannerViewModel: ObservableObject {
     private var monthBuildTasks: [PlannerMonthBuildKey: Task<PlannerMonthBuildOutput, Never>] = [:]
     private var externalMonthTask: Task<Void, Never>?
     private var monthTransitionUnlockTask: Task<Void, Never>?
+    private var cancellables: Set<AnyCancellable> = []
 
     private let donePhaseDelay: UInt64 = 800_000_000
     private let moveAnim: Animation = .easeInOut(duration: 0.8)
@@ -75,8 +78,9 @@ final class PlannerViewModel: ObservableObject {
         self.selectedDayStorage = today
         self.monthAnchorStorage = calendar.startOfMonth(for: today)
 
+        bindTaskRepositoryChanges()
         _ = loadPreferences()
-        refreshPlannerSnapshot(prefetchAdjacent: true)
+        reloadStoreInputsAndRefresh(force: true, prefetchAdjacent: true)
 
         if isOverlayEnabled {
             refreshExternalEvents()
@@ -86,17 +90,42 @@ final class PlannerViewModel: ObservableObject {
     var selectedDay: Date { selectedDayStorage }
     var monthAnchor: Date { monthAnchorStorage }
 
-    func onViewAppear(tasks: [TaskEntity]) {
-        guard !didAttachView else { return }
-        didAttachView = true
-        updateSourceTasks(tasks)
+    func onViewAppear() {
+        isViewActive = true
+
+        let needsPreferenceReload = needsPreferenceReloadOnActivate
+        let needsStoreReload = needsStoreReloadOnActivate
+        needsPreferenceReloadOnActivate = false
+        needsStoreReloadOnActivate = false
+
+        if needsPreferenceReload, loadPreferences() {
+            refreshPlannerSnapshot(prefetchAdjacent: false)
+
+            if isOverlayEnabled {
+                refreshExternalEvents()
+            }
+        }
+
+        if needsStoreReload {
+            reloadStoreInputsAndRefresh(force: false, prefetchAdjacent: false)
+        }
     }
 
-    func handleModelContextDidSave(tasks: [TaskEntity]) {
-        updateSourceTasks(tasks)
+    func onViewDisappear() {
+        isViewActive = false
+        cancelMonthBuilds()
+        externalMonthTask?.cancel()
+        externalMonthTask = nil
+    }
+
+    func handleModelContextDidSave() {
+        guard isViewActive else {
+            needsPreferenceReloadOnActivate = true
+            return
+        }
 
         if loadPreferences() {
-            refreshPlannerSnapshot(prefetchAdjacent: true)
+            refreshPlannerSnapshot(prefetchAdjacent: false)
 
             if isOverlayEnabled {
                 refreshExternalEvents()
@@ -219,23 +248,23 @@ final class PlannerViewModel: ObservableObject {
                 withAnimation(self.moveAnim) {
                     self.sortDoneOverride[taskKey] = targetCompleted
                     self.bumpTaskRevision()
-                    self.refreshPlannerSnapshot(prefetchAdjacent: true)
+                    self.refreshPlannerSnapshot(prefetchAdjacent: false)
                 }
 
                 taskEntity.toggleCompleted(on: dayKey)
-                try self.taskRepository.save()
+                try self.taskRepository.save(taskEntity)
 
                 self.applyLocalCompletion(taskKey: taskKey, on: dayKey, completed: targetCompleted)
                 self.visualDoneOverride[taskKey] = nil
                 self.sortDoneOverride[taskKey] = nil
                 self.bumpTaskRevision()
-                self.refreshPlannerSnapshot(prefetchAdjacent: true)
+                self.refreshPlannerSnapshot(prefetchAdjacent: false)
             } catch {
                 assertionFailure("toggleDoneTwoPhase failed: \(error)")
                 self.visualDoneOverride[taskKey] = nil
                 self.sortDoneOverride[taskKey] = nil
                 self.bumpTaskRevision()
-                self.refreshPlannerSnapshot(prefetchAdjacent: true)
+                self.refreshPlannerSnapshot(prefetchAdjacent: false)
             }
         }
 
@@ -289,16 +318,54 @@ final class PlannerViewModel: ObservableObject {
         }
     }
 
-    private func updateSourceTasks(_ tasks: [TaskEntity]) {
-        let calendar = Calendar.current
+    private func bindTaskRepositoryChanges() {
+        taskRepository.changePublisher
+            .sink { [weak self] _ in
+                guard let self else { return }
+                Task { @MainActor in
+                    guard self.isViewActive else {
+                        self.needsStoreReloadOnActivate = true
+                        return
+                    }
 
-        plannerTasks = tasks.map { $0.plannerSource(calendar: calendar) }
-        taskIDsByKey = Dictionary(
+                    self.reloadStoreInputsAndRefresh(force: false, prefetchAdjacent: false)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func reloadStoreInputsAndRefresh(force: Bool, prefetchAdjacent: Bool) {
+        let didChange = reloadStoreInputs()
+        guard force || didChange else { return }
+        refreshPlannerSnapshot(prefetchAdjacent: prefetchAdjacent)
+    }
+
+    @discardableResult
+    private func reloadStoreInputs() -> Bool {
+        let tasks: [TaskEntity]
+
+        do {
+            tasks = try taskRepository.fetchAll()
+        } catch {
+            assertionFailure("Planner fetch failed: \(error)")
+            tasks = []
+        }
+
+        let calendar = Calendar.current
+        let newPlannerTasks = tasks.map { $0.plannerSource(calendar: calendar) }
+        let newTaskIDsByKey = Dictionary(
             uniqueKeysWithValues: tasks.map { ($0.plannerTaskKey, $0.persistentModelID) }
         )
 
+        guard newPlannerTasks != plannerTasks || newTaskIDsByKey != taskIDsByKey else {
+            return false
+        }
+
+        plannerTasks = newPlannerTasks
+        taskIDsByKey = newTaskIDsByKey
+        trimTransientTaskState(validTaskKeys: Set(newTaskIDsByKey.keys))
         bumpTaskRevision()
-        refreshPlannerSnapshot(prefetchAdjacent: true)
+        return true
     }
 
     @discardableResult
@@ -549,6 +616,20 @@ final class PlannerViewModel: ObservableObject {
     private func bumpTaskRevision() {
         taskRevision &+= 1
         cancelMonthBuilds()
+    }
+
+    private func trimTransientTaskState(validTaskKeys: Set<String>) {
+        sortDoneOverride = sortDoneOverride.filter { validTaskKeys.contains($0.key) }
+
+        let trimmedVisualDoneOverride = visualDoneOverride.filter { validTaskKeys.contains($0.key) }
+        if trimmedVisualDoneOverride != visualDoneOverride {
+            visualDoneOverride = trimmedVisualDoneOverride
+        }
+
+        for taskKey in Array(pendingToggleTasks.keys) where !validTaskKeys.contains(taskKey) {
+            pendingToggleTasks[taskKey]?.cancel()
+            pendingToggleTasks.removeValue(forKey: taskKey)
+        }
     }
 
     private func cancelMonthBuilds() {

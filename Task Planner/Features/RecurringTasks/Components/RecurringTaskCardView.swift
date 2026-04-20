@@ -9,7 +9,7 @@ import SwiftUI
 import UIKit
 
 struct RecurringTaskCardView: View {
-    let task: TaskEntity
+    let task: RecurringTaskSource
 
     var body: some View {
         PlannerCardView(model: model) {

@@ -288,7 +288,12 @@ enum StatisticsComparisonBuilder {
     ) -> String? {
         guard previousMinutes > 0 else { return nil }
         let ratio = Double(currentMinutes - previousMinutes) / Double(previousMinutes)
-        let roundedPercent = Int((ratio * 100.0).rounded())
+        guard ratio.isFinite else { return nil }
+
+        let roundedPercentValue = (ratio * 100.0).rounded()
+        guard roundedPercentValue.isFinite else { return nil }
+
+        let roundedPercent = Int(roundedPercentValue)
 
         if roundedPercent > 0 {
             return "+\(roundedPercent)%"

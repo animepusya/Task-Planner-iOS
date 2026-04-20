@@ -52,10 +52,11 @@ final class AppRootDependencies: ObservableObject {
             taskRepository: notifyingTaskRepository,
             preferencesRepository: preferencesRepository
         )
-        let taskRepository = WidgetSyncingTaskRepository(
+        let widgetSyncingTaskRepository = WidgetSyncingTaskRepository(
             base: notifyingTaskRepository,
             widgetSnapshotSync: widgetSnapshotSyncService
         )
+        let taskRepository = PublishingTaskRepository(base: widgetSyncingTaskRepository)
 
         self.preferencesRepository = preferencesRepository
         self.categoryRepository = categoryRepository

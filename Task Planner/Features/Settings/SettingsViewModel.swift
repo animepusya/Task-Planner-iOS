@@ -213,7 +213,7 @@ final class SettingsViewModel: ObservableObject {
                 canPrompt: canPromptForRemoval
             )
             clearAppleEventIdentifiers(in: tasks)
-            try taskRepository.save()
+            try taskRepository.save(tasks)
             calendarStatusText = statusText(
                 prefix: showRemovalStatus ? String(localized: "Exported events removed") : nil
             )
@@ -295,7 +295,7 @@ final class SettingsViewModel: ObservableObject {
                 )
             }
 
-            try taskRepository.save()
+            try taskRepository.save(tasks)
             try categoryRepository.delete(category)
             reloadCategories()
         } catch {}

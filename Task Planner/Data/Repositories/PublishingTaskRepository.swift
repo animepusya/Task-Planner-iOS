@@ -1,24 +1,26 @@
 //
-//  WidgetSyncingTaskRepository.swift
+//  PublishingTaskRepository.swift
 //  Task Planner
 //
-//  Created by Руслан Меланин on 13.03.2026.
+//  Created by Codex on 20.04.2026.
 //
 
+import Combine
 import Foundation
 import SwiftData
 
 @MainActor
-final class WidgetSyncingTaskRepository: TaskRepository {
+final class PublishingTaskRepository: TaskRepository {
     private let base: TaskRepository
-    private let widgetSnapshotSync: WidgetSnapshotSyncService
+    private let changeSubject = PassthroughSubject<TaskRepositoryChange, Never>()
+    private var revision = 0
 
-    init(
-        base: TaskRepository,
-        widgetSnapshotSync: WidgetSnapshotSyncService
-    ) {
+    init(base: TaskRepository) {
         self.base = base
-        self.widgetSnapshotSync = widgetSnapshotSync
+    }
+
+    var changePublisher: AnyPublisher<TaskRepositoryChange, Never> {
+        changeSubject.eraseToAnyPublisher()
     }
 
     func fetchAll() throws -> [TaskEntity] {
@@ -35,26 +37,31 @@ final class WidgetSyncingTaskRepository: TaskRepository {
 
     func add(_ task: TaskEntity) throws {
         try base.add(task)
-        widgetSnapshotSync.refreshSnapshot()
+        publishChange()
     }
 
     func delete(_ task: TaskEntity) throws {
         try base.delete(task)
-        widgetSnapshotSync.refreshSnapshot()
+        publishChange()
     }
 
     func deleteAll() throws {
         try base.deleteAll()
-        widgetSnapshotSync.refreshSnapshot()
+        publishChange()
     }
 
     func save() throws {
         try base.save()
-        widgetSnapshotSync.refreshSnapshot()
+        publishChange()
     }
 
     func save(_ tasks: [TaskEntity]) throws {
         try base.save(tasks)
-        widgetSnapshotSync.refreshSnapshot()
+        publishChange()
+    }
+
+    private func publishChange() {
+        revision &+= 1
+        changeSubject.send(TaskRepositoryChange(revision: revision))
     }
 }

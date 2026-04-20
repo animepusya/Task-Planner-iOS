@@ -80,6 +80,9 @@ struct StatisticsView: View {
         .onAppear {
             viewModel.onViewAppear()
         }
+        .onDisappear {
+            viewModel.onViewDisappear()
+        }
         .onChange(of: viewModel.breakdown) { _, _ in
             selectedSliceId = nil
         }

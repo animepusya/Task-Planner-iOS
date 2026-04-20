@@ -36,7 +36,11 @@ enum TaskDayOverlap {
 
         guard overlapEnd > overlapStart else { return 0 }
 
-        let minutes = Int((overlapEnd.timeIntervalSince(overlapStart) / 60.0).rounded(.toNearestOrAwayFromZero))
+        let roundedMinutes = (overlapEnd.timeIntervalSince(overlapStart) / 60.0)
+            .rounded(.toNearestOrAwayFromZero)
+        guard roundedMinutes.isFinite else { return 0 }
+
+        let minutes = Int(roundedMinutes)
         return max(0, minutes)
     }
 

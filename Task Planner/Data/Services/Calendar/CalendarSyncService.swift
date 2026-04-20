@@ -133,8 +133,14 @@ final class CalendarSyncService {
 
     /// Export all tasks (simple & robust). Updates task.appleEventIdentifier if needed.
     func exportAllTasks(_ tasks: [TaskEntity], canPrompt: Bool = false) async throws {
+        try await exportTasks(tasks, canPrompt: canPrompt)
+    }
+
+    /// Export only the provided tasks. Updates task.appleEventIdentifier if needed.
+    func exportTasks(_ tasks: [TaskEntity], canPrompt: Bool = false) async throws {
         let prefs = try preferencesRepository.getOrCreate()
         guard prefs.showTasksInAppleCalendar else { return }
+        guard !tasks.isEmpty else { return }
 
         let taskPlannerCalendar = try await ensureTaskPlannerCalendarExists(canPrompt: canPrompt)
 

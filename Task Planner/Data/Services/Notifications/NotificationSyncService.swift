@@ -58,13 +58,38 @@ final class NotificationSyncService {
         await notificationService.scheduleReminders(reminders)
     }
 
+    func replacePendingReminders(for tasks: [TaskEntity]) async {
+        guard !tasks.isEmpty else { return }
+
+        let uniqueTasks = uniqueTasksPreservingOrder(tasks)
+        let taskIDsToCancel = uniqueTasks.map { String(describing: $0.persistentModelID) }
+        if !taskIDsToCancel.isEmpty {
+            await notificationService.cancel(taskIDs: taskIDsToCancel)
+        }
+
+        let prefs: AppPreferencesEntity
+        do {
+            prefs = try preferencesRepository.getOrCreate()
+        } catch {
+            return
+        }
+
+        guard prefs.notificationsEnabled else { return }
+
+        let auth = await notificationService.getAuthorizationStatus()
+        guard auth == .authorized else { return }
+
+        let reminders = buildPendingRemindersForRollingWindow(tasks: uniqueTasks, prefs: prefs)
+        await notificationService.scheduleReminders(reminders)
+    }
+
     func cancelAllImmediately() async {
         await notificationService.cancelAll()
     }
 
     func cancelForTask(task: TaskEntity) async {
-        let ids = buildAllPossibleIdsForTaskRollingWindow(task: task)
-        await notificationService.cancel(ids: ids)
+        let taskID = String(describing: task.persistentModelID)
+        await notificationService.cancel(taskIDs: [taskID])
     }
 
     func cancelSingle(taskId: PersistentIdentifier, occurrenceKey: String) async {
@@ -293,17 +318,18 @@ final class NotificationSyncService {
         "\(taskKey)_\(occurrenceKey)"
     }
 
-    private func buildAllPossibleIdsForTaskRollingWindow(task: TaskEntity) -> [String] {
-        let cal = Calendar.current
-        let start = cal.startOfDay(for: .now)
-        let end = cal.date(byAdding: .day, value: rollingDays, to: start) ?? start.addingTimeInterval(Double(rollingDays) * 86400)
+    private func uniqueTasksPreservingOrder(_ tasks: [TaskEntity]) -> [TaskEntity] {
+        var seen: Set<PersistentIdentifier> = []
+        var uniqueTasks: [TaskEntity] = []
+        uniqueTasks.reserveCapacity(tasks.count)
 
-        let days = occurrenceStartDays(for: task, rangeStart: start, rangeEnd: end)
-        let taskKey = String(describing: task.persistentModelID)
-        return days.map { day in
-            let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
-            return notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+        for task in tasks {
+            if seen.insert(task.persistentModelID).inserted {
+                uniqueTasks.append(task)
+            }
         }
+
+        return uniqueTasks
     }
 }
 

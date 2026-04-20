@@ -80,6 +80,19 @@ final class UNUserNotificationService: NotificationService {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
     }
 
+    func cancel(taskIDs: [String]) async {
+        guard !taskIDs.isEmpty else { return }
+
+        let prefixes = Set(taskIDs.map { "\($0)_" })
+        let requests = await UNUserNotificationCenter.current().pendingNotificationRequests()
+        let ids = requests.compactMap { request in
+            prefixes.first(where: { request.identifier.hasPrefix($0) }).map { _ in request.identifier }
+        }
+
+        guard !ids.isEmpty else { return }
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
     func cancelAll() async {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }

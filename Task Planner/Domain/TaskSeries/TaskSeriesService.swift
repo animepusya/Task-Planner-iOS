@@ -70,7 +70,7 @@ final class TaskSeriesService {
                 calendar: cal
             )
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
-            try taskRepository.save()
+            try taskRepository.save(task)
 
         case .allFutureDays:
             splitAndApplyAllFuture(
@@ -81,7 +81,7 @@ final class TaskSeriesService {
                 calendar: cal
             )
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
-            try taskRepository.save()
+            try taskRepository.save(task)
         }
     }
 
@@ -116,7 +116,7 @@ final class TaskSeriesService {
             task.suppressReminder(for: key)
 
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
-            try taskRepository.save()
+            try taskRepository.save(task)
 
         case .allFutureDays:
             if isOwnerDay(task: task, day: day, calendar: cal) {
@@ -126,7 +126,7 @@ final class TaskSeriesService {
 
             deleteAllFuture(task: task, from: day)
             syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
-            try taskRepository.save()
+            try taskRepository.save(task)
         }
     }
 
@@ -165,7 +165,7 @@ final class TaskSeriesService {
         }
 
         syncOwnerFieldsToCurrentOwnerIfNeeded(task: task, calendar: cal)
-        try taskRepository.save()
+        try taskRepository.save(task)
     }
 
     // MARK: - Only this day edit / move

@@ -6,36 +6,38 @@
 //
 
 import Foundation
-import SwiftData
 
-@MainActor
 enum WidgetSnapshotBuilder {
-    static func build(tasks: [TaskEntity], weekStartsOnMonday: Bool, referenceDate: Date = .now) -> PlannerWidgetSnapshot {
+    static func build(
+        tasks: [PlannerTaskSource],
+        weekStartsOnMonday: Bool,
+        referenceDate: Date = .now
+    ) -> PlannerWidgetSnapshot {
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let start = calendar.startOfDay(for: referenceDate)
+        let visibleDays: [Date] = (0..<30).compactMap { offset in
+            calendar.date(byAdding: .day, value: offset, to: start).map { calendar.startOfDay(for: $0) }
+        }
+        let occurrencesByDay = TaskDaySegment.plannerOccurrencesByDay(
+            for: visibleDays,
+            from: tasks,
+            weekStartsOnMonday: weekStartsOnMonday
+        )
 
-        let days: [PlannerWidgetDaySnapshot] = (0..<30).compactMap { offset in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
-            let dayKey = calendar.startOfDay(for: date)
-
-            let occurrences = TaskDaySegment
-                .occurrences(for: dayKey, from: tasks, weekStartsOnMonday: weekStartsOnMonday)
-                .sorted { lhs, rhs in
-                    let lhsCompleted = lhs.task.isCompleted(on: dayKey, calendar: calendar)
-                    let rhsCompleted = rhs.task.isCompleted(on: dayKey, calendar: calendar)
-
-                    if lhsCompleted != rhsCompleted { return !lhsCompleted }
+        let days: [PlannerWidgetDaySnapshot] = visibleDays.map { dayKey in
+            let occurrences = (occurrencesByDay[dayKey] ?? []).sorted { lhs, rhs in
+                    if lhs.modelCompleted != rhs.modelCompleted { return !lhs.modelCompleted }
                     if lhs.displayStart != rhs.displayStart { return lhs.displayStart < rhs.displayStart }
                     return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
                 }
 
             let rows = occurrences.map { occ in
                 PlannerWidgetTaskSnapshot(
-                    id: widgetTaskId(for: occ, day: dayKey),
+                    id: occ.id,
                     title: LocalizedDisplayText.taskTitle(occ.title),
                     subtitle: subtitle(for: occ),
                     timeText: timeText(for: occ),
-                    isCompleted: occ.task.isCompleted(on: dayKey, calendar: calendar),
+                    isCompleted: occ.modelCompleted,
                     colorRaw: occ.color.rawValue
                 )
             }
@@ -56,13 +58,7 @@ enum WidgetSnapshotBuilder {
         )
     }
 
-    private static func widgetTaskId(for occurrence: DayOccurrence, day: Date) -> String {
-        let taskId = String(describing: occurrence.task.persistentModelID)
-        let dayKey = WidgetDayKey.make(from: day)
-        return "\(taskId)-\(dayKey)"
-    }
-
-    private static func subtitle(for occurrence: DayOccurrence) -> String {
+    private static func subtitle(for occurrence: PlannerTaskOccurrence) -> String {
         if let notes = occurrence.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
            !notes.isEmpty {
             return notes
@@ -70,7 +66,7 @@ enum WidgetSnapshotBuilder {
         return CategorySystem.localizedDisplayTitle(for: occurrence.categoryTitle)
     }
 
-    private static func timeText(for occurrence: DayOccurrence) -> String {
+    private static func timeText(for occurrence: PlannerTaskOccurrence) -> String {
         if occurrence.isAllDaySegment {
             return String(localized: "All day")
         }

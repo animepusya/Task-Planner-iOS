@@ -160,12 +160,10 @@ final class NotificationsViewModel: ObservableObject {
     }
 
     private func disableInternal(taskId: PersistentIdentifier, occurrenceKey: String) async {
-        await notificationSync.cancelSingle(taskId: taskId, occurrenceKey: occurrenceKey)
-
         do {
             guard let task = try taskRepository.fetch(by: taskId) else { return }
             task.suppressReminder(for: occurrenceKey)
-            try taskRepository.save()
+            try taskRepository.save(task)
         } catch {
         }
     }
@@ -174,9 +172,7 @@ final class NotificationsViewModel: ObservableObject {
         do {
             guard let task = try taskRepository.fetch(by: taskId) else { return }
             task.unsuppressReminder(for: occurrenceKey)
-            try taskRepository.save()
-
-            await notificationSync.scheduleSingleOccurrence(task: task, occurrenceDay: occurrenceDay)
+            try taskRepository.save(task)
         } catch {
         }
     }

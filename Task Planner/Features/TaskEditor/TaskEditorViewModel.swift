@@ -668,7 +668,7 @@ final class TaskEditorViewModel {
             existing.reminderOffsetMinutes = reminderOffset
             existing.reminderAllDayTimeMinutes = reminderAllDayTime
 
-            try taskRepository.save()
+            try taskRepository.save(existing)
         } else {
             let new = TaskEntity(
                 title: safeTitle,

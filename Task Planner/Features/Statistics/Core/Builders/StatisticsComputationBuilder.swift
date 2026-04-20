@@ -791,8 +791,12 @@ enum StatisticsComputationBuilder {
 
     nonisolated private static func minutes(from start: Date, to end: Date) -> Int {
         let delta = end.timeIntervalSince(start)
-        guard delta > 0 else { return 0 }
-        return Int((delta / 60.0).rounded(.toNearestOrAwayFromZero))
+        guard delta.isFinite, delta > 0 else { return 0 }
+
+        let roundedMinutes = (delta / 60.0).rounded(.toNearestOrAwayFromZero)
+        guard roundedMinutes.isFinite else { return 0 }
+
+        return Int(roundedMinutes)
     }
 
     nonisolated private static func makeTopTasks(
