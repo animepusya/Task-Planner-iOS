@@ -7,30 +7,30 @@
 
 import Foundation
 
-enum WidgetShared {
+nonisolated enum WidgetShared {
     static let appGroupId = "group.com.melani.taskplanner"
 
-    enum WidgetKind {
+    nonisolated enum WidgetKind {
         static let plannerHome = "TaskPlannerHomeWidget"
     }
 
-    enum StorageKey {
+    nonisolated enum StorageKey {
         static let selectedDayKey = "widget.selectedDayKey"
         static let appThemeKey = "widget.appThemeKey"
         static let snapshotFileName = "planner-widget-snapshot.json"
     }
 
-    enum DeepLinkHost {
+    nonisolated enum DeepLinkHost {
         static let widget = "widget"
     }
 
-    enum DeepLinkAction: String {
+    nonisolated enum DeepLinkAction: String {
         case planner
         case createTask
     }
 }
 
-enum WidgetDayKey {
+nonisolated enum WidgetDayKey {
     static func make(from date: Date, calendar: Calendar = .current) -> String {
         let start = calendar.startOfDay(for: date)
         let comps = calendar.dateComponents([.year, .month, .day], from: start)
@@ -58,7 +58,7 @@ enum WidgetDayKey {
     }
 }
 
-enum WidgetRoute: Equatable {
+nonisolated enum WidgetRoute: Equatable {
     case planner(day: Date)
     case createTask(day: Date)
 

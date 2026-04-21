@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum WidgetSnapshotBuilder {
+nonisolated enum WidgetSnapshotBuilder {
     static func build(
         tasks: [PlannerTaskSource],
         weekStartsOnMonday: Bool,
@@ -15,6 +15,9 @@ enum WidgetSnapshotBuilder {
     ) -> PlannerWidgetSnapshot {
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let start = calendar.startOfDay(for: referenceDate)
+        let headerFormatter = makeFormatter(template: "d MMMM")
+        let weekdayFormatter = makeFormatter(template: "EEE")
+        let dayNumberFormatter = makeFormatter(template: "d")
         let visibleDays: [Date] = (0..<30).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: start).map { calendar.startOfDay(for: $0) }
         }
@@ -58,6 +61,13 @@ enum WidgetSnapshotBuilder {
         )
     }
 
+    private static func makeFormatter(template: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        return formatter
+    }
+
     private static func subtitle(for occurrence: PlannerTaskOccurrence) -> String {
         if let notes = occurrence.notes?.trimmingCharacters(in: .whitespacesAndNewlines),
            !notes.isEmpty {
@@ -76,24 +86,4 @@ enum WidgetSnapshotBuilder {
         return "\(start) – \(end)"
     }
 
-    private static let headerFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("d MMMM")
-        return f
-    }()
-
-    private static let weekdayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("EEE")
-        return f
-    }()
-
-    private static let dayNumberFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("d")
-        return f
-    }()
 }

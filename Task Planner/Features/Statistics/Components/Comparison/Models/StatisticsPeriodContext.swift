@@ -7,16 +7,25 @@
 
 import Foundation
 
-enum StatisticsComparisonMode: String, Sendable {
+nonisolated enum StatisticsComparisonMode: String, Sendable {
     case previousEquivalent
 }
 
-enum StatisticsPeriodShiftDirection: Equatable {
+nonisolated enum StatisticsPeriodShiftDirection: Equatable, Sendable {
     case previous
     case next
+
+    nonisolated var delta: Int {
+        switch self {
+        case .previous:
+            return -1
+        case .next:
+            return 1
+        }
+    }
 }
 
-struct StatisticsPeriodContext: Hashable, Sendable {
+nonisolated struct StatisticsPeriodContext: Hashable, Sendable {
     let range: StatisticsRange
     let anchorDate: Date
     let weekStartsOnMonday: Bool
@@ -33,7 +42,7 @@ struct StatisticsPeriodContext: Hashable, Sendable {
     }
 }
 
-enum StatisticsPeriodContextBuilder {
+nonisolated enum StatisticsPeriodContextBuilder {
     nonisolated static func make(
         range: StatisticsRange,
         anchorDate: Date,
@@ -86,7 +95,7 @@ enum StatisticsPeriodContextBuilder {
         direction: StatisticsPeriodShiftDirection
     ) -> Date {
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
-        let delta = direction == .previous ? -1 : 1
+        let delta = direction.delta
 
         let shiftedDate: Date
         switch range {

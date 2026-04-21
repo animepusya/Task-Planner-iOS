@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum WidgetStore {
+nonisolated enum WidgetStore {
     private static var userDefaults: UserDefaults? {
         UserDefaults(suiteName: WidgetShared.appGroupId)
     }

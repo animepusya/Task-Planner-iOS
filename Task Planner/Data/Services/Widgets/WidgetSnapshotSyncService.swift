@@ -43,8 +43,8 @@ final class WidgetSnapshotSyncService {
             let weekStartsOnMonday = preferences.weekStartsOnMonday
             let theme = preferences.theme
 
-            refreshTask = Task { [weak self] in
-                let syncTask = Task.detached(priority: .utility) {
+            refreshTask = Task.detached(priority: .utility) { [weak self] in
+                do {
                     let snapshot = WidgetSnapshotBuilder.build(
                         tasks: taskSources,
                         weekStartsOnMonday: weekStartsOnMonday,
@@ -54,19 +54,18 @@ final class WidgetSnapshotSyncService {
                     WidgetStore.setAppTheme(theme)
                     try WidgetStore.saveSnapshot(snapshot)
                     WidgetCenter.shared.reloadTimelines(ofKind: WidgetShared.WidgetKind.plannerHome)
-                }
-
-                do {
-                    try await syncTask.value
                 } catch {
                     assertionFailure("WidgetSnapshotSyncService.refreshSnapshot failed: \(error)")
                 }
 
-                guard let self else { return }
-                self.refreshTask = nil
+                await MainActor.run {
+                    guard let self else { return }
 
-                if self.pendingReferenceDate != nil {
-                    self.startRefreshIfNeeded()
+                    self.refreshTask = nil
+
+                    if self.pendingReferenceDate != nil {
+                        self.startRefreshIfNeeded()
+                    }
                 }
             }
         } catch {
