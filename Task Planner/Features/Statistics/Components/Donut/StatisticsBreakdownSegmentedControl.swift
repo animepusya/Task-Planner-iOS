@@ -8,12 +8,14 @@
 import SwiftUI
 
 struct StatisticsBreakdownSegmentedControl: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selection: StatisticsBreakdown
 
     @Namespace private var selectionNamespace
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: dsMetrics.spacing(4)) {
             segmentButton(
                 title: StatisticsBreakdown.category.title,
                 value: .category
@@ -24,7 +26,7 @@ struct StatisticsBreakdownSegmentedControl: View {
                 value: .task
             )
         }
-        .padding(4)
+        .padding(dsMetrics.spacing(4))
         .dsSurface(Capsule(), fill: DS.Surface.frosted)
         .accessibilityElement(children: .contain)
     }
@@ -54,12 +56,18 @@ struct StatisticsBreakdownSegmentedControl: View {
                 }
 
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(isSelected ? Color.white : DS.ColorToken.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
+                    .padding(.horizontal, dsMetrics.spacing(12))
+                    .frame(height: dsMetrics.controlSize(32))
             }
         }
         .buttonStyle(.plain)

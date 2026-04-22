@@ -9,6 +9,7 @@ import SwiftUI
 
 struct StatisticsComparisonView: View {
     @ObservedObject var viewModel: StatisticsViewModel
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     var body: some View {
         let snapshot = viewModel.snapshot.comparison
@@ -21,7 +22,7 @@ struct StatisticsComparisonView: View {
             )
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
                     StatisticsPeriodCard(viewModel: viewModel)
                     summaryCard(snapshot)
 
@@ -52,9 +53,10 @@ struct StatisticsComparisonView: View {
                         }
                     }
                 }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, DS.Spacing.xl)
+                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                .padding(.top, dsMetrics.spacing(DS.Spacing.lg))
+                .padding(.bottom, dsMetrics.spacing(DS.Spacing.xl))
+                .dsContentFrame(.screen)
             }
         }
         .navigationTitle(snapshot.title)
@@ -62,28 +64,46 @@ struct StatisticsComparisonView: View {
     }
 
     private func summaryCard(_ snapshot: StatisticsComparisonSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack(alignment: .top, spacing: DS.Spacing.md) {
-                VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+            HStack(alignment: .top, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(6)) {
                     Text(snapshot.subtitle)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
 
                     Text(summaryValue(for: snapshot))
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(
+                            dsMetrics.font(
+                                28,
+                                weight: .bold,
+                                category: .display
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
 
                     if let caption = snapshot.totalDeltaCaption {
                         Text(caption)
-                            .font(DS.Typography.caption)
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .medium,
+                                    category: .caption
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
-                Spacer(minLength: 12)
+                Spacer(minLength: dsMetrics.spacing(12))
 
                 if let totalDeltaText = snapshot.totalDeltaText {
                     trendBadge(
@@ -95,7 +115,7 @@ struct StatisticsComparisonView: View {
 
             Divider().opacity(0.15)
 
-            HStack(alignment: .top, spacing: DS.Spacing.md) {
+            HStack(alignment: .top, spacing: dsMetrics.spacing(DS.Spacing.md)) {
                 periodColumn(
                     label: String(localized: "Current period"),
                     title: snapshot.currentPeriodTitle,
@@ -103,7 +123,7 @@ struct StatisticsComparisonView: View {
                 )
 
                 Divider()
-                    .frame(height: 54)
+                    .frame(height: dsMetrics.controlSize(54))
                     .opacity(0.12)
 
                 periodColumn(
@@ -120,9 +140,15 @@ struct StatisticsComparisonView: View {
         title: String,
         rows: [StatisticsComparisonDeltaRowSnapshot]
     ) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text(title)
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             VStack(spacing: 0) {
@@ -131,7 +157,7 @@ struct StatisticsComparisonView: View {
 
                     if index < rows.count - 1 {
                         Divider()
-                            .padding(.leading, DS.Spacing.md)
+                            .padding(.leading, dsMetrics.spacing(DS.Spacing.md))
                     }
                 }
             }
@@ -140,16 +166,22 @@ struct StatisticsComparisonView: View {
     }
 
     private func deltaRow(_ row: StatisticsComparisonDeltaRowSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top, spacing: 10) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(10)) {
+            HStack(alignment: .top, spacing: dsMetrics.spacing(10)) {
                 Circle()
                     .fill(row.color)
-                    .frame(width: 12, height: 12)
-                    .padding(.top, 5)
+                    .frame(width: dsMetrics.spacing(12), height: dsMetrics.spacing(12))
+                    .padding(.top, dsMetrics.spacing(5))
 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
                     Text(row.title)
-                        .font(DS.Typography.body)
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .regular,
+                                category: .body
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
@@ -161,48 +193,75 @@ struct StatisticsComparisonView: View {
                             row.previousValueText
                         )
                     )
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
                 }
 
-                Spacer(minLength: 12)
+                Spacer(minLength: dsMetrics.spacing(12))
 
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: dsMetrics.spacing(4)) {
                     trendBadge(text: row.deltaText, direction: row.direction)
 
                     if let percentText = row.percentText {
                         Text(percentText)
-                            .font(DS.Typography.caption)
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .medium,
+                                    category: .caption
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.textSecondary)
                     }
                 }
             }
         }
-        .padding(.horizontal, DS.Spacing.md)
-        .padding(.vertical, 14)
+        .padding(.horizontal, dsMetrics.spacing(DS.Spacing.md))
+        .padding(.vertical, dsMetrics.spacing(14))
     }
 
     private func stateCard(
         message: String,
         showsProgress: Bool
     ) -> some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             if showsProgress {
                 ProgressView()
                     .tint(DS.ColorToken.purple)
             } else {
                 Circle()
                     .fill(DS.ColorToken.controlFill)
-                    .frame(width: 30, height: 30)
+                    .frame(
+                        width: dsMetrics.controlSize(30),
+                        height: dsMetrics.controlSize(30)
+                    )
                     .overlay(
                         Image(systemName: "sparkles")
-                            .font(.system(size: 12, weight: .semibold))
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .semibold,
+                                    category: .micro
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.textSecondary)
                     )
             }
 
             Text(message)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -216,18 +275,36 @@ struct StatisticsComparisonView: View {
         title: String,
         value: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
             Text(label)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             Text(title)
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .semibold,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
 
             Text(value)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .bold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -237,16 +314,28 @@ struct StatisticsComparisonView: View {
         text: String,
         direction: StatisticsComparisonDirection
     ) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: dsMetrics.spacing(6)) {
             Image(systemName: direction.symbolName)
-                .font(.system(size: 11, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        11,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
 
             Text(text)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        13,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
         }
         .foregroundStyle(direction.tintColor)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, dsMetrics.spacing(10))
+        .padding(.vertical, dsMetrics.spacing(7))
         .background(direction.backgroundColor, in: Capsule())
     }
 

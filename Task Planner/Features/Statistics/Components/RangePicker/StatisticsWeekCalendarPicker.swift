@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct StatisticsWeekCalendarPicker: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selectedDate: Date
     let weekStartsOnMonday: Bool
 
@@ -22,9 +24,21 @@ struct StatisticsWeekCalendarPicker: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        let gridSpacing = dsMetrics.spacing(10)
+        let adaptiveColumns = Array(
+            repeating: GridItem(.flexible(), spacing: dsMetrics.spacing(8)),
+            count: columns.count
+        )
+
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text("Choose week")
-                .font(DS.Typography.subtitle)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .medium,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             StatisticsCalendarHeader(
@@ -42,7 +56,7 @@ struct StatisticsWeekCalendarPicker: View {
                 )
             )
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: adaptiveColumns, spacing: gridSpacing) {
                 ForEach(monthItems, id: \.id) { item in
                     StatisticsCalendarDayCell(
                         dayNumber: item.dayNumber,
@@ -83,10 +97,16 @@ struct StatisticsWeekCalendarPicker: View {
                 range.upperBound.dayTitleShort(using: calendar)
             )
         )
-            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .font(
+                dsMetrics.font(
+                    14,
+                    weight: .semibold,
+                    category: .micro
+                )
+            )
             .foregroundStyle(DS.ColorToken.purple)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .padding(.horizontal, dsMetrics.spacing(12))
+            .padding(.vertical, dsMetrics.spacing(8))
             .background(
                 Capsule().fill(DS.ColorToken.purple.opacity(0.12))
             )
@@ -119,7 +139,13 @@ struct StatisticsWeekCalendarPicker: View {
             background: AnyView(
                 Group {
                     if isInSelectedWeek {
-                        RoundedRectangle(cornerRadius: weekCornerRadius(isStart: isWeekStart, isEnd: isWeekEnd), style: .continuous)
+                        RoundedRectangle(
+                            cornerRadius: weekCornerRadius(
+                                isStart: isWeekStart,
+                                isEnd: isWeekEnd
+                            ),
+                            style: .continuous
+                        )
                             .fill(DS.ColorToken.purple)
                     } else {
                         Color.clear
@@ -131,8 +157,8 @@ struct StatisticsWeekCalendarPicker: View {
     }
 
     private func weekCornerRadius(isStart: Bool, isEnd: Bool) -> CGFloat {
-        if isStart || isEnd { return 12 }
-        return 4
+        if isStart || isEnd { return dsMetrics.cornerRadius(12) }
+        return dsMetrics.detailSize(4)
     }
 }
 

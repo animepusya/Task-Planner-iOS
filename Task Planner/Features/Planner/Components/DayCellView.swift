@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct DayCellView: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let dayNumber: Int
     let date: Date
     let isSelected: Bool
@@ -19,34 +21,54 @@ struct DayCellView: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 6) {
+            VStack(spacing: dsMetrics.spacing(6)) {
                 Text("\(dayNumber)")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundColor(isSelected ? .white : DS.ColorToken.textPrimary)
-                    .frame(width: 34, height: 34)
+                    .frame(
+                        width: dsMetrics.controlSize(34),
+                        height: dsMetrics.controlSize(34)
+                    )
                     .background(isSelected ? DS.ColorToken.purple : Color.clear)
-                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .clipShape(
+                        RoundedRectangle(
+                            cornerRadius: dsMetrics.cornerRadius(12),
+                            style: .continuous
+                        )
+                    )
 
                 indicators
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
+            .frame(maxWidth: .infinity, minHeight: dsMetrics.controlSize(44))
         }
         .buttonStyle(.plain)
     }
 
     private var indicators: some View {
         let colors = Array(indicatorColors.prefix(3))
-        return HStack(spacing: 3) {
+        return HStack(spacing: dsMetrics.detailSize(3)) {
             if colors.isEmpty {
                 // placeholder keeps layout stable
                 Color.clear
-                    .frame(width: 7, height: 3)
+                    .frame(
+                        width: dsMetrics.detailSize(7),
+                        height: dsMetrics.detailSize(3)
+                    )
                     .transition(.opacity)
             } else {
                 ForEach(colors, id: \.rawValue) { color in
                     Capsule(style: .continuous)
                         .fill(color.uiColor)
-                        .frame(width: 7, height: 3)
+                        .frame(
+                            width: dsMetrics.detailSize(7),
+                            height: dsMetrics.detailSize(3)
+                        )
                         .transition(.opacity.combined(with: .scale(scale: 0.85)))
                 }
             }

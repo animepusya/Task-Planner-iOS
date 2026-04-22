@@ -75,87 +75,93 @@ struct TaskEditorView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            GeometryReader { proxy in
-                let layout = TaskEditorLayoutMetrics(width: proxy.size.width)
-
-                VStack(spacing: 0) {
-                    TaskEditorTopBar(
-                        state: chrome,
-                        onBack: {
-                            dismissKeyboard()
-                            dismiss()
-                        },
-                        onSaveNormal: {
-                            dismissKeyboard()
-                            saveNormal()
-                        },
-                        onSaveOnlyThisDay: {
-                            dismissKeyboard()
-                            saveScoped(.onlyThisDay)
-                        },
-                        onSaveAllFuture: {
-                            dismissKeyboard()
-                            saveScoped(.allFutureDays)
-                        }
+        DSAdaptiveLayoutScope { metrics in
+            NavigationStack(path: $navigationPath) {
+                GeometryReader { proxy in
+                    let layout = TaskEditorLayoutMetrics(
+                        width: proxy.size.width,
+                        adaptiveMetrics: metrics
                     )
-                    .frame(width: layout.contentWidth)
-                    .padding(.horizontal, layout.horizontalPadding)
-                    .padding(.vertical, 10)
 
-                    TaskEditorContentView(
-                        layout: layout,
-                        visibility: visibility.content,
-                        viewModel: viewModel,
-                        focusedField: $focusedField,
-                        isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
-                        onRequestRepeatUnlock: {
-                            navigationPath.append(.paywall(.advancedRepeats))
-                        },
-                        onOpenNotificationsCenter: {
-                            dismissKeyboard()
-                            onOpenNotificationsCenter()
-                        }
-                    )
-                }
-                .frame(width: proxy.size.width, height: proxy.size.height)
-                .background(DS.ColorToken.appBackground.ignoresSafeArea())
-                .taskEditorDismissKeyboardOnTap {
-                    focusedField = nil
-                }
-                .toolbar(.hidden, for: .navigationBar)
-                .toolbar {
-                    if focusedField == .description {
-                        ToolbarItemGroup(placement: .keyboard) {
-                            Spacer()
-                            Button("Done") {
+                    VStack(spacing: 0) {
+                        TaskEditorTopBar(
+                            state: chrome,
+                            onBack: {
                                 dismissKeyboard()
+                                dismiss()
+                            },
+                            onSaveNormal: {
+                                dismissKeyboard()
+                                saveNormal()
+                            },
+                            onSaveOnlyThisDay: {
+                                dismissKeyboard()
+                                saveScoped(.onlyThisDay)
+                            },
+                            onSaveAllFuture: {
+                                dismissKeyboard()
+                                saveScoped(.allFutureDays)
+                            }
+                        )
+                        .frame(width: layout.contentWidth)
+                        .padding(.horizontal, layout.horizontalPadding)
+                        .padding(.vertical, metrics.spacing(10))
+
+                        TaskEditorContentView(
+                            layout: layout,
+                            visibility: visibility.content,
+                            viewModel: viewModel,
+                            fixedCategoryChipWidth: metrics.isLargePad ? 220 : 132,
+                            focusedField: $focusedField,
+                            isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
+                            onRequestRepeatUnlock: {
+                                navigationPath.append(.paywall(.advancedRepeats))
+                            },
+                            onOpenNotificationsCenter: {
+                                dismissKeyboard()
+                                onOpenNotificationsCenter()
+                            }
+                        )
+                    }
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .background(DS.ColorToken.appBackground.ignoresSafeArea())
+                    .taskEditorDismissKeyboardOnTap {
+                        focusedField = nil
+                    }
+                    .toolbar(.hidden, for: .navigationBar)
+                    .toolbar {
+                        if focusedField == .description {
+                            ToolbarItemGroup(placement: .keyboard) {
+                                Spacer()
+                                Button("Done") {
+                                    dismissKeyboard()
+                                }
                             }
                         }
                     }
+                    .alert(item: $alertState.alert) { alert in
+                        Alert(
+                            title: Text(alert.title),
+                            message: Text(alert.message),
+                            dismissButton: .cancel(Text("Close")) { dismiss() }
+                        )
+                    }
+                    .task {
+                        viewModel.onAppear(availableCategories: availableCategoryTitles)
+                        viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
+                    }
+                    .onChange(of: availableCategoryTitles) { _, newValue in
+                        viewModel.ensureCategoryIsValid(available: newValue)
+                    }
+                    .onChange(of: appNotificationsEnabled) { _, newValue in
+                        viewModel.onAppNotificationsEnabledChanged(newValue)
+                    }
                 }
-                .alert(item: $alertState.alert) { alert in
-                    Alert(
-                        title: Text(alert.title),
-                        message: Text(alert.message),
-                        dismissButton: .cancel(Text("Close")) { dismiss() }
-                    )
-                }
-                .task {
-                    viewModel.onAppear(availableCategories: availableCategoryTitles)
-                    viewModel.onAppNotificationsEnabledChanged(appNotificationsEnabled)
-                }
-                .onChange(of: availableCategoryTitles) { _, newValue in
-                    viewModel.ensureCategoryIsValid(available: newValue)
-                }
-                .onChange(of: appNotificationsEnabled) { _, newValue in
-                    viewModel.onAppNotificationsEnabledChanged(newValue)
-                }
-            }
-            .navigationDestination(for: TaskEditorRoute.self) { route in
-                switch route {
-                case .paywall(let entryPoint):
-                    PaywallView(entryPoint: entryPoint)
+                .navigationDestination(for: TaskEditorRoute.self) { route in
+                    switch route {
+                    case .paywall(let entryPoint):
+                        PaywallView(entryPoint: entryPoint)
+                    }
                 }
             }
         }
@@ -206,9 +212,12 @@ struct TaskEditorView: View {
 }
 
 private struct TaskEditorContentView: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let layout: TaskEditorLayoutMetrics
     let visibility: TaskEditorViewModel.VisibilityState.Content
     let viewModel: TaskEditorViewModel
+    let fixedCategoryChipWidth: CGFloat
 
     @FocusState.Binding var focusedField: TaskEditorField?
 
@@ -218,12 +227,12 @@ private struct TaskEditorContentView: View {
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
                 if visibility.showsNameSection {
                     TaskEditorNameSection(
                         titleState: viewModel.titleSection,
                         descriptionState: viewModel.descriptionSection,
-                        fixedCategoryChipWidth: 132,
+                        fixedCategoryChipWidth: fixedCategoryChipWidth,
                         focusedField: $focusedField,
                         showsTitleAndCategory: visibility.showsTitleAndCategory,
                         showsNotesEditor: visibility.showsNotesEditor
@@ -265,8 +274,8 @@ private struct TaskEditorContentView: View {
             }
             .frame(width: layout.contentWidth, alignment: .leading)
             .padding(.horizontal, layout.horizontalPadding)
-            .padding(.top, DS.Spacing.lg)
-            .padding(.bottom, 28)
+            .padding(.top, dsMetrics.spacing(DS.Spacing.lg))
+            .padding(.bottom, dsMetrics.spacing(28))
         }
         .scrollDismissesKeyboard(.interactively)
     }
@@ -276,15 +285,32 @@ private struct TaskEditorLayoutMetrics {
     let horizontalPadding: CGFloat
     let contentWidth: CGFloat
 
-    init(width: CGFloat) {
-        horizontalPadding = Self.horizontalPadding(for: width)
-        contentWidth = max(0, width - horizontalPadding * 2)
+    init(width: CGFloat, adaptiveMetrics: DSAdaptiveMetrics) {
+        let metrics = Self.resolveLayout(width: width, adaptiveMetrics: adaptiveMetrics)
+        horizontalPadding = metrics.horizontalPadding
+        contentWidth = metrics.contentWidth
     }
 
-    private static func horizontalPadding(for width: CGFloat) -> CGFloat {
-        if width < 375 { return DS.Spacing.md }
-        if width < 430 { return DS.Spacing.lg }
-        return DS.Spacing.xl
+    private static func resolveLayout(
+        width: CGFloat,
+        adaptiveMetrics: DSAdaptiveMetrics
+    ) -> (horizontalPadding: CGFloat, contentWidth: CGFloat) {
+        let basePadding: CGFloat
+        if width < 375 {
+            basePadding = adaptiveMetrics.screenPadding(DS.Spacing.md)
+        } else if width < 430 {
+            basePadding = adaptiveMetrics.screenPadding(DS.Spacing.lg)
+        } else {
+            basePadding = adaptiveMetrics.screenPadding(DS.Spacing.xl)
+        }
+
+        let availableWidth = max(0, width - basePadding * 2)
+        let contentWidth = min(
+            availableWidth,
+            adaptiveMetrics.maxWidth(for: .modal) ?? availableWidth
+        )
+        let horizontalPadding = max(basePadding, (width - contentWidth) / 2)
+        return (horizontalPadding, contentWidth)
     }
 }
 

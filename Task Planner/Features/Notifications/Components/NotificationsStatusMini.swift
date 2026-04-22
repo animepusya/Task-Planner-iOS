@@ -9,6 +9,8 @@ import SwiftUI
 import UIKit
 
 struct NotificationsStatusMini: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var viewModel: NotificationsViewModel
 
     private var pillTitle: String {
@@ -32,16 +34,22 @@ struct NotificationsStatusMini: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(8)) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 Text("Status")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
 
                 StatusPill(title: pillTitle, isOn: viewModel.notificationsEnabled)
                     .scaleEffect(0.92, anchor: .leading)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: dsMetrics.spacing(8))
 
                 Toggle("", isOn: Binding(
                     get: { viewModel.notificationsEnabled },
@@ -54,24 +62,36 @@ struct NotificationsStatusMini: View {
             }
 
             if let action = primaryActionTitle, let systemStatusTitle {
-                HStack(spacing: 8) {
+                HStack(spacing: dsMetrics.spacing(8)) {
                     Text(systemStatusTitle)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .lineLimit(1)
                         .truncationMode(.tail)
 
-                    Spacer(minLength: 8)
+                    Spacer(minLength: dsMetrics.spacing(8))
 
                     Button {
                         lightHaptic()
                         viewModel.primaryActionTapped()
                     } label: {
                         Text(action)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(
+                                dsMetrics.font(
+                                    13,
+                                    weight: .semibold,
+                                    category: .micro
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.textPrimary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
+                            .padding(.horizontal, dsMetrics.spacing(10))
+                            .padding(.vertical, dsMetrics.spacing(7))
                             .background(
                                 RoundedRectangle(cornerRadius: DS.Radius.pill)
                                     .fill(DS.ColorToken.controlFillStrong)
@@ -84,7 +104,7 @@ struct NotificationsStatusMini: View {
                 }
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, dsMetrics.spacing(2))
         .accessibilityElement(children: .contain)
     }
 

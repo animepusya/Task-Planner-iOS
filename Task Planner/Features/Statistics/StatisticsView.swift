@@ -12,6 +12,7 @@ struct StatisticsView: View {
     @StateObject private var viewModel: StatisticsViewModel
     @Environment(\.modelContext) private var modelContext
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @State private var selectedSliceId: String? = nil
     @State private var headerCollapseProgress: CGFloat = 0
@@ -51,7 +52,7 @@ struct StatisticsView: View {
             )
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
                     StatisticsPeriodCard(viewModel: viewModel)
                     donutCard(
                         snapshot: breakdownSnapshot,
@@ -63,12 +64,13 @@ struct StatisticsView: View {
                     )
                     comparisonPreviewCard(snapshot: snapshot.comparison)
                 }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.sm)
-                .padding(.bottom, 24)
+                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+                .padding(.bottom, dsMetrics.spacing(24))
+                .dsContentFrame(.screen)
             }
             .background(Color.clear)
-            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
+            .contentMargins(.bottom, dsMetrics.tabBarReservedScrollSpace, for: .scrollContent)
             .onScrollViewOffsetChange { offset in
                 updateHeaderCollapse(offset, style: .statistics)
             }
@@ -124,14 +126,20 @@ struct StatisticsView: View {
         snapshot: StatisticsBreakdownSnapshot,
         totalMinutesText: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+            HStack(alignment: .center, spacing: dsMetrics.spacing(12)) {
                 Text("Time")
-                    .font(DS.Typography.sectionTitle)
+                    .font(
+                        dsMetrics.font(
+                            18,
+                            weight: .semibold,
+                            category: .title
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textPrimary)
                     .lineLimit(1)
 
-                Spacer(minLength: 8)
+                Spacer(minLength: dsMetrics.spacing(8))
 
                 StatisticsBreakdownSegmentedControl(selection: $viewModel.breakdown)
                     .fixedSize(horizontal: false, vertical: true)
@@ -144,8 +152,8 @@ struct StatisticsView: View {
                 )
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 6)
-            .padding(.bottom, 2)
+            .padding(.top, dsMetrics.spacing(6))
+            .padding(.bottom, dsMetrics.spacing(2))
         }
         .dsPrimaryCard(padding: DS.Spacing.lg, cornerRadius: DS.Radius.lg)
     }
@@ -169,20 +177,35 @@ struct StatisticsView: View {
                 cornerRadius: 6,
                 selectedSliceId: selectionBinding
             )
-            .frame(width: 260, height: 260)
+            .frame(
+                width: dsMetrics.spacing(260),
+                height: dsMetrics.spacing(260)
+            )
 
-            VStack(spacing: 6) {
+            VStack(spacing: dsMetrics.spacing(6)) {
                 Text(snapshot.isEmpty ? "Total" : selectedCenter.title)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
 
                 Text(snapshot.isEmpty ? totalMinutesText : selectedCenter.valueText)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            22,
+                            weight: .bold,
+                            category: .display
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textPrimary)
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, dsMetrics.spacing(16))
         }
         .frame(maxWidth: .infinity)
     }
@@ -191,24 +214,45 @@ struct StatisticsView: View {
         snapshot: StatisticsBreakdownSnapshot,
         totalMinutesText: String
     ) -> some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+            HStack(spacing: dsMetrics.spacing(14)) {
                 Circle()
                     .fill(DS.ColorToken.purple.opacity(0.12))
-                    .frame(width: 44, height: 44)
+                    .frame(
+                        width: dsMetrics.controlSize(44),
+                        height: dsMetrics.controlSize(44)
+                    )
                     .overlay(
                         Image(systemName: "clock")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(
+                                dsMetrics.font(
+                                    16,
+                                    weight: .semibold,
+                                    category: .micro
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.purple)
                     )
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(2)) {
                     Text("Total Hours")
-                        .font(DS.Typography.subtitle)
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .medium,
+                                category: .body
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
 
                     Text(totalMinutesText)
-                        .font(.system(size: 26, weight: .bold, design: .rounded))
+                        .font(
+                            dsMetrics.font(
+                                26,
+                                weight: .bold,
+                                category: .display
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textPrimary)
                 }
 
@@ -219,27 +263,48 @@ struct StatisticsView: View {
 
             if snapshot.isEmpty {
                 Text(snapshot.emptyMessage)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 12) {
+                VStack(spacing: dsMetrics.spacing(12)) {
                     ForEach(snapshot.rows) { row in
-                        HStack(spacing: 10) {
+                        HStack(spacing: dsMetrics.spacing(10)) {
                             Circle()
                                 .fill(row.color)
-                                .frame(width: 12, height: 12)
+                                .frame(
+                                    width: dsMetrics.spacing(12),
+                                    height: dsMetrics.spacing(12)
+                                )
 
                             Text(row.name)
-                                .font(DS.Typography.body)
+                                .font(
+                                    dsMetrics.font(
+                                        15,
+                                        weight: .regular,
+                                        category: .body
+                                    )
+                                )
                                 .foregroundColor(DS.ColorToken.textPrimary)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.85)
 
-                            Spacer(minLength: 12)
+                            Spacer(minLength: dsMetrics.spacing(12))
 
                             Text(row.valueText)
-                                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                                .font(
+                                    dsMetrics.font(
+                                        15,
+                                        weight: .semibold,
+                                        category: .body
+                                    )
+                                )
                                 .foregroundStyle(DS.ColorToken.textPrimary)
                                 .multilineTextAlignment(.trailing)
                         }

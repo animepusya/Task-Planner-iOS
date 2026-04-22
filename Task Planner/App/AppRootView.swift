@@ -13,11 +13,6 @@ struct AppRootView: View {
 
     @Environment(\.modelContext) private var modelContext
 
-    init(container: DependencyContainer) {
-        self.container = container
-        UITabBar.appearance().isHidden = true
-    }
-
     var body: some View {
         AppRootContentView(container: container, modelContext: modelContext)
     }
@@ -85,6 +80,7 @@ private struct AppRootTabShellView: View {
     @Binding var sheet: SheetRoute?
 
     @State private var statisticsComparisonViewModel: StatisticsViewModel?
+    @State private var loadedTabs: Set<AppTab> = [.planner]
 
     private var showsTabBar: Bool {
         guard selectedTab == .statistics else { return true }
@@ -92,52 +88,74 @@ private struct AppRootTabShellView: View {
     }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            PlannerView(
+        DSAdaptiveLayoutScope { metrics in
+            ZStack {
+                if loadedTabs.contains(.planner) {
+                    AppRootTabLayer(isVisible: selectedTab == .planner) {
+                        plannerRootView
+                    }
+                }
+
+                if loadedTabs.contains(.statistics) {
+                    AppRootTabLayer(isVisible: selectedTab == .statistics) {
+                        statisticsRootView
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .overlay(alignment: .bottom) {
+                if showsTabBar {
+                    CustomTabBar(
+                        selected: selectedTab,
+                        plannerTitle: Date.now.monthName(),
+                        onSelectPlanner: { select(.planner) },
+                        onSelectStatistics: { select(.statistics) }
+                    )
+                    .padding(.bottom, metrics.tabBarBottomSpacing)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    .zIndex(10)
+                }
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .sheet(item: $sheet, content: sheetView)
+            .onAppear {
+                ensureLoaded(selectedTab)
+            }
+            .onChange(of: selectedTab) { _, newValue in
+                ensureLoaded(newValue)
+            }
+        }
+    }
+
+    private var plannerRootView: some View {
+        PlannerView(
+            taskRepository: dependencies.taskRepository,
+            preferencesRepository: dependencies.preferencesRepository,
+            calendarSync: dependencies.calendarSyncService,
+            seriesService: dependencies.seriesService,
+            onOpenTaskEditor: { taskId, day in
+                sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
+            },
+            onOpenNotifications: {
+                sheet = .notifications
+            },
+            onOpenRecurringBaseTasks: {
+                sheet = .recurringBaseTasks
+            }
+        )
+    }
+
+    private var statisticsRootView: some View {
+        NavigationStack(path: $statisticsNavigationPath) {
+            StatisticsView(
                 taskRepository: dependencies.taskRepository,
                 preferencesRepository: dependencies.preferencesRepository,
-                calendarSync: dependencies.calendarSyncService,
-                seriesService: dependencies.seriesService,
-                onOpenTaskEditor: { taskId, day in
-                    sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
-                },
-                onOpenNotifications: {
-                    sheet = .notifications
-                },
-                onOpenRecurringBaseTasks: {
-                    sheet = .recurringBaseTasks
-                }
+                onOpenSettings: openSettings,
+                onOpenComparison: openStatisticsComparison,
+                onOpenPaywall: openPaywall
             )
-            .tag(AppTab.planner)
-
-            NavigationStack(path: $statisticsNavigationPath) {
-                StatisticsView(
-                    taskRepository: dependencies.taskRepository,
-                    preferencesRepository: dependencies.preferencesRepository,
-                    onOpenSettings: openSettings,
-                    onOpenComparison: openStatisticsComparison,
-                    onOpenPaywall: openPaywall
-                )
-                .navigationDestination(for: AppRoute.self, destination: destinationView)
-            }
-            .tag(AppTab.statistics)
+            .navigationDestination(for: AppRoute.self, destination: destinationView)
         }
-        .toolbar(.hidden, for: .tabBar)
-        .overlay(alignment: .bottom) {
-            if showsTabBar {
-                CustomTabBar(
-                    selected: selectedTab,
-                    plannerTitle: Date.now.monthName(),
-                    onSelectPlanner: { selectedTab = .planner },
-                    onSelectStatistics: { selectedTab = .statistics }
-                )
-                .padding(.bottom, DS.Layout.tabBarBottomSpacing)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
-                .zIndex(10)
-            }
-        }
-        .ignoresSafeArea(.keyboard, edges: .bottom)
-        .sheet(item: $sheet, content: sheetView)
     }
 
     private func openSettings() {
@@ -154,6 +172,15 @@ private struct AppRootTabShellView: View {
     private func openPaywall(_ entryPoint: PaywallEntryPoint) {
         guard statisticsNavigationPath.last != .paywall(entryPoint) else { return }
         statisticsNavigationPath.append(.paywall(entryPoint))
+    }
+
+    private func select(_ tab: AppTab) {
+        ensureLoaded(tab)
+        selectedTab = tab
+    }
+
+    private func ensureLoaded(_ tab: AppTab) {
+        loadedTabs.insert(tab)
     }
 
     @ViewBuilder
@@ -229,5 +256,27 @@ private struct AppRootTabShellView: View {
                 }
             )
         }
+    }
+}
+
+private struct AppRootTabLayer<Content: View>: View {
+    let isVisible: Bool
+    private let content: Content
+
+    init(
+        isVisible: Bool,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.isVisible = isVisible
+        self.content = content()
+    }
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .opacity(isVisible ? 1 : 0)
+            .allowsHitTesting(isVisible)
+            .accessibilityHidden(!isVisible)
+            .zIndex(isVisible ? 1 : 0)
     }
 }

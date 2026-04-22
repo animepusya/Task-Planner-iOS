@@ -12,6 +12,7 @@ import UIKit
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @StateObject private var viewModel: SettingsViewModel
@@ -59,7 +60,7 @@ struct SettingsView: View {
             AppBackgroundView(gradient: DS.GradientToken.splash)
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: DS.Spacing.lg) {
+                VStack(spacing: dsMetrics.spacing(DS.Spacing.lg)) {
                     preferencesSection
                     generalSection
                     calendarSection
@@ -68,9 +69,10 @@ struct SettingsView: View {
                     legalSection
                     dataSection
                 }
-                .padding(.horizontal, DS.Spacing.md)
-                .padding(.top, DS.Spacing.lg)
-                .padding(.bottom, DS.Spacing.xl)
+                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.md))
+                .padding(.top, dsMetrics.spacing(DS.Spacing.lg))
+                .padding(.bottom, dsMetrics.spacing(DS.Spacing.xl))
+                .dsContentFrame(.screen)
             }
         }
         .navigationTitle("Settings")
@@ -182,28 +184,40 @@ struct SettingsView: View {
     }
 
     private var weekStartsOnRow: some View {
-        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+        HStack(alignment: .center, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             Image(systemName: "calendar")
-                .font(.system(size: 16, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        16,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 22)
+                .frame(width: dsMetrics.controlSize(22))
 
             Text("Week starts on")
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .lineLimit(1)
 
-            Spacer(minLength: DS.Spacing.sm)
+            Spacer(minLength: dsMetrics.spacing(DS.Spacing.sm))
 
             weekStartPicker
         }
-        .padding(.horizontal, DS.Spacing.md)
-        .padding(.vertical, 14)
+        .padding(.horizontal, dsMetrics.spacing(DS.Spacing.md))
+        .padding(.vertical, dsMetrics.spacing(14))
         .contentShape(Rectangle())
     }
 
     private var weekStartPicker: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: dsMetrics.spacing(4)) {
             weekStartSegment(
                 title: String(localized: "Monday"),
                 isSelected: viewModel.weekStartsOnMonday,
@@ -226,7 +240,7 @@ struct SettingsView: View {
                 }
             )
         }
-        .padding(4)
+        .padding(dsMetrics.spacing(4))
         .dsSurface(Capsule(), fill: DS.Surface.frosted)
         .accessibilityElement(children: .contain)
     }
@@ -245,12 +259,18 @@ struct SettingsView: View {
                 }
 
                 Text(title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(isSelected ? Color.white : DS.ColorToken.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-                    .padding(.horizontal, 12)
-                    .frame(height: 32)
+                    .padding(.horizontal, dsMetrics.spacing(12))
+                    .frame(height: dsMetrics.controlSize(32))
             }
         }
         .buttonStyle(.plain)
@@ -443,37 +463,58 @@ struct SettingsView: View {
                 onOpenPaywall(.settings)
             }
         } label: {
-            HStack(alignment: .center, spacing: DS.Spacing.sm) {
+            HStack(alignment: .center, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
                 ProBadge(size: .regular)
-                    .frame(width: 22, height: 22)
+                    .frame(
+                        width: dsMetrics.controlSize(22),
+                        height: dsMetrics.controlSize(22)
+                    )
 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(2)) {
                     Text(subscriptionStore.isPro ? String(localized: "Current plan") : String(localized: "Upgrade to Pro"))
-                        .font(DS.Typography.body)
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .regular,
+                                category: .body
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .multilineTextAlignment(.leading)
 
                     Text(subscriptionStore.planSummaryText)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
 
-                Spacer(minLength: DS.Spacing.sm)
+                Spacer(minLength: dsMetrics.spacing(DS.Spacing.sm))
 
                 if subscriptionStore.isPro {
                     Text(subscriptionStore.currentPlanTitle)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.purple)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, dsMetrics.spacing(10))
+                        .padding(.vertical, dsMetrics.spacing(6))
                         .background(DS.ColorToken.purple.opacity(0.10), in: Capsule())
                 } else {
                     trailingChevron
                 }
             }
-            .padding(.horizontal, DS.Spacing.md)
-            .padding(.vertical, 14)
+            .padding(.horizontal, dsMetrics.spacing(DS.Spacing.md))
+            .padding(.vertical, dsMetrics.spacing(14))
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -513,7 +554,13 @@ struct SettingsView: View {
 
     private var trailingChevron: some View {
         Image(systemName: "chevron.right")
-            .font(.system(size: 13, weight: .semibold))
+            .font(
+                dsMetrics.font(
+                    13,
+                    weight: .semibold,
+                    category: .micro
+                )
+            )
             .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.9))
     }
 
@@ -522,7 +569,13 @@ struct SettingsView: View {
         HStack(spacing: 6) {
             if !value.isEmpty {
                 Text(value)
-                    .font(DS.Typography.body)
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .regular,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .lineLimit(1)
             }
@@ -532,17 +585,29 @@ struct SettingsView: View {
     }
 
     private func rowValueLabel(_ value: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: dsMetrics.spacing(6)) {
             Text(value)
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             Image(systemName: "chevron.up.chevron.down")
-                .font(.system(size: 10, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        10,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.85))
         }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 10)
+        .padding(.vertical, dsMetrics.spacing(6))
+        .padding(.horizontal, dsMetrics.spacing(10))
         .background(DS.ColorToken.controlFill, in: Capsule())
     }
 

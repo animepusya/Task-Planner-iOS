@@ -63,9 +63,23 @@ extension View {
             )
         )
     }
+
+    func dsContentFrame(
+        _ role: DSContentWidthRole = .screen,
+        alignment: Alignment = .leading
+    ) -> some View {
+        modifier(
+            DSContentFrameModifier(
+                role: role,
+                alignment: alignment
+            )
+        )
+    }
 }
 
 private struct DSSurfaceModifier<Shape: InsettableShape, Fill: ShapeStyle>: ViewModifier {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let shape: Shape
     let fill: Fill
     let stroke: Color
@@ -77,26 +91,59 @@ private struct DSSurfaceModifier<Shape: InsettableShape, Fill: ShapeStyle>: View
                 shape.fill(fill)
             )
             .overlay(
-                shape.stroke(stroke, lineWidth: lineWidth)
+                shape.stroke(
+                    stroke,
+                    lineWidth: dsMetrics.strokeWidth(lineWidth)
+                )
             )
     }
 }
 
 private struct DSCardModifier<Background: View>: ViewModifier {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let padding: CGFloat
     let cornerRadius: CGFloat
     let style: DS.CardStyle
     let background: Background
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        let resolvedPadding = dsMetrics.spacing(padding)
+        let resolvedCornerRadius = dsMetrics.cornerRadius(cornerRadius)
+        let shape = RoundedRectangle(
+            cornerRadius: resolvedCornerRadius,
+            style: .continuous
+        )
 
-        content
-            .padding(padding)
+        return content
+            .padding(resolvedPadding)
             .background(background)
             .clipShape(shape)
             .overlay {
-                shape.stroke(DS.Border.subtle, lineWidth: 1)
+                shape.stroke(
+                    DS.Border.subtle,
+                    lineWidth: dsMetrics.strokeWidth(1)
+                )
             }
+    }
+}
+
+private struct DSContentFrameModifier: ViewModifier {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
+    let role: DSContentWidthRole
+    let alignment: Alignment
+
+    func body(content: Content) -> some View {
+        Group {
+            if let maxWidth = dsMetrics.maxWidth(for: role) {
+                content
+                    .frame(maxWidth: maxWidth, alignment: alignment)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            } else {
+                content
+                    .frame(maxWidth: .infinity, alignment: alignment)
+            }
+        }
     }
 }

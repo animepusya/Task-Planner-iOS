@@ -8,12 +8,14 @@
 import SwiftUI
 
 struct StatisticsComparisonPreviewCard: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let snapshot: StatisticsComparisonSnapshot
     let onTap: () -> Void
 
     var body: some View {
         Button(action: onTap) {
-            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
                 header
 
                 switch snapshot.availability {
@@ -33,41 +35,74 @@ struct StatisticsComparisonPreviewCard: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top, spacing: DS.Spacing.sm) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
+                HStack(spacing: dsMetrics.spacing(8)) {
                     Text(snapshot.title)
-                        .font(DS.Typography.sectionTitle)
+                        .font(
+                            dsMetrics.font(
+                                18,
+                                weight: .semibold,
+                                category: .title
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textPrimary)
 
                     ProBadge(size: .small)
                 }
 
                 Text(snapshot.subtitle)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
             }
 
-            Spacer(minLength: 12)
+            Spacer(minLength: dsMetrics.spacing(12))
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        13,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 30, height: 30)
+                .frame(
+                    width: dsMetrics.controlSize(30),
+                    height: dsMetrics.controlSize(30)
+                )
                 .background(DS.ColorToken.controlFill, in: Circle())
         }
     }
 
     private var readyContent: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
-            VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
                 Text(snapshot.totalDeltaText ?? "")
-                    .font(.system(size: 28, weight: .bold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            28,
+                            weight: .bold,
+                            category: .display
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
                 if let caption = snapshot.totalDeltaCaption {
                     Text(caption)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.85)
@@ -76,7 +111,7 @@ struct StatisticsComparisonPreviewCard: View {
 
             Divider().opacity(0.15)
 
-            VStack(spacing: 10) {
+            VStack(spacing: dsMetrics.spacing(10)) {
                 if let growthInsight = snapshot.growthInsight {
                     insightLine(growthInsight)
                 }
@@ -89,12 +124,18 @@ struct StatisticsComparisonPreviewCard: View {
     }
 
     private var loadingContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             ProgressView()
                 .tint(DS.ColorToken.purple)
 
             Text(snapshot.message ?? "")
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .multilineTextAlignment(.leading)
 
@@ -103,18 +144,33 @@ struct StatisticsComparisonPreviewCard: View {
     }
 
     private var emptyContent: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             Circle()
                 .fill(DS.ColorToken.controlFill)
-                .frame(width: 34, height: 34)
+                .frame(
+                    width: dsMetrics.controlSize(34),
+                    height: dsMetrics.controlSize(34)
+                )
                 .overlay(
                     Image(systemName: "clock.arrow.trianglehead.counterclockwise.rotate.90")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(
+                            dsMetrics.font(
+                                13,
+                                weight: .semibold,
+                                category: .micro
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                 )
 
             Text(snapshot.message ?? "")
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .multilineTextAlignment(.leading)
 
@@ -123,23 +179,41 @@ struct StatisticsComparisonPreviewCard: View {
     }
 
     private func insightLine(_ insight: StatisticsComparisonPreviewInsightSnapshot) -> some View {
-        HStack(spacing: 10) {
+        HStack(spacing: dsMetrics.spacing(10)) {
             Circle()
                 .fill(insight.direction.backgroundColor)
-                .frame(width: 10, height: 10)
+                .frame(
+                    width: dsMetrics.spacing(10),
+                    height: dsMetrics.spacing(10)
+                )
                 .overlay(
                     Circle()
-                        .stroke(insight.direction.tintColor.opacity(0.35), lineWidth: 1)
+                        .stroke(
+                            insight.direction.tintColor.opacity(0.35),
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
                 )
 
             Text(insight.label)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
-            Spacer(minLength: 8)
+            Spacer(minLength: dsMetrics.spacing(8))
 
             Text(insight.contentText)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        13,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(
                     insight.direction == .neutral
                     ? DS.ColorToken.textSecondary

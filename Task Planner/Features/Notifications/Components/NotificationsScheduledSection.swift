@@ -10,6 +10,8 @@ import SwiftData
 import UIKit
 
 struct NotificationsScheduledSection: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var viewModel: NotificationsViewModel
     let tasks: [TaskEntity]
 
@@ -42,14 +44,21 @@ struct NotificationsScheduledSection: View {
 
     private var headerSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
                 Text("Scheduled")
-                    .font(DS.Typography.sectionTitle)
+                    .font(
+                        dsMetrics.font(
+                            18,
+                            weight: .semibold,
+                            category: .title
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.sm)
-                    .padding(.bottom, DS.Spacing.xs)
+                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+                    .padding(.bottom, dsMetrics.spacing(DS.Spacing.xs))
             }
+            .dsContentFrame(.modal)
         }
         .applyScheduledListChrome()
     }
@@ -57,10 +66,17 @@ struct NotificationsScheduledSection: View {
     private var emptySection: some View {
         Section {
             Text(emptyText)
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.bottom, DS.Spacing.lg)
+                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                .padding(.bottom, dsMetrics.spacing(DS.Spacing.lg))
+                .dsContentFrame(.modal)
         }
         .applyScheduledListChrome()
     }
@@ -71,8 +87,9 @@ struct NotificationsScheduledSection: View {
                 let taskId = taskIdMap[r.taskId]
 
                 ScheduledReminderRow(reminder: r)
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.vertical, DS.Spacing.xs)
+                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                    .padding(.vertical, dsMetrics.spacing(DS.Spacing.xs))
+                    .dsContentFrame(.modal)
                     .applyScheduledRowChrome()
                     .contentShape(Rectangle())
                     .onTapGesture {

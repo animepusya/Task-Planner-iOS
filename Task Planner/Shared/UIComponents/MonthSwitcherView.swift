@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct MonthSwitcherView: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String
     let monthAnchor: Date
     let isNavigationLocked: Bool
@@ -50,7 +52,13 @@ struct MonthSwitcherView: View {
                 isPickerPresented = true
             } label: {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            16,
+                            weight: .semibold,
+                            category: .title
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .buttonStyle(.plain)
@@ -108,11 +116,20 @@ struct MonthSwitcherView: View {
     private func navButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 14, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        14,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(
                     DS.ColorToken.textSecondary.opacity(isNavigationLocked ? 0.55 : 1.0)
                 )
-                .frame(width: 34, height: 34)
+                .frame(
+                    width: dsMetrics.controlSize(34),
+                    height: dsMetrics.controlSize(34)
+                )
                 .dsSurface(
                     Circle(),
                     fill: isNavigationLocked ? DS.Surface.frosted : DS.Surface.chrome,
@@ -129,6 +146,8 @@ struct MonthSwitcherView: View {
 // MARK: - Sheet
 
 private struct MonthYearPickerSheet: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let initialAnchor: Date
     let yearRange: ClosedRange<Int>
 
@@ -163,8 +182,8 @@ private struct MonthYearPickerSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                HStack(spacing: 12) {
+            VStack(spacing: dsMetrics.spacing(16)) {
+                HStack(spacing: dsMetrics.spacing(12)) {
                     Picker("Month", selection: $selectedMonth) {
                         ForEach(1...12, id: \.self) { month in
                             Text(monthName(for: month)).tag(month)
@@ -179,34 +198,46 @@ private struct MonthYearPickerSheet: View {
                     }
                     .pickerStyle(.wheel)
                 }
-                .frame(height: 180)
+                .frame(height: dsMetrics.controlSize(180))
                 .clipped()
 
                 if let onQuickAction {
                     Button {
                         onQuickAction()
                     } label: {
-                        HStack(spacing: 8) {
+                        HStack(spacing: dsMetrics.spacing(8)) {
                             Image(systemName: "location.fill")
-                                .font(.system(size: 13, weight: .semibold))
+                                .font(
+                                    dsMetrics.font(
+                                        13,
+                                        weight: .semibold,
+                                        category: .micro
+                                    )
+                                )
                             Text(quickActionTitle)
-                                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                                .font(
+                                    dsMetrics.font(
+                                        14,
+                                        weight: .semibold,
+                                        category: .micro
+                                    )
+                                )
                         }
                         .foregroundColor(DS.ColorToken.purple)
-                        .padding(.vertical, 10)
-                        .padding(.horizontal, 14)
+                        .padding(.vertical, dsMetrics.spacing(10))
+                        .padding(.horizontal, dsMetrics.spacing(14))
                         .background(
                             Capsule().fill(DS.ColorToken.purple.opacity(0.12))
                         )
                     }
                     .buttonStyle(.plain)
-                    .padding(.top, 2)
+                    .padding(.top, dsMetrics.spacing(2))
                 }
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
+            .padding(.horizontal, dsMetrics.screenPadding(16))
+            .padding(.top, dsMetrics.spacing(8))
             .navigationTitle("Select month")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

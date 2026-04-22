@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorReminderSection: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var state: TaskEditorViewModel.ReminderSectionState
     @ObservedObject var dateTimeState: TaskEditorViewModel.DateTimeSectionState
 
@@ -18,17 +20,23 @@ struct TaskEditorReminderSection: View {
     @State private var allDayTempDate: Date = .now
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Toggle(isOn: state.reminderEnabledBinding) {
                 Text("Reminder")
-                    .font(DS.Typography.sectionTitle)
+                    .font(
+                        dsMetrics.font(
+                            18,
+                            weight: .semibold,
+                            category: .title
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
-                    .padding(.trailing, DS.Spacing.sm)
+                    .padding(.trailing, dsMetrics.spacing(DS.Spacing.sm))
             }
             .tint(DS.ColorToken.lavender)
 
             if showsSupportingContent {
-                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
 
                     if let gate = state.gate {
                         gateInline(gate)
@@ -45,9 +53,15 @@ struct TaskEditorReminderSection: View {
 
     @ViewBuilder
     private func gateInline(_ gate: TaskEditorViewModel.ReminderGate) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(8)) {
             Text(gate.message)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -59,13 +73,25 @@ struct TaskEditorReminderSection: View {
                 if let onOpenNotificationsCenter {
                     Button(action: onOpenNotificationsCenter) {
                         Text("Open Notifications")
-                            .font(DS.Typography.caption)
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .medium,
+                                    category: .caption
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.purple)
                     }
                     .buttonStyle(.plain)
                 } else {
                     Text("Open Notifications in the app.")
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                 }
 
@@ -73,18 +99,24 @@ struct TaskEditorReminderSection: View {
                 if let onOpenSystemSettings {
                     Button(action: onOpenSystemSettings) {
                         Text("Open Settings")
-                            .font(DS.Typography.caption)
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .medium,
+                                    category: .caption
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.purple)
                     }
                     .buttonStyle(.plain)
                 }
             }
         }
-        .padding(.top, 2)
+        .padding(.top, dsMetrics.spacing(2))
     }
 
     private var reminderSettings: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             CompactMenuRow(
                 title: String(localized: "Remind"),
                 value: offsetTitle
@@ -120,9 +152,15 @@ struct TaskEditorReminderSection: View {
                         state.reminderAllDayTimeMinutesBinding.wrappedValue = nil
                     } label: {
                         Text(defaultTimeButtonTitle)
-                            .font(DS.Typography.caption)
+                            .font(
+                                dsMetrics.font(
+                                    12,
+                                    weight: .medium,
+                                    category: .caption
+                                )
+                            )
                             .foregroundStyle(DS.ColorToken.purple)
-                            .padding(.top, 2)
+                            .padding(.top, dsMetrics.spacing(2))
                     }
                     .buttonStyle(.plain)
                 }
@@ -155,9 +193,15 @@ struct TaskEditorReminderSection: View {
     }
 
     private var allDayTimePopoverContent: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(10)) {
             Text("Time")
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             DatePicker(
@@ -170,7 +214,7 @@ struct TaskEditorReminderSection: View {
             .frame(maxWidth: .infinity)
             .clipped()
         }
-        .padding(DS.Spacing.lg)
+        .padding(dsMetrics.spacing(DS.Spacing.lg))
         .background(DS.ColorToken.appBackground)
         .onChange(of: allDayTempDate) { _, newValue in
             let minutes = TimeOfDayMinutes.minutes(from: newValue)

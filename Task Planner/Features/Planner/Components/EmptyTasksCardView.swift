@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct EmptyTasksCardView: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let onTap: () -> Void
 
     var body: some View {
@@ -20,14 +22,26 @@ struct EmptyTasksCardView: View {
     }
 
     private var content: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
+        HStack(spacing: dsMetrics.spacing(12)) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
                 Text("No tasks yet")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .semibold,
+                            category: .body
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textPrimary)
 
                 Text("Tap + to create your first task.")
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.textSecondary)
             }
 

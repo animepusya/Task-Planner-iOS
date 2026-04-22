@@ -11,6 +11,7 @@ import SwiftData
 struct PlannerView: View {
     @StateObject private var viewModel: PlannerViewModel
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @State private var didTriggerSwipe = false
     @State private var headerCollapseProgress: CGFloat = 0
@@ -71,24 +72,26 @@ struct PlannerView: View {
                     .accessibilityHidden(true)
 
                 Section {
-                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                    VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
                         calendarCard(snapshot: monthSnapshot)
                     }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.sm)
-                    .padding(.bottom, DS.Spacing.md)
+                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+                    .padding(.bottom, dsMetrics.spacing(DS.Spacing.md))
+                    .dsContentFrame(.wide)
                 }
                 .listRowInsets(.init())
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
 
                 Section {
-                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
                         tasksHeader(snapshot: selectedDaySnapshot)
                     }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.sm)
-                    .padding(.bottom, DS.Spacing.xs)
+                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+                    .padding(.bottom, dsMetrics.spacing(DS.Spacing.xs))
+                    .dsContentFrame(.wide)
                 }
                 .listRowInsets(.init())
                 .listRowBackground(Color.clear)
@@ -97,8 +100,9 @@ struct PlannerView: View {
                 if selectedDaySnapshot.isEmpty {
                     Section {
                         EmptyTasksCardView(onTap: viewModel.openCreateTask)
-                            .padding(.horizontal, DS.Spacing.lg)
-                            .padding(.bottom, DS.Spacing.lg)
+                            .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                            .padding(.bottom, dsMetrics.spacing(DS.Spacing.lg))
+                            .dsContentFrame(.wide)
                     }
                     .listRowInsets(.init())
                     .listRowBackground(Color.clear)
@@ -118,8 +122,9 @@ struct PlannerView: View {
                                     occurrence: occurrence,
                                     isVisuallyDone: isVisuallyDone
                                 )
-                                .padding(.horizontal, DS.Spacing.lg)
-                                .padding(.vertical, 6)
+                                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                                .padding(.vertical, dsMetrics.spacing(6))
+                                .dsContentFrame(.wide)
                                 .listRowInsets(.init())
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
@@ -182,8 +187,9 @@ struct PlannerView: View {
 
                             case .imported(let row):
                                 ImportedEventCardView(row: row)
-                                    .padding(.horizontal, DS.Spacing.lg)
-                                    .padding(.vertical, 6)
+                                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                                    .padding(.vertical, dsMetrics.spacing(6))
+                                    .dsContentFrame(.wide)
                                     .listRowInsets(.init())
                                     .listRowBackground(Color.clear)
                                     .listRowSeparator(.hidden)
@@ -197,7 +203,7 @@ struct PlannerView: View {
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
-            .contentMargins(.bottom, DS.Layout.tabBarReservedScrollSpace, for: .scrollContent)
+            .contentMargins(.bottom, dsMetrics.tabBarReservedScrollSpace, for: .scrollContent)
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
             .onScrollViewOffsetChange(measurement: .relativeToInitialOffset) { offset in
                 updateHeaderCollapse(offset, style: .planner)
@@ -227,7 +233,9 @@ struct PlannerView: View {
     }
 
     private var resolvedHeaderReservedHeight: CGFloat {
-        headerReservedHeight > 0 ? headerReservedHeight : plannerHeaderFallbackHeight
+        headerReservedHeight > 0
+        ? headerReservedHeight
+        : dsMetrics.controlSize(plannerHeaderFallbackHeight)
     }
 
     private var header: some View {
@@ -237,7 +245,7 @@ struct PlannerView: View {
             collapseProgress: headerCollapseProgress,
             style: .planner
         ) {
-            HStack(spacing: 10) {
+            HStack(spacing: dsMetrics.spacing(10)) {
                 IconCircleButton(systemName: "square.stack.3d.up") {
                     viewModel.openRecurringBaseTasks()
                 }
@@ -380,26 +388,47 @@ struct PlannerView: View {
                     snapshot.title
                 )
             )
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundColor(DS.ColorToken.textPrimary)
 
             Spacer()
 
-            HStack(spacing: 10) {
+            HStack(spacing: dsMetrics.spacing(10)) {
                 Text(
                     String.localizedStringWithFormat(
                         String(localized: "%lld tasks"),
                         Int64(snapshot.taskCount)
                     )
                 )
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundColor(DS.ColorToken.purple)
 
                 Button(action: viewModel.openCreateTask) {
                     Image(systemName: "plus")
-                        .font(.system(size: 14, weight: .semibold))
+                        .font(
+                            dsMetrics.font(
+                                14,
+                                weight: .semibold,
+                                category: .micro
+                            )
+                        )
                         .foregroundColor(.white)
-                        .frame(width: 34, height: 34)
+                        .frame(
+                            width: dsMetrics.controlSize(34),
+                            height: dsMetrics.controlSize(34)
+                        )
                         .dsSurface(
                             Circle(),
                             fill: DS.GradientToken.brand,

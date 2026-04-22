@@ -8,15 +8,23 @@
 import SwiftUI
 
 struct NotificationsDefaultsMini: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var viewModel: NotificationsViewModel
 
     @State private var showAllDayPopover = false
     @State private var tempDate: Date = .now
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(8)) {
             Text("Defaults")
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        13,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             // Reminder menu (только пресеты, без Custom)
@@ -50,7 +58,7 @@ struct NotificationsDefaultsMini: View {
                     .presentationCompactAdaptation(.popover)
             }
         }
-        .padding(.vertical, 2)
+        .padding(.vertical, dsMetrics.spacing(2))
         .accessibilityElement(children: .contain)
     }
 
@@ -66,9 +74,15 @@ struct NotificationsDefaultsMini: View {
     }
 
     private var allDayPopover: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(10)) {
             Text("All-day time")
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             DatePicker(
@@ -82,10 +96,16 @@ struct NotificationsDefaultsMini: View {
             .clipped()
 
             Text("Applies to new tasks by default.")
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
         }
-        .padding(DS.Spacing.lg)
+        .padding(dsMetrics.spacing(DS.Spacing.lg))
         .background(DS.ColorToken.appBackground)
         .onChange(of: tempDate) { _, newValue in
             viewModel.setDefaultAllDayTimeMinutes(TimeOfDayMinutes.minutes(from: newValue))

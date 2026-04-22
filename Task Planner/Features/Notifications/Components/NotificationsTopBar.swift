@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct NotificationsTopBar: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String
     let onBack: () -> Void
 
@@ -15,9 +17,15 @@ struct NotificationsTopBar: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            16,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
-                    .padding(10)
+                    .padding(dsMetrics.spacing(10))
                     .background(.ultraThinMaterial, in: Circle())
             }
             .buttonStyle(.plain)
@@ -26,14 +34,24 @@ struct NotificationsTopBar: View {
             Spacer()
 
             Text(title)
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             Spacer()
 
-            Color.clear.frame(width: 44, height: 44)
+            Color.clear.frame(
+                width: dsMetrics.controlSize(44),
+                height: dsMetrics.controlSize(44)
+            )
         }
-        .padding(.horizontal, DS.Spacing.lg)
-        .padding(.vertical, 10)
+        .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+        .padding(.vertical, dsMetrics.spacing(10))
+        .dsContentFrame(.modal)
     }
 }

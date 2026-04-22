@@ -8,21 +8,29 @@
 import SwiftUI
 
 struct StatisticsYearPickerCard: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selectedDate: Date
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
-
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        let adaptiveColumns = [
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10)),
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10)),
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10))
+        ]
+
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text("Choose year")
-                .font(DS.Typography.subtitle)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .medium,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: adaptiveColumns, spacing: dsMetrics.spacing(10)) {
                 ForEach(yearItems, id: \.self) { year in
                     yearButton(year)
                 }
@@ -38,17 +46,32 @@ struct StatisticsYearPickerCard: View {
             selectYear(year)
         } label: {
             Text(String(format: "%d", year))
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .semibold,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(isSelected ? .white : DS.ColorToken.textPrimary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, dsMetrics.spacing(12))
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(14),
+                        style: .continuous
+                    )
                         .fill(isSelected ? DS.ColorToken.purple : DS.Surface.chrome)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(isSelected ? Color.clear : DS.Border.subtle, lineWidth: 1)
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(14),
+                        style: .continuous
+                    )
+                        .stroke(
+                            isSelected ? Color.clear : DS.Border.subtle,
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
                 )
         }
         .buttonStyle(.plain)

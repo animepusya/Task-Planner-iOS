@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct StatisticsCalendarHeader: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let monthTitle: String
     let onPrevious: () -> Void
     let onNext: () -> Void
@@ -16,29 +18,63 @@ struct StatisticsCalendarHeader: View {
         HStack {
             Button(action: onPrevious) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
-                    .frame(width: 34, height: 34)
+                    .frame(
+                        width: dsMetrics.controlSize(34),
+                        height: dsMetrics.controlSize(34)
+                    )
                     .background(Circle().fill(DS.Surface.chrome))
-                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
+                    .overlay(
+                        Circle().stroke(
+                            DS.Border.subtle,
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
+                    )
             }
             .buttonStyle(.plain)
 
             Spacer()
 
             Text(monthTitle)
-                .font(.system(size: 18, weight: .bold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .bold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             Spacer()
 
             Button(action: onNext) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
-                    .frame(width: 34, height: 34)
+                    .frame(
+                        width: dsMetrics.controlSize(34),
+                        height: dsMetrics.controlSize(34)
+                    )
                     .background(Circle().fill(DS.Surface.chrome))
-                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
+                    .overlay(
+                        Circle().stroke(
+                            DS.Border.subtle,
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
+                    )
             }
             .buttonStyle(.plain)
         }
@@ -60,6 +96,8 @@ struct StatisticsCalendarDayCellStyle {
 }
 
 struct StatisticsCalendarDayCell: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let dayNumber: Int
     let isVisible: Bool
     let style: StatisticsCalendarDayCellStyle
@@ -68,11 +106,22 @@ struct StatisticsCalendarDayCell: View {
     var body: some View {
         Button(action: onTap) {
             Text("\(dayNumber)")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        14,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(style.textColor)
-                .frame(maxWidth: .infinity, minHeight: 42)
+                .frame(maxWidth: .infinity, minHeight: dsMetrics.controlSize(42))
                 .background(style.background)
-                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .clipShape(
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(12),
+                        style: .continuous
+                    )
+                )
                 .opacity(style.opacity)
         }
         .buttonStyle(.plain)

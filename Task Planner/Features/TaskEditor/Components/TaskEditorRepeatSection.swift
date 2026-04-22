@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorRepeatSection: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var state: TaskEditorViewModel.RepeatSectionState
     let isAdvancedRepeatLocked: Bool
     let onRequestUnlock: () -> Void
@@ -21,10 +23,16 @@ struct TaskEditorRepeatSection: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 Text("Repeat")
-                    .font(DS.Typography.sectionTitle)
+                    .font(
+                        dsMetrics.font(
+                            18,
+                            weight: .semibold,
+                            category: .title
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
                 if isAdvancedRepeatLocked && currentRuleRequiresPro {
@@ -40,10 +48,16 @@ struct TaskEditorRepeatSection: View {
 
             if state.isInvalid, let validationMessage = state.validationMessage {
                 Text(validationMessage)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 2)
+                    .padding(.top, dsMetrics.spacing(2))
             }
         }
         .dsCard(style: .outlined)
@@ -54,20 +68,26 @@ struct TaskEditorRepeatSection: View {
     }
 
     private var intervalRow: some View {
-        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+        HStack(alignment: .center, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             Text(
                 String.localizedStringWithFormat(
                     String(localized: "Every %lld days"),
                     Int64(state.repeatIntervalDays)
                 )
             )
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
                 .layoutPriority(1)
 
-            Spacer(minLength: DS.Spacing.sm)
+            Spacer(minLength: dsMetrics.spacing(DS.Spacing.sm))
 
             RepeatIntervalControl(
                 value: state.repeatIntervalDaysBinding,
@@ -103,14 +123,26 @@ struct TaskEditorRepeatSection: View {
                 }
             }
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: dsMetrics.spacing(10)) {
                 Image(systemName: "repeat")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
-                    .frame(width: 18, alignment: .center)
+                    .frame(width: dsMetrics.controlSize(18), alignment: .center)
 
                 Text(state.repeatRule.displayName)
-                    .font(DS.Typography.body)
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .regular,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
                     .lineLimit(1)
                     .truncationMode(.tail)
@@ -120,15 +152,21 @@ struct TaskEditorRepeatSection: View {
                     ProBadge(size: .small)
                 }
 
-                Spacer(minLength: 8)
+                Spacer(minLength: dsMetrics.spacing(8))
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .frame(minHeight: 44)
+            .padding(.horizontal, dsMetrics.spacing(12))
+            .padding(.vertical, dsMetrics.spacing(10))
+            .frame(minHeight: dsMetrics.controlSize(44))
             .background(DS.ColorToken.controlFill)
             .cornerRadius(DS.Radius.pill)
             .contentShape(Rectangle())
@@ -138,13 +176,15 @@ struct TaskEditorRepeatSection: View {
 }
 
 private struct RepeatIntervalControl: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var value: Int
     let range: ClosedRange<Int>
     let isLocked: Bool
     let onRequestUnlock: () -> Void
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: dsMetrics.spacing(8)) {
             stepButton(systemName: "minus") {
                 if isLocked {
                     onRequestUnlock()
@@ -155,10 +195,16 @@ private struct RepeatIntervalControl: View {
             .disabled(!isLocked && value <= range.lowerBound)
 
             Text("\(value)")
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .monospacedDigit()
-                .frame(minWidth: 30, alignment: .center)
+                .frame(minWidth: dsMetrics.controlSize(30), alignment: .center)
 
             stepButton(systemName: "plus") {
                 if isLocked {
@@ -169,9 +215,9 @@ private struct RepeatIntervalControl: View {
             }
             .disabled(!isLocked && value >= range.upperBound)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
-        .frame(minHeight: 40)
+        .padding(.horizontal, dsMetrics.spacing(10))
+        .padding(.vertical, dsMetrics.spacing(8))
+        .frame(minHeight: dsMetrics.controlSize(40))
         .background(DS.ColorToken.controlFill)
         .cornerRadius(DS.Radius.pill)
     }
@@ -179,9 +225,18 @@ private struct RepeatIntervalControl: View {
     private func stepButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 12, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .frame(width: 30, height: 30)
+                .frame(
+                    width: dsMetrics.controlSize(30),
+                    height: dsMetrics.controlSize(30)
+                )
                 .dsSurface(Circle(), fill: DS.Surface.card)
         }
         .buttonStyle(.plain)

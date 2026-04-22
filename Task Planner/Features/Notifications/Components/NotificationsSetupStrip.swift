@@ -9,6 +9,8 @@ import SwiftUI
 import UIKit
 
 struct NotificationsSetupStrip: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var viewModel: NotificationsViewModel
 
     var body: some View {
@@ -23,7 +25,7 @@ struct NotificationsSetupStrip: View {
     private func content(for width: CGFloat) -> some View {
         // На iPhone 13 mini в портрете часто < 360 по внутренней ширине списка.
         if width >= 360 {
-            HStack(alignment: .top, spacing: DS.Spacing.sm) {
+            HStack(alignment: .top, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
                 NotificationsStatusMini(viewModel: viewModel)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -32,24 +34,24 @@ struct NotificationsSetupStrip: View {
                 NotificationsDefaultsMini(viewModel: viewModel)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, dsMetrics.spacing(6))
+            .padding(.vertical, dsMetrics.spacing(4))
         } else {
-            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.xs)) {
                 NotificationsStatusMini(viewModel: viewModel)
                 divider
                 NotificationsDefaultsMini(viewModel: viewModel)
             }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 4)
+            .padding(.horizontal, dsMetrics.spacing(6))
+            .padding(.vertical, dsMetrics.spacing(4))
         }
     }
 
     private var divider: some View {
         Rectangle()
             .fill(DS.Border.subtle)
-            .frame(height: 1)
-            .padding(.vertical, 2)
+            .frame(height: dsMetrics.strokeWidth(1))
+            .padding(.vertical, dsMetrics.spacing(2))
             .accessibilityHidden(true)
     }
 }

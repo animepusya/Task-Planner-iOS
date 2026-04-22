@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SettingsSection<Content: View>: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String
     let footer: String?
     @ViewBuilder let content: () -> Content
@@ -23,20 +25,32 @@ struct SettingsSection<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             Text(title.uppercased())
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
-                .padding(.horizontal, DS.Spacing.xs)
+                .padding(.horizontal, dsMetrics.spacing(DS.Spacing.xs))
 
             content()
 
             if let footer, !footer.isEmpty {
                 Text(footer)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
-                    .padding(.horizontal, DS.Spacing.xs)
-                    .padding(.top, 2)
+                    .padding(.horizontal, dsMetrics.spacing(DS.Spacing.xs))
+                    .padding(.top, dsMetrics.spacing(2))
             }
         }
     }

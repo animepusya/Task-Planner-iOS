@@ -85,6 +85,8 @@ struct ScreenTopSectionStyle {
 }
 
 struct ScreenTopSection<Trailing: View>: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String
     let subtitle: String?
     let collapseProgress: CGFloat
@@ -107,24 +109,26 @@ struct ScreenTopSection<Trailing: View>: View {
 
     var body: some View {
         let progress = max(0, min(1, collapseProgress))
+        let leadingPadding = dsMetrics.topSectionLeadingPadding(base: style.horizontalPadding)
+        let trailingPadding = dsMetrics.topSectionTrailingPadding(base: style.horizontalPadding)
         let topPadding = interpolated(
-            from: style.expandedTopPadding,
-            to: style.compactTopPadding,
+            from: dsMetrics.spacing(style.expandedTopPadding),
+            to: dsMetrics.spacing(style.compactTopPadding),
             progress: progress
         )
         let bottomPadding = interpolated(
-            from: style.expandedBottomPadding,
-            to: style.compactBottomPadding,
+            from: dsMetrics.spacing(style.expandedBottomPadding),
+            to: dsMetrics.spacing(style.compactBottomPadding),
             progress: progress
         )
         let titleSize = interpolated(
-            from: style.expandedTitleSize,
-            to: style.compactTitleSize,
+            from: dsMetrics.fontSize(style.expandedTitleSize, category: .display),
+            to: dsMetrics.fontSize(style.compactTitleSize, category: .title),
             progress: progress
         )
         let subtitleSpacing = interpolated(
-            from: style.expandedTitleSubtitleSpacing,
-            to: style.compactTitleSubtitleSpacing,
+            from: dsMetrics.spacing(style.expandedTitleSubtitleSpacing),
+            to: dsMetrics.spacing(style.compactTitleSubtitleSpacing),
             progress: progress
         )
         let subtitleProgress = remappedProgress(
@@ -133,8 +137,8 @@ struct ScreenTopSection<Trailing: View>: View {
             end: 0.58
         )
         let subtitleHeight = interpolated(
-            from: style.expandedSubtitleHeight,
-            to: style.compactSubtitleHeight,
+            from: dsMetrics.spacing(style.expandedSubtitleHeight),
+            to: dsMetrics.spacing(style.compactSubtitleHeight),
             progress: subtitleProgress
         )
         let subtitleVerticalOffset = -5 * subtitleProgress
@@ -147,7 +151,10 @@ struct ScreenTopSection<Trailing: View>: View {
             ? 0
             : pow(max(0, 1 - subtitleProgress), 1.15)
 
-        HStack(alignment: style.contentAlignment, spacing: style.leadingTrailingSpacing) {
+        HStack(
+            alignment: style.contentAlignment,
+            spacing: dsMetrics.spacing(style.leadingTrailingSpacing)
+        ) {
             VStack(alignment: .leading, spacing: subtitle == nil ? 0 : subtitleSpacing) {
                 Text(title)
                     .font(DS.Typography.screenTitle(size: titleSize))
@@ -158,7 +165,11 @@ struct ScreenTopSection<Trailing: View>: View {
 
                 if let subtitle {
                     Text(subtitle)
-                        .font(DS.Typography.screenSubtitle())
+                        .font(
+                            DS.Typography.screenSubtitle(
+                                size: dsMetrics.fontSize(15, category: .body)
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .lineLimit(style.subtitleLineLimit)
                         .multilineTextAlignment(.leading)
@@ -189,9 +200,11 @@ struct ScreenTopSection<Trailing: View>: View {
             trailing()
                 .fixedSize()
         }
-        .padding(.horizontal, style.horizontalPadding)
+        .padding(.leading, leadingPadding)
+        .padding(.trailing, trailingPadding)
         .padding(.top, topPadding)
         .padding(.bottom, bottomPadding)
+        .dsContentFrame(.wide)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             ScreenTopSectionBackground()

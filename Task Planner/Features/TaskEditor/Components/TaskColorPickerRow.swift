@@ -8,25 +8,36 @@
 import SwiftUI
 
 struct TaskColorPickerRow: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selection: TaskColor
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 12) {
+            HStack(spacing: dsMetrics.spacing(12)) {
                 ForEach(TaskColor.allCases, id: \.self) { color in
                     Button {
                         selection = color
                     } label: {
                         Circle()
                             .fill(color.uiColor)
-                            .frame(width: 28, height: 28)
-                            .overlay(
-                                Circle()
-                                    .strokeBorder(Color.white, lineWidth: selection == color ? 3 : 0)
+                            .frame(
+                                width: dsMetrics.controlSize(28),
+                                height: dsMetrics.controlSize(28)
                             )
                             .overlay(
                                 Circle()
-                                    .strokeBorder(DS.ColorToken.textSecondary.opacity(0.25), lineWidth: 1)
+                                    .strokeBorder(
+                                        Color.white,
+                                        lineWidth: selection == color ? dsMetrics.strokeWidth(3) : 0
+                                    )
+                            )
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(
+                                        DS.ColorToken.textSecondary.opacity(0.25),
+                                        lineWidth: dsMetrics.strokeWidth(1)
+                                    )
                             )
                     }
                     .buttonStyle(.plain)
@@ -34,7 +45,7 @@ struct TaskColorPickerRow: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.bottom, 2)
+            .padding(.bottom, dsMetrics.spacing(2))
         }
     }
 }

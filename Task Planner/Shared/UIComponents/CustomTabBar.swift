@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct CustomTabBar: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let selected: AppTab
     let plannerTitle: String
 
@@ -15,7 +17,7 @@ struct CustomTabBar: View {
     let onSelectStatistics: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             tabButton(
                 title: plannerTitle,
                 systemImage: "calendar",
@@ -34,11 +36,12 @@ struct CustomTabBar: View {
                 onSelectStatistics()
             }
         }
-        .padding(10)
+        .padding(dsMetrics.spacing(10))
         .frame(maxWidth: .infinity)
-        .frame(minHeight: DS.Layout.tabBarMinHeight)
+        .frame(minHeight: dsMetrics.tabBarMinHeight)
         .dsSurface(Capsule(), fill: DS.Surface.frosted)
-        .padding(.horizontal, DS.Spacing.lg)
+        .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+        .dsContentFrame(.wide)
         .accessibilityElement(children: .contain)
     }
 
@@ -55,18 +58,31 @@ struct CustomTabBar: View {
         action: @escaping () -> Void
     ) -> some View {
         Button(action: action) {
-            HStack(spacing: 8) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            design: .rounded,
+                            category: .micro
+                        )
+                    )
 
                 Text(title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .lineLimit(1)
                     .minimumScaleFactor(0.85)
             }
             .foregroundStyle(foreground(isActive: isActive, activeStyle: activeStyle))
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 12)
+            .padding(.vertical, dsMetrics.spacing(12))
             .dsSurface(
                 Capsule(),
                 fill: backgroundFill(isActive: isActive, activeStyle: activeStyle),

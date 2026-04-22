@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct SettingsRow<Accessory: View>: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String
     let subtitle: String?
     let systemImage: String?
@@ -45,34 +47,52 @@ struct SettingsRow<Accessory: View>: View {
     }
 
     private var rowContent: some View {
-        HStack(alignment: .center, spacing: DS.Spacing.sm) {
+        HStack(alignment: .center, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            16,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(iconColor)
-                    .frame(width: 22)
+                    .frame(width: dsMetrics.controlSize(22))
             }
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(2)) {
                 Text(title)
-                    .font(DS.Typography.body)
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .regular,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(titleColor)
                     .multilineTextAlignment(.leading)
 
                 if let subtitle, !subtitle.isEmpty {
                     Text(subtitle)
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .multilineTextAlignment(.leading)
                 }
             }
 
-            Spacer(minLength: DS.Spacing.sm)
+            Spacer(minLength: dsMetrics.spacing(DS.Spacing.sm))
 
             accessory()
         }
-        .padding(.horizontal, DS.Spacing.md)
-        .padding(.vertical, 14)
+        .padding(.horizontal, dsMetrics.spacing(DS.Spacing.md))
+        .padding(.vertical, dsMetrics.spacing(14))
         .contentShape(Rectangle())
     }
 
@@ -86,8 +106,10 @@ struct SettingsRow<Accessory: View>: View {
 }
 
 struct SettingsRowDivider: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     var body: some View {
         Divider()
-            .padding(.leading, DS.Spacing.md)
+            .padding(.leading, dsMetrics.spacing(DS.Spacing.md))
     }
 }

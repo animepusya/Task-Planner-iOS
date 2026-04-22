@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorDescriptionEditor: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var state: TaskEditorViewModel.DescriptionSectionState
 
     @FocusState.Binding var focusedField: TaskEditorField?
@@ -18,9 +20,15 @@ struct TaskEditorDescriptionEditor: View {
     private let editorHeight: CGFloat = 132
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(6)) {
             Text("Description")
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             if state.hasNotes || isExpanded {
@@ -46,23 +54,35 @@ struct TaskEditorDescriptionEditor: View {
 
     private var textEditor: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: DS.Radius.sm)
+            RoundedRectangle(cornerRadius: dsMetrics.cornerRadius(DS.Radius.sm))
                 .fill(DS.ColorToken.controlFill)
 
             TextEditor(text: state.notesBinding)
-                .font(DS.Typography.body)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .regular,
+                        category: .body
+                    )
+                )
                 .focused($focusedField, equals: .description)
                 .scrollContentBackground(.hidden)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 8)
-                .frame(height: editorHeight)
+                .padding(.horizontal, dsMetrics.spacing(8))
+                .padding(.vertical, dsMetrics.spacing(8))
+                .frame(height: dsMetrics.controlSize(editorHeight))
 
             if !state.hasNotes {
                 Text("Add a short description…")
-                    .font(DS.Typography.body)
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .regular,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary.opacity(0.8))
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 16)
+                    .padding(.horizontal, dsMetrics.spacing(14))
+                    .padding(.vertical, dsMetrics.spacing(16))
                     .allowsHitTesting(false)
             }
         }
@@ -77,7 +97,13 @@ struct TaskEditorDescriptionEditor: View {
             } label: {
                 HStack {
                     Text("Hide description")
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
                         .fixedSize(horizontal: true, vertical: false)
                     Spacer()
@@ -89,19 +115,25 @@ struct TaskEditorDescriptionEditor: View {
                 isExpanded = true
                 focusedField = .description
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: dsMetrics.spacing(8)) {
                     Image(systemName: "plus.circle.fill")
                         .foregroundStyle(DS.ColorToken.purple)
 
                     Text("Add description")
-                        .font(DS.Typography.caption)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.purple)
                         .fixedSize(horizontal: true, vertical: false)
 
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 6)
+                .padding(.vertical, dsMetrics.spacing(6))
             }
             .buttonStyle(.plain)
         }

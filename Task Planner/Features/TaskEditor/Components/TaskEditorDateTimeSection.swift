@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorDateTimeSection: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var state: TaskEditorViewModel.DateTimeSectionState
 
     let availableWidth: CGFloat
@@ -38,14 +40,26 @@ struct TaskEditorDateTimeSection: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text("Date & Time")
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(state.isInvalid ? .red : DS.ColorToken.textPrimary)
 
             Toggle(isOn: state.isAllDayBinding) {
                 Text("All day")
-                    .font(DS.Typography.body)
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .regular,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .tint(DS.ColorToken.lavender)
@@ -65,7 +79,13 @@ struct TaskEditorDateTimeSection: View {
 
             if let message = state.timeValidationMessage {
                 Text(message)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -79,7 +99,7 @@ struct TaskEditorDateTimeSection: View {
     }
 
     private var pickerRows: some View {
-        VStack(spacing: DS.Spacing.md) {
+        VStack(spacing: dsMetrics.spacing(DS.Spacing.md)) {
             pickerRow(
                 title: String(localized: "Start"),
                 dateIcon: "calendar",
@@ -113,7 +133,7 @@ struct TaskEditorDateTimeSection: View {
     ) -> some View {
         Group {
             if rowMetrics.usesVerticalLayout {
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
                     datePill(title: title, icon: dateIcon, selection: dateSelection)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -121,7 +141,7 @@ struct TaskEditorDateTimeSection: View {
                         .fixedSize(horizontal: true, vertical: false)
                 }
             } else {
-                HStack(alignment: .top, spacing: Layout.rowSpacing) {
+                HStack(alignment: .top, spacing: dsMetrics.spacing(Layout.rowSpacing)) {
                     datePill(title: title, icon: dateIcon, selection: dateSelection)
                         .frame(minWidth: Layout.dateFieldMinimumWidth, maxWidth: .infinity, alignment: .leading)
                         .layoutPriority(1)

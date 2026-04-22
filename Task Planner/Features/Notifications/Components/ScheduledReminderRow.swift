@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ScheduledReminderRow: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let reminder: ScheduledReminderItem
 
     private let doneAnim: Animation = .easeInOut(duration: 0.18)
@@ -24,16 +26,25 @@ struct ScheduledReminderRow: View {
     private var isSuppressed: Bool { reminder.isSuppressed }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             Circle()
                 .fill(reminder.taskColor.uiColor)
-                .frame(width: 10, height: 10)
+                .frame(
+                    width: dsMetrics.spacing(10),
+                    height: dsMetrics.spacing(10)
+                )
                 .opacity(isSuppressed ? 0.55 : 1.0)
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: dsMetrics.spacing(6)) {
+                HStack(spacing: dsMetrics.spacing(8)) {
                     Text(LocalizedDisplayText.taskTitle(reminder.taskTitle))
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .semibold,
+                                category: .body
+                            )
+                        )
                         .foregroundStyle(isSuppressed ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
                         .strikethrough(isSuppressed, color: DS.ColorToken.textSecondary.opacity(0.85))
                         .lineLimit(1)
@@ -45,12 +56,24 @@ struct ScheduledReminderRow: View {
                     Spacer(minLength: 0)
 
                     Image(systemName: isSuppressed ? "bell.slash.fill" : "bell.fill")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(
+                            dsMetrics.font(
+                                13,
+                                weight: .semibold,
+                                category: .micro
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary.opacity(isSuppressed ? 0.55 : 0.8))
                 }
 
                 Text(timeText)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .strikethrough(isSuppressed, pattern: .solid, color: DS.ColorToken.textSecondary.opacity(0.55))
                     .opacity(isSuppressed ? 0.65 : 1.0)
@@ -58,7 +81,7 @@ struct ScheduledReminderRow: View {
 
             Spacer(minLength: 0)
         }
-        .padding(12)
+        .padding(dsMetrics.spacing(12))
         .background(cardSurface)
         .saturation(isSuppressed ? 0.35 : 1.0)
         .grayscale(isSuppressed ? 0.25 : 0.0)
@@ -68,9 +91,19 @@ struct ScheduledReminderRow: View {
     }
 
     private var cardSurface: some View {
-        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+        RoundedRectangle(
+            cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+            style: .continuous
+        )
             .fill(DS.ColorToken.cardBackground)
-            .overlay(topHighlight.clipShape(RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)))
+            .overlay(
+                topHighlight.clipShape(
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+                        style: .continuous
+                    )
+                )
+            )
             .overlay(border)
     }
 
@@ -81,7 +114,10 @@ struct ScheduledReminderRow: View {
     }
 
     private var border: some View {
-        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-            .strokeBorder(DS.Border.subtle, lineWidth: 1)
+        RoundedRectangle(
+            cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+            style: .continuous
+        )
+            .strokeBorder(DS.Border.subtle, lineWidth: dsMetrics.strokeWidth(1))
     }
 }

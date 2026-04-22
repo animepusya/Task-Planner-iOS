@@ -38,31 +38,34 @@ struct NotificationsView: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                NotificationsSetupStrip(viewModel: viewModel)
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.lg)
-                    .padding(.bottom, DS.Spacing.sm)
-            }
-            .listRowInsets(.init())
-            .listRowBackground(Color.clear)
-            .listRowSeparator(.hidden)
+        DSAdaptiveLayoutScope { metrics in
+            List {
+                Section {
+                    NotificationsSetupStrip(viewModel: viewModel)
+                        .padding(.horizontal, metrics.screenPadding(DS.Spacing.lg))
+                        .padding(.top, metrics.spacing(DS.Spacing.lg))
+                        .padding(.bottom, metrics.spacing(DS.Spacing.sm))
+                        .dsContentFrame(.modal)
+                }
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
 
-            NotificationsScheduledSection(viewModel: viewModel, tasks: tasks)
+                NotificationsScheduledSection(viewModel: viewModel, tasks: tasks)
+            }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
+            .background(DS.ColorToken.appBackground.ignoresSafeArea())
+            .navigationBarHidden(true)
+            .safeAreaInset(edge: .top) {
+                NotificationsTopBar(
+                    title: String(localized: "Notifications"),
+                    onBack: { dismiss() }
+                )
+                .padding(.top, metrics.spacing(6))
+                .background(DS.ColorToken.appBackground.opacity(0.92))
+            }
+            .onAppear { viewModel.onAppear() }
         }
-        .listStyle(.plain)
-        .scrollContentBackground(.hidden)
-        .background(DS.ColorToken.appBackground.ignoresSafeArea())
-        .navigationBarHidden(true)
-        .safeAreaInset(edge: .top) {
-            NotificationsTopBar(
-                title: String(localized: "Notifications"),
-                onBack: { dismiss() }
-            )
-            .padding(.top, 6)
-            .background(DS.ColorToken.appBackground.opacity(0.92))
-        }
-        .onAppear { viewModel.onAppear() }
     }
 }

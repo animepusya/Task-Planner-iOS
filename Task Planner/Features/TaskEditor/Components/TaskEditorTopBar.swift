@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorTopBar: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @ObservedObject var state: TaskEditorViewModel.ChromeState
 
     let onBack: () -> Void
@@ -19,9 +21,18 @@ struct TaskEditorTopBar: View {
         HStack {
             Button(action: onBack) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            16,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                 .foregroundStyle(DS.ColorToken.textPrimary)
-                .frame(width: 40, height: 40)
+                .frame(
+                    width: dsMetrics.controlSize(40),
+                    height: dsMetrics.controlSize(40)
+                )
                 .dsSurface(Circle(), fill: DS.Surface.card)
             }
             .buttonStyle(.plain)
@@ -30,7 +41,13 @@ struct TaskEditorTopBar: View {
             Spacer()
 
             Text(state.navigationTitle)
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        16,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.9)
@@ -68,16 +85,22 @@ struct TaskEditorTopBar: View {
     }
 
     private var saveLabel: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: dsMetrics.spacing(8)) {
             if state.isBusy {
                 ProgressView().scaleEffect(0.85).tint(.white)
             }
             Text("Save")
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        14,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(.white)
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
+        .padding(.horizontal, dsMetrics.spacing(18))
+        .padding(.vertical, dsMetrics.spacing(10))
         .background(DS.GradientToken.brand)
         .cornerRadius(DS.Radius.pill)
     }

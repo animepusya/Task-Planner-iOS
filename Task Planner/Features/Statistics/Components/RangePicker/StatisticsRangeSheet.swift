@@ -10,6 +10,7 @@ import SwiftUI
 struct StatisticsRangeSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @Binding var range: StatisticsRange
     @Binding var anchorDate: Date
@@ -33,66 +34,77 @@ struct StatisticsRangeSheet: View {
     }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            ZStack {
-                AppBackgroundView(
-                    gradient: DS.GradientToken.pinkPurpleSoft,
-                    gradientOpacity: 0.55,
-                    blurRadius: 22
-                )
-                .ignoresSafeArea()
+        DSAdaptiveLayoutScope { metrics in
+            NavigationStack(path: $navigationPath) {
+                ZStack {
+                    AppBackgroundView(
+                        gradient: DS.GradientToken.pinkPurpleSoft,
+                        gradientOpacity: 0.55,
+                        blurRadius: 22
+                    )
+                    .ignoresSafeArea()
 
-                ScrollView(.vertical, showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                        headerSection
-                        quickActionButton
-                        pickerContent
+                    ScrollView(.vertical, showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: metrics.spacing(DS.Spacing.lg)) {
+                            headerSection
+                            quickActionButton
+                            pickerContent
+                        }
+                        .padding(.horizontal, metrics.screenPadding(DS.Spacing.lg))
+                        .padding(.top, metrics.spacing(DS.Spacing.lg))
+                        .padding(.bottom, metrics.spacing(DS.Spacing.xl))
+                        .dsContentFrame(.modal)
                     }
-                    .padding(.horizontal, DS.Spacing.lg)
-                    .padding(.top, DS.Spacing.lg)
-                    .padding(.bottom, DS.Spacing.xl)
                 }
-            }
-            .navigationTitle("Filters")
-            .navigationBarTitleDisplayMode(.inline)
-            .navigationDestination(for: StatisticsRangeRoute.self) { route in
-                switch route {
-                case .paywall(let entryPoint):
-                    PaywallView(entryPoint: entryPoint)
+                .navigationTitle("Filters")
+                .navigationBarTitleDisplayMode(.inline)
+                .navigationDestination(for: StatisticsRangeRoute.self) { route in
+                    switch route {
+                    case .paywall(let entryPoint):
+                        PaywallView(entryPoint: entryPoint)
+                    }
                 }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Close") { dismiss() }
-                }
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Close") { dismiss() }
+                    }
 
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") {
-                        applySelection()
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Done") {
+                            applySelection()
+                        }
+                        .fontWeight(.semibold)
                     }
-                    .fontWeight(.semibold)
                 }
             }
         }
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
-        .presentationCornerRadius(32)
+        .presentationCornerRadius(
+            UIDevice.current.userInterfaceIdiom == .pad ? 44 : 32
+        )
         .presentationBackground(.clear)
         .animation(.easeInOut(duration: 0.2), value: draftRange)
     }
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(14)) {
             Text("Period")
-                .font(DS.Typography.sectionTitle)
+                .font(
+                    dsMetrics.font(
+                        18,
+                        weight: .semibold,
+                        category: .title
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             LazyVGrid(
                 columns: [
-                    GridItem(.flexible(), spacing: 10),
-                    GridItem(.flexible(), spacing: 10)
+                    GridItem(.flexible(), spacing: dsMetrics.spacing(10)),
+                    GridItem(.flexible(), spacing: dsMetrics.spacing(10))
                 ],
-                spacing: 10
+                spacing: dsMetrics.spacing(10)
             ) {
                 ForEach(StatisticsRange.allCases) { item in
                     rangeButton(for: item)
@@ -105,18 +117,30 @@ struct StatisticsRangeSheet: View {
         Button {
             applyQuickAction()
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: dsMetrics.spacing(10)) {
                 Image(systemName: "location.fill")
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
 
                 Text(quickActionTitle)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .semibold,
+                            category: .body
+                        )
+                    )
 
                 Spacer()
             }
             .foregroundStyle(.white)
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
+            .padding(.vertical, dsMetrics.spacing(12))
+            .padding(.horizontal, dsMetrics.spacing(14))
             .background(
                 Capsule()
                     .fill(DS.ColorToken.purple)
@@ -169,9 +193,15 @@ struct StatisticsRangeSheet: View {
         return Button {
             draftRange = item
         } label: {
-            HStack(spacing: 8) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 Text(item.title)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            14,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(isSelected ? Color.white : DS.ColorToken.textPrimary)
 
                 if isLocked {
@@ -180,16 +210,25 @@ struct StatisticsRangeSheet: View {
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 12)
+            .padding(.horizontal, dsMetrics.spacing(14))
+            .padding(.vertical, dsMetrics.spacing(12))
             .frame(maxWidth: .infinity)
             .background(
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+                RoundedRectangle(
+                    cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+                    style: .continuous
+                )
                     .fill(isSelected ? AnyShapeStyle(DS.GradientToken.brand) : AnyShapeStyle(DS.Surface.card))
             )
             .overlay {
-                RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
-                    .stroke(isSelected ? DS.ColorToken.purple.opacity(0.10) : DS.Border.subtle, lineWidth: 1)
+                RoundedRectangle(
+                    cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+                    style: .continuous
+                )
+                    .stroke(
+                        isSelected ? DS.ColorToken.purple.opacity(0.10) : DS.Border.subtle,
+                        lineWidth: dsMetrics.strokeWidth(1)
+                    )
             }
         }
         .buttonStyle(.plain)

@@ -8,23 +8,31 @@
 import SwiftUI
 
 struct StatisticsMonthPickerCard: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selectedDate: Date
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
-
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        let adaptiveColumns = [
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10)),
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10)),
+            GridItem(.flexible(), spacing: dsMetrics.spacing(10))
+        ]
+
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text("Choose month")
-                .font(DS.Typography.subtitle)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .medium,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             yearStepper
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: adaptiveColumns, spacing: dsMetrics.spacing(10)) {
                 ForEach(Array(monthItems.enumerated()), id: \.offset) { index, monthName in
                     monthButton(
                         title: monthName,
@@ -39,12 +47,18 @@ struct StatisticsMonthPickerCard: View {
     private var yearStepper: some View {
         HStack {
             Text(String(format: "%d", selectedYear))
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        22,
+                        weight: .bold,
+                        category: .display
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
             Spacer()
 
-            HStack(spacing: 8) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 navButton(systemName: "chevron.left") {
                     shiftYear(-1)
                 }
@@ -63,17 +77,32 @@ struct StatisticsMonthPickerCard: View {
             selectMonth(month)
         } label: {
             Text(title)
-                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        14,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(isSelected ? .white : DS.ColorToken.textPrimary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, dsMetrics.spacing(12))
                 .background(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(14),
+                        style: .continuous
+                    )
                         .fill(isSelected ? DS.ColorToken.purple : DS.Surface.chrome)
                 )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(isSelected ? Color.clear : DS.Border.subtle, lineWidth: 1)
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(14),
+                        style: .continuous
+                    )
+                        .stroke(
+                            isSelected ? Color.clear : DS.Border.subtle,
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
                 )
         }
         .buttonStyle(.plain)
@@ -82,11 +111,25 @@ struct StatisticsMonthPickerCard: View {
     private func navButton(systemName: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
                 Image(systemName: systemName)
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            13,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
-                    .frame(width: 34, height: 34)
+                    .frame(
+                        width: dsMetrics.controlSize(34),
+                        height: dsMetrics.controlSize(34)
+                    )
                     .background(Circle().fill(DS.Surface.chrome))
-                    .overlay(Circle().stroke(DS.Border.subtle, lineWidth: 1))
+                    .overlay(
+                        Circle().stroke(
+                            DS.Border.subtle,
+                            lineWidth: dsMetrics.strokeWidth(1)
+                        )
+                    )
         }
         .buttonStyle(.plain)
     }

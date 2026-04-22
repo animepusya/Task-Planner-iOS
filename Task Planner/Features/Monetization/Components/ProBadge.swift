@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ProBadge: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     enum Size {
         case small
         case regular
@@ -58,16 +60,33 @@ struct ProBadge: View {
     var body: some View {
         ZStack {
             Image(systemName: "sparkles")
-                .font(.system(size: size.primaryFont, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        size.primaryFont,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.GradientToken.brandPink)
 
             Image(systemName: "sparkle")
-                .font(.system(size: size.secondaryFont, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        size.secondaryFont,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.purple.opacity(0.95))
-                .offset(size.symbolOffset)
+                .offset(
+                    x: dsMetrics.spacing(size.symbolOffset.width),
+                    y: dsMetrics.spacing(size.symbolOffset.height)
+                )
         }
-        .offset(size.opticalCenterOffset)
+        .offset(
+            x: dsMetrics.spacing(size.opticalCenterOffset.width),
+            y: dsMetrics.spacing(size.opticalCenterOffset.height)
+        )
         .accessibilityHidden(true)
     }
 }
-

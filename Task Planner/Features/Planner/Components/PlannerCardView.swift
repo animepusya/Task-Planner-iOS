@@ -27,6 +27,7 @@ struct PlannerCardModel: Hashable {
 
 struct PlannerCardView<TopRight: View>: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     let model: PlannerCardModel
     @ViewBuilder let topRight: () -> TopRight
@@ -34,11 +35,8 @@ struct PlannerCardView<TopRight: View>: View {
     private var surfaceOpacity: Double { model.isMuted ? 0.16 : 0.40 }
     private let doneAnim: Animation = .easeInOut(duration: 0.18)
 
-    private let thumbSide: CGFloat = 52
-    private let thumbCornerRadius: CGFloat = DS.Radius.sm
-
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: dsMetrics.spacing(12)) {
             leadingContent
 
             Spacer(minLength: 0)
@@ -47,9 +45,9 @@ struct PlannerCardView<TopRight: View>: View {
                 thumbContainer(thumb)
             }
         }
-        .padding(.vertical, DS.Spacing.md)
-        .padding(.trailing, DS.Spacing.md)
-        .padding(.leading, DS.Spacing.sm)
+        .padding(.vertical, dsMetrics.spacing(DS.Spacing.md))
+        .padding(.trailing, dsMetrics.spacing(DS.Spacing.md))
+        .padding(.leading, dsMetrics.spacing(DS.Spacing.sm))
         .dsCard(padding: 0) {
             cardBackground
         }
@@ -62,7 +60,7 @@ struct PlannerCardView<TopRight: View>: View {
 
 
     private var leadingContent: some View {
-        HStack(spacing: usesDarkAccentTreatment ? DS.Spacing.sm : 0) {
+        HStack(spacing: usesDarkAccentTreatment ? dsMetrics.spacing(DS.Spacing.sm) : 0) {
             if usesDarkAccentTreatment {
                 accentBar
             }
@@ -72,10 +70,16 @@ struct PlannerCardView<TopRight: View>: View {
     }
 
     private var contentLeft: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(6)) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 Text(model.title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(
+                        dsMetrics.font(
+                            15,
+                            weight: .semibold,
+                            category: .body
+                        )
+                    )
                     .foregroundStyle(model.isMuted ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
                     .strikethrough(model.isMuted, color: DS.ColorToken.textSecondary.opacity(0.85))
 
@@ -89,24 +93,45 @@ struct PlannerCardView<TopRight: View>: View {
             }
 
             Text(model.subtitle)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
                 .lineLimit(1)
 
-            HStack(spacing: 6) {
+            HStack(spacing: dsMetrics.spacing(6)) {
                 Image(systemName: "clock")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .semibold,
+                            category: .micro
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
 
                 Text(model.timeText)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
             }
         }
     }
 
     private func thumbContainer(_ ui: UIImage) -> some View {
-        ZStack {
+        let thumbSide = dsMetrics.controlSize(52)
+        let thumbCornerRadius = dsMetrics.cornerRadius(DS.Radius.sm)
+
+        return ZStack {
             RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
                 .fill(DS.Surface.chrome)
 
@@ -121,7 +146,7 @@ struct PlannerCardView<TopRight: View>: View {
             RoundedRectangle(cornerRadius: thumbCornerRadius, style: .continuous)
                 .stroke(DS.Border.subtle, lineWidth: 1)
         )
-        .padding(.leading, 2)
+        .padding(.leading, dsMetrics.spacing(2))
         .accessibilityLabel("Task photo")
     }
 
@@ -138,22 +163,28 @@ struct PlannerCardView<TopRight: View>: View {
     }
 
     private var accentBar: some View {
-        RoundedRectangle(cornerRadius: 3, style: .continuous)
+        RoundedRectangle(cornerRadius: dsMetrics.detailSize(3), style: .continuous)
             .fill(model.surfaceColor.opacity(model.isMuted ? 0.45 : 0.96))
-            .frame(width: 4, height: 58)
+            .frame(
+                width: dsMetrics.detailSize(4),
+                height: dsMetrics.controlSize(58)
+            )
             .shadow(
                 color: model.surfaceColor.opacity(model.isMuted ? 0.0 : 0.24),
-                radius: 10,
+                radius: dsMetrics.spacing(10),
                 x: 0,
                 y: 0
             )
     }
 
     private var doneOverlay: some View {
-        RoundedRectangle(cornerRadius: DS.Radius.md, style: .continuous)
+        RoundedRectangle(
+            cornerRadius: dsMetrics.cornerRadius(DS.Radius.md),
+            style: .continuous
+        )
             .stroke(
                 DS.ColorToken.textSecondary.opacity(model.isMuted ? 0.22 : 0.0),
-                lineWidth: 1
+                lineWidth: dsMetrics.strokeWidth(1)
             )
     }
 
@@ -163,10 +194,16 @@ struct PlannerCardView<TopRight: View>: View {
 
     private func badgePill(text: String, isMuted: Bool) -> some View {
         Text(text)
-            .font(.system(size: 12, weight: .semibold, design: .rounded))
+            .font(
+                dsMetrics.font(
+                    12,
+                    weight: .semibold,
+                    category: .micro
+                )
+            )
             .foregroundStyle(DS.ColorToken.textSecondary)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .padding(.horizontal, dsMetrics.spacing(10))
+            .padding(.vertical, dsMetrics.spacing(4))
             .background(
                 Capsule()
                     .fill(DS.ColorToken.textSecondary.opacity(isMuted ? 0.10 : 0.14))
@@ -175,16 +212,30 @@ struct PlannerCardView<TopRight: View>: View {
 }
 
 struct ImportedIndicatorPill: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: dsMetrics.spacing(6)) {
             Image(systemName: "applelogo")
-                .font(.system(size: 11, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        11,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
             Text("Imported")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(
+                    dsMetrics.font(
+                        11,
+                        weight: .semibold,
+                        category: .micro
+                    )
+                )
         }
         .foregroundStyle(DS.ColorToken.textSecondary)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 4)
+        .padding(.horizontal, dsMetrics.spacing(10))
+        .padding(.vertical, dsMetrics.spacing(4))
         .background(
             Capsule()
                 .fill(DS.ColorToken.textSecondary.opacity(0.12))

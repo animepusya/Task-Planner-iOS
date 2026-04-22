@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorPillField<Trailing: View>: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let title: String?
     let icon: String
     let trailingMinWidth: CGFloat
@@ -45,22 +47,34 @@ struct TaskEditorPillField<Trailing: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(6)) {
             if let title {
                 Text(title)
-                    .font(DS.Typography.caption)
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
+                    )
                     .foregroundStyle(DS.ColorToken.textSecondary)
             } else if reservesTitleSpace {
                 Color.clear
-                    .frame(height: 14)
+                    .frame(height: dsMetrics.spacing(14))
             }
 
-            HStack(spacing: 8) {
+            HStack(spacing: dsMetrics.spacing(8)) {
                 if showsIcon {
                     Image(systemName: icon)
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(
+                            dsMetrics.font(
+                                13,
+                                weight: .semibold,
+                                category: .micro
+                            )
+                        )
                         .foregroundStyle(DS.ColorToken.textSecondary)
-                        .frame(width: 18, alignment: .center)
+                        .frame(width: dsMetrics.controlSize(18), alignment: .center)
                 }
 
                 trailing()
@@ -73,12 +87,15 @@ struct TaskEditorPillField<Trailing: View>: View {
                     .clipped()
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
+            .padding(dsMetrics.spacing(10))
             .background(DS.ColorToken.controlFill)
-            .cornerRadius(DS.Radius.sm)
+            .cornerRadius(dsMetrics.cornerRadius(DS.Radius.sm))
             .overlay {
                 if let pillOverlayFill {
-                    RoundedRectangle(cornerRadius: DS.Radius.sm, style: .continuous)
+                    RoundedRectangle(
+                        cornerRadius: dsMetrics.cornerRadius(DS.Radius.sm),
+                        style: .continuous
+                    )
                         .fill(pillOverlayFill)
                         .allowsHitTesting(false)
                 }

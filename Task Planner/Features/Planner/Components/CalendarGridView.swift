@@ -8,16 +8,23 @@
 import SwiftUI
 
 struct CalendarGridView: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let days: [PlannerMonthDayViewData]
     let onSelectDay: (Date) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
-    private let rowHeight: CGFloat = 44
-    private let rowSpacing: CGFloat = 10
-    private let topPadding: CGFloat = 6
 
     var body: some View {
-        LazyVGrid(columns: columns, spacing: rowSpacing) {
+        let rowSpacing = dsMetrics.spacing(10)
+        let topPadding = dsMetrics.spacing(6)
+        let rowHeight = dsMetrics.controlSize(44)
+        let adaptiveColumns = Array(
+            repeating: GridItem(.flexible(), spacing: rowSpacing),
+            count: columns.count
+        )
+
+        LazyVGrid(columns: adaptiveColumns, spacing: rowSpacing) {
             ForEach(days) { day in
                 DayCellView(
                     dayNumber: day.dayNumber,

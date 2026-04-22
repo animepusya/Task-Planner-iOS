@@ -9,6 +9,8 @@ import Foundation
 import SwiftUI
 
 struct IconCircleButton: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     let systemName: String
     let foregroundColor: Color
     let backgroundColor: Color
@@ -29,9 +31,19 @@ struct IconCircleButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 17, weight: .semibold))
+                .font(
+                    dsMetrics.font(
+                        17,
+                        weight: .semibold,
+                        design: .rounded,
+                        category: .micro
+                    )
+                )
                 .foregroundStyle(foregroundColor)
-                .frame(width: 42, height: 42)
+                .frame(
+                    width: dsMetrics.controlSize(42),
+                    height: dsMetrics.controlSize(42)
+                )
                 .dsSurface(Circle(), fill: backgroundColor)
         }
         .buttonStyle(.plain)

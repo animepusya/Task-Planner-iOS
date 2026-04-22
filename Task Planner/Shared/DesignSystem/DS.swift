@@ -240,3 +240,191 @@ enum DS {
         }
     }
 }
+
+enum DSContentWidthRole {
+    case screen
+    case wide
+    case modal
+}
+
+struct DSAdaptiveMetrics: Equatable {
+    enum FontCategory {
+        case display
+        case title
+        case body
+        case caption
+        case micro
+    }
+
+    let containerSize: CGSize
+    let safeAreaInsets: EdgeInsets
+    let horizontalSizeClass: UserInterfaceSizeClass?
+    let verticalSizeClass: UserInterfaceSizeClass?
+    let idiom: UIUserInterfaceIdiom
+
+    static let fallback = DSAdaptiveMetrics(
+        containerSize: .zero,
+        safeAreaInsets: EdgeInsets(),
+        horizontalSizeClass: nil,
+        verticalSizeClass: nil,
+        idiom: UIDevice.current.userInterfaceIdiom
+    )
+
+    var isLargePad: Bool {
+        idiom == .pad
+        && horizontalSizeClass == .regular
+        && containerSize.width >= 900
+        && max(containerSize.width, containerSize.height) >= 1024
+    }
+
+    var tabBarMinHeight: CGFloat {
+        isLargePad ? 60 : DS.Layout.tabBarMinHeight
+    }
+
+    var tabBarBottomSpacing: CGFloat {
+        isLargePad ? 12 : DS.Layout.tabBarBottomSpacing
+    }
+
+    var tabBarReservedScrollSpace: CGFloat {
+        isLargePad ? 104 : DS.Layout.tabBarReservedScrollSpace
+    }
+
+    var sheetCornerRadius: CGFloat {
+        isLargePad ? 44 : 32
+    }
+
+    func spacing(_ value: CGFloat) -> CGFloat {
+        scale(value, by: 1.35)
+    }
+
+    func screenPadding(_ value: CGFloat) -> CGFloat {
+        scale(value, by: 1.5)
+    }
+
+    func controlSize(_ value: CGFloat) -> CGFloat {
+        scale(value, by: 1.55)
+    }
+
+    func detailSize(_ value: CGFloat) -> CGFloat {
+        guard isLargePad, value > 0 else { return value }
+        return rounded(max(value * 3.0, value + 6))
+    }
+
+    func cornerRadius(_ value: CGFloat) -> CGFloat {
+        scale(value, by: 1.35)
+    }
+
+    func strokeWidth(_ value: CGFloat) -> CGFloat {
+        guard isLargePad else { return value }
+        return value * 1.2
+    }
+
+    func fontSize(_ value: CGFloat, category: FontCategory = .body) -> CGFloat {
+        guard isLargePad, value > 0 else { return value }
+
+        let multiplier: CGFloat
+        switch category {
+        case .display:
+            multiplier = 1.45
+        case .title:
+            multiplier = 1.34
+        case .body:
+            multiplier = 1.2
+        case .caption:
+            multiplier = 1.28
+        case .micro:
+            multiplier = 1.42
+        }
+
+        return rounded(value * multiplier)
+    }
+
+    func font(
+        _ size: CGFloat,
+        weight: Font.Weight,
+        design: Font.Design = .rounded,
+        category: FontCategory = .body
+    ) -> Font {
+        .system(
+            size: fontSize(size, category: category),
+            weight: weight,
+            design: design
+        )
+    }
+
+    func maxWidth(for role: DSContentWidthRole) -> CGFloat? {
+        guard isLargePad else { return nil }
+
+        switch role {
+        case .screen:
+            return 920
+        case .wide:
+            return 980
+        case .modal:
+            return 860
+        }
+    }
+
+    func topSectionLeadingPadding(base: CGFloat) -> CGFloat {
+        let basePadding = screenPadding(base)
+        guard isLargePad else { return basePadding }
+        return max(basePadding, safeAreaInsets.leading + 24)
+    }
+
+    func topSectionTrailingPadding(base: CGFloat) -> CGFloat {
+        let basePadding = screenPadding(base)
+        guard isLargePad else { return basePadding }
+        return max(basePadding, 32)
+    }
+
+    private func scale(_ value: CGFloat, by multiplier: CGFloat) -> CGFloat {
+        guard isLargePad, value != 0 else { return value }
+        return rounded(value * multiplier)
+    }
+
+    private func rounded(_ value: CGFloat) -> CGFloat {
+        (value * 2).rounded() / 2
+    }
+}
+
+private struct DSAdaptiveMetricsKey: EnvironmentKey {
+    static let defaultValue: DSAdaptiveMetrics = .fallback
+}
+
+extension EnvironmentValues {
+    var dsAdaptiveMetrics: DSAdaptiveMetrics {
+        get { self[DSAdaptiveMetricsKey.self] }
+        set { self[DSAdaptiveMetricsKey.self] = newValue }
+    }
+}
+
+struct DSAdaptiveLayoutScope<Content: View>: View {
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    private let content: (DSAdaptiveMetrics) -> Content
+
+    init(@ViewBuilder content: @escaping (DSAdaptiveMetrics) -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let metrics = DSAdaptiveMetrics(
+                containerSize: proxy.size,
+                safeAreaInsets: proxy.safeAreaInsets,
+                horizontalSizeClass: horizontalSizeClass,
+                verticalSizeClass: verticalSizeClass,
+                idiom: UIDevice.current.userInterfaceIdiom
+            )
+
+            content(metrics)
+                .environment(\.dsAdaptiveMetrics, metrics)
+                .frame(
+                    width: proxy.size.width,
+                    height: proxy.size.height,
+                    alignment: .topLeading
+                )
+        }
+    }
+}

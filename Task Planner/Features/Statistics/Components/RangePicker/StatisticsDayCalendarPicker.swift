@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct StatisticsDayCalendarPicker: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     @Binding var selectedDate: Date
     let weekStartsOnMonday: Bool
 
@@ -22,9 +24,21 @@ struct StatisticsDayCalendarPicker: View {
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+        let gridSpacing = dsMetrics.spacing(10)
+        let adaptiveColumns = Array(
+            repeating: GridItem(.flexible(), spacing: dsMetrics.spacing(8)),
+            count: columns.count
+        )
+
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
             Text("Choose day")
-                .font(DS.Typography.subtitle)
+                .font(
+                    dsMetrics.font(
+                        15,
+                        weight: .medium,
+                        category: .body
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             StatisticsCalendarHeader(
@@ -40,7 +54,7 @@ struct StatisticsDayCalendarPicker: View {
                 )
             )
 
-            LazyVGrid(columns: columns, spacing: 10) {
+            LazyVGrid(columns: adaptiveColumns, spacing: gridSpacing) {
                 ForEach(monthItems, id: \.id) { item in
                     StatisticsCalendarDayCell(
                         dayNumber: item.dayNumber,
@@ -84,7 +98,10 @@ struct StatisticsDayCalendarPicker: View {
             background: AnyView(
                 Group {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        RoundedRectangle(
+                            cornerRadius: dsMetrics.cornerRadius(12),
+                            style: .continuous
+                        )
                             .fill(DS.ColorToken.purple)
                     } else {
                         Color.clear

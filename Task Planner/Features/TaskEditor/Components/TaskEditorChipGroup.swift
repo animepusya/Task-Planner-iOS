@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct TaskEditorChipGroup: View {
+    @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+
     struct Chip: Identifiable {
         let id: String
         let title: String
@@ -24,20 +26,32 @@ struct TaskEditorChipGroup: View {
     let chips: [Chip]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(10)) {
             Text(title)
-                .font(DS.Typography.caption)
+                .font(
+                    dsMetrics.font(
+                        12,
+                        weight: .medium,
+                        category: .caption
+                    )
+                )
                 .foregroundStyle(DS.ColorToken.textSecondary)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
+                HStack(spacing: dsMetrics.spacing(10)) {
                     ForEach(chips) { chip in
                         Button(action: chip.action) {
                             Text(chip.title)
-                                .font(DS.Typography.caption)
+                                .font(
+                                    dsMetrics.font(
+                                        12,
+                                        weight: .medium,
+                                        category: .caption
+                                    )
+                                )
                                 .foregroundStyle(DS.ColorToken.textPrimary)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
+                                .padding(.horizontal, dsMetrics.spacing(12))
+                                .padding(.vertical, dsMetrics.spacing(8))
                                 .background(DS.ColorToken.lavender.opacity(0.45))
                                 .cornerRadius(DS.Radius.pill)
                         }
@@ -45,7 +59,7 @@ struct TaskEditorChipGroup: View {
                     }
                     Spacer(minLength: 0)
                 }
-                .padding(.bottom, 2)
+                .padding(.bottom, dsMetrics.spacing(2))
             }
         }
     }
