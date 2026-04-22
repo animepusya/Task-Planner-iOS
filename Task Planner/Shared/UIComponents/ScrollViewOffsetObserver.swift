@@ -8,20 +8,10 @@
 import SwiftUI
 import UIKit
 
-enum ScrollViewOffsetMeasurement {
-    case adjustedContentInsetTop
-    case relativeToInitialOffset
-}
-
 struct ScrollViewOffsetReader: View {
-    let measurement: ScrollViewOffsetMeasurement
     let perform: (CGFloat) -> Void
 
-    init(
-        measurement: ScrollViewOffsetMeasurement = .adjustedContentInsetTop,
-        perform: @escaping (CGFloat) -> Void
-    ) {
-        self.measurement = measurement
+    init(perform: @escaping (CGFloat) -> Void) {
         self.perform = perform
     }
 
@@ -32,7 +22,6 @@ struct ScrollViewOffsetReader: View {
             .frame(height: 0)
             .background {
                 ScrollViewOffsetObserverRepresentable(
-                    measurement: measurement,
                     onOffsetChange: perform
                 )
             }
@@ -42,14 +31,10 @@ struct ScrollViewOffsetReader: View {
 }
 
 private struct ScrollViewOffsetObserverRepresentable: UIViewRepresentable {
-    let measurement: ScrollViewOffsetMeasurement
     let onOffsetChange: (CGFloat) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(
-            measurement: measurement,
-            onOffsetChange: onOffsetChange
-        )
+        Coordinator(onOffsetChange: onOffsetChange)
     }
 
     func makeUIView(context: Context) -> ScrollViewObservationView {
@@ -61,7 +46,6 @@ private struct ScrollViewOffsetObserverRepresentable: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: ScrollViewObservationView, context: Context) {
-        context.coordinator.measurement = measurement
         context.coordinator.onOffsetChange = onOffsetChange
         uiView.coordinator = context.coordinator
 
@@ -73,22 +57,16 @@ private struct ScrollViewOffsetObserverRepresentable: UIViewRepresentable {
 
 private extension ScrollViewOffsetObserverRepresentable {
     final class Coordinator: NSObject {
-        var measurement: ScrollViewOffsetMeasurement
         var onOffsetChange: (CGFloat) -> Void
 
         private weak var scrollView: UIScrollView?
         private var contentOffsetObservation: NSKeyValueObservation?
         private var contentInsetObservation: NSKeyValueObservation?
         private var boundsObservation: NSKeyValueObservation?
-        private var initialContentOffsetY: CGFloat?
         private var pendingOffset: CGFloat?
         private var isDeliveryScheduled = false
 
-        init(
-            measurement: ScrollViewOffsetMeasurement,
-            onOffsetChange: @escaping (CGFloat) -> Void
-        ) {
-            self.measurement = measurement
+        init(onOffsetChange: @escaping (CGFloat) -> Void) {
             self.onOffsetChange = onOffsetChange
         }
 
@@ -100,7 +78,6 @@ private extension ScrollViewOffsetObserverRepresentable {
                 contentInsetObservation = nil
                 boundsObservation = nil
                 scrollView = resolvedScrollView
-                initialContentOffsetY = nil
                 observe(scrollView: resolvedScrollView)
             }
 
@@ -131,28 +108,14 @@ private extension ScrollViewOffsetObserverRepresentable {
         }
 
         private func notifyOffset(from scrollView: UIScrollView) {
-            let effectiveOffset: CGFloat
-
-            switch measurement {
-            case .adjustedContentInsetTop:
-                effectiveOffset = max(
-                    0,
-                    scrollView.contentOffset.y + scrollView.adjustedContentInset.top
-                )
-            case .relativeToInitialOffset:
-                let currentOffsetY = scrollView.contentOffset.y
-
-                if let baseline = initialContentOffsetY {
-                    let isInteracting = scrollView.isTracking || scrollView.isDragging || scrollView.isDecelerating
-                    if !isInteracting && currentOffsetY < baseline {
-                        initialContentOffsetY = currentOffsetY
-                    }
-                } else {
-                    initialContentOffsetY = currentOffsetY
-                }
-
-                effectiveOffset = max(0, currentOffsetY - (initialContentOffsetY ?? currentOffsetY))
-            }
+            // Derive the visible scroll distance from the scroll view's real top inset
+            // instead of the moment this observer attaches. That keeps header state
+            // aligned with preserved scroll position after tab switches, re-layouts,
+            // and scroll-view reattachment.
+            let effectiveOffset = max(
+                0,
+                scrollView.contentOffset.y + scrollView.adjustedContentInset.top
+            )
 
             queueOffsetDelivery(effectiveOffset)
         }

@@ -121,12 +121,11 @@ struct PlannerView: View {
             .frame(height: resolvedHeaderReservedHeight)
             .frame(maxWidth: .infinity)
             .background {
-                if isActive {
-                    // Planner uses a stable overlay header, so progress is driven only by
-                    // the list's own movement and never by the header changing the list inset.
-                    ScrollViewOffsetReader(measurement: .relativeToInitialOffset) { offset in
-                        updateHeaderCollapse(offset, style: .planner)
-                    }
+                // Keep the observer attached even while the tab is inactive so the header
+                // stays synchronized with the list's real geometry across tab switches and
+                // window/layout changes.
+                ScrollViewOffsetReader { offset in
+                    updateHeaderCollapse(offset, style: .planner)
                 }
             }
             .allowsHitTesting(false)

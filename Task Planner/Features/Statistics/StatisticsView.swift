@@ -139,13 +139,11 @@ struct StatisticsView: View {
             .frame(height: resolvedHeaderReservedHeight)
             .frame(maxWidth: .infinity)
             .background {
-                if isActive {
-                    // Statistics now uses the same stable contract as Planner:
-                    // scroll movement drives progress, while the header no longer changes
-                    // the scroll view's insets during bounce/overscroll.
-                    ScrollViewOffsetReader(measurement: .relativeToInitialOffset) { offset in
-                        updateHeaderCollapse(offset, style: .statistics)
-                    }
+                // Keep the observer attached even while the tab is inactive so the header
+                // stays synchronized with the scroll view's real geometry across tab
+                // switches and window/layout changes.
+                ScrollViewOffsetReader { offset in
+                    updateHeaderCollapse(offset, style: .statistics)
                 }
             }
             .allowsHitTesting(false)
