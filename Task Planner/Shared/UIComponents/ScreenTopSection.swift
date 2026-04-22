@@ -155,7 +155,7 @@ struct ScreenTopSection<Trailing: View>: View {
             alignment: style.contentAlignment,
             spacing: dsMetrics.spacing(style.leadingTrailingSpacing)
         ) {
-            VStack(alignment: .leading, spacing: subtitle == nil ? 0 : subtitleSpacing) {
+            VStack(alignment: .leading, spacing: 0) {
                 Text(title)
                     .font(DS.Typography.screenTitle(size: titleSize))
                     .foregroundStyle(DS.ColorToken.textPrimary)
@@ -164,34 +164,16 @@ struct ScreenTopSection<Trailing: View>: View {
                     .allowsTightening(true)
 
                 if let subtitle {
-                    Text(subtitle)
-                        .font(
-                            DS.Typography.screenSubtitle(
-                                size: dsMetrics.fontSize(15, category: .body)
-                            )
-                        )
-                        .foregroundStyle(DS.ColorToken.textSecondary)
-                        .lineLimit(style.subtitleLineLimit)
-                        .multilineTextAlignment(.leading)
-                        .minimumScaleFactor(0.92)
-                        .allowsTightening(true)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .offset(y: subtitleVerticalOffset)
-                        .frame(maxHeight: subtitleHeight, alignment: .topLeading)
-                        .clipped()
-                        .mask {
-                            LinearGradient(
-                                stops: [
-                                    .init(color: .black, location: 0),
-                                    .init(color: .black, location: subtitleFadeStart),
-                                    .init(color: .clear, location: 1)
-                                ],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            )
-                        }
-                        .opacity(subtitleOpacity)
+                    ScreenTopSectionSubtitleSlot(
+                        subtitle: subtitle,
+                        lineLimit: style.subtitleLineLimit,
+                        fontSize: dsMetrics.fontSize(15, category: .body),
+                        topSpacing: subtitleSpacing,
+                        visibleHeight: subtitleHeight,
+                        verticalOffset: subtitleVerticalOffset,
+                        fadeStart: subtitleFadeStart,
+                        opacity: subtitleOpacity
+                    )
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -226,6 +208,51 @@ struct ScreenTopSection<Trailing: View>: View {
     ) -> CGFloat {
         guard end > start else { return progress >= end ? 1 : 0 }
         return max(0, min(1, (progress - start) / (end - start)))
+    }
+}
+
+private struct ScreenTopSectionSubtitleSlot: View {
+    let subtitle: String
+    let lineLimit: Int
+    let fontSize: CGFloat
+    let topSpacing: CGFloat
+    let visibleHeight: CGFloat
+    let verticalOffset: CGFloat
+    let fadeStart: CGFloat
+    let opacity: CGFloat
+
+    var body: some View {
+        let slotHeight = max(0, topSpacing + visibleHeight)
+
+        Color.clear
+            .frame(height: slotHeight)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .topLeading) {
+                Text(subtitle)
+                    .font(DS.Typography.screenSubtitle(size: fontSize))
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+                    .lineLimit(lineLimit)
+                    .multilineTextAlignment(.leading)
+                    .minimumScaleFactor(0.92)
+                    .allowsTightening(true)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, topSpacing)
+                    .offset(y: verticalOffset)
+                    .mask {
+                        LinearGradient(
+                            stops: [
+                                .init(color: .black, location: 0),
+                                .init(color: .black, location: fadeStart),
+                                .init(color: .clear, location: 1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .opacity(opacity)
+            }
+            .clipped()
     }
 }
 
