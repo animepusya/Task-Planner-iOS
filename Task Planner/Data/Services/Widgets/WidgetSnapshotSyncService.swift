@@ -8,6 +8,34 @@
 import Foundation
 import WidgetKit
 
+private nonisolated struct WidgetSnapshotRefreshRequest: Sendable {
+    let referenceDate: Date
+    let taskSources: [PlannerTaskSource]
+    let weekStartsOnMonday: Bool
+    let theme: AppTheme
+}
+
+private nonisolated enum WidgetSnapshotRefreshWorker {
+    static func run(_ request: WidgetSnapshotRefreshRequest) async {
+        await Task.detached(priority: .utility) { [request] in
+            do {
+                let snapshot = WidgetSnapshotBuilder.build(
+                    tasks: request.taskSources,
+                    weekStartsOnMonday: request.weekStartsOnMonday,
+                    referenceDate: request.referenceDate
+                )
+
+                WidgetStore.setAppTheme(request.theme)
+                try WidgetStore.saveSnapshot(snapshot)
+                WidgetCenter.shared.reloadTimelines(ofKind: WidgetShared.WidgetKind.plannerHome)
+            } catch {
+                assertionFailure("WidgetSnapshotSyncService.refreshSnapshot failed: \(error)")
+            }
+        }
+        .value
+    }
+}
+
 @MainActor
 final class WidgetSnapshotSyncService {
     private let taskRepository: TaskRepository
@@ -32,6 +60,15 @@ final class WidgetSnapshotSyncService {
     private func startRefreshIfNeeded() {
         guard refreshTask == nil else { return }
 
+        guard let request = makeRefreshRequest() else { return }
+
+        refreshTask = Task { [request] in
+            await WidgetSnapshotRefreshWorker.run(request)
+            finishRefreshCycle()
+        }
+    }
+
+    private func makeRefreshRequest() -> WidgetSnapshotRefreshRequest? {
         let referenceDate = pendingReferenceDate ?? .now
         pendingReferenceDate = nil
 
@@ -39,37 +76,24 @@ final class WidgetSnapshotSyncService {
             let tasks = try taskRepository.fetchAll()
             let preferences = try preferencesRepository.getOrCreate()
             let calendar = Calendar.current
-            let taskSources = tasks.map { $0.plannerSource(calendar: calendar) }
-            let weekStartsOnMonday = preferences.weekStartsOnMonday
-            let theme = preferences.theme
 
-            refreshTask = Task.detached(priority: .utility) { [weak self] in
-                do {
-                    let snapshot = WidgetSnapshotBuilder.build(
-                        tasks: taskSources,
-                        weekStartsOnMonday: weekStartsOnMonday,
-                        referenceDate: referenceDate
-                    )
-
-                    WidgetStore.setAppTheme(theme)
-                    try WidgetStore.saveSnapshot(snapshot)
-                    WidgetCenter.shared.reloadTimelines(ofKind: WidgetShared.WidgetKind.plannerHome)
-                } catch {
-                    assertionFailure("WidgetSnapshotSyncService.refreshSnapshot failed: \(error)")
-                }
-
-                await MainActor.run {
-                    guard let self else { return }
-
-                    self.refreshTask = nil
-
-                    if self.pendingReferenceDate != nil {
-                        self.startRefreshIfNeeded()
-                    }
-                }
-            }
+            return WidgetSnapshotRefreshRequest(
+                referenceDate: referenceDate,
+                taskSources: tasks.map { $0.plannerSource(calendar: calendar) },
+                weekStartsOnMonday: preferences.weekStartsOnMonday,
+                theme: preferences.theme
+            )
         } catch {
             assertionFailure("WidgetSnapshotSyncService.refreshSnapshot failed: \(error)")
+            return nil
+        }
+    }
+
+    private func finishRefreshCycle() {
+        refreshTask = nil
+
+        if pendingReferenceDate != nil {
+            startRefreshIfNeeded()
         }
     }
 }

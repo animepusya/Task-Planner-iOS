@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct PlannerWidgetSnapshot: Codable, Equatable {
+nonisolated struct PlannerWidgetSnapshot: Codable, Equatable, Sendable {
     let generatedAt: Date
     let days: [PlannerWidgetDaySnapshot]
 
@@ -26,47 +26,12 @@ struct PlannerWidgetSnapshot: Codable, Equatable {
     }
 
     static func empty(referenceDate: Date = .now, range: Int = 30, calendar: Calendar = .current) -> PlannerWidgetSnapshot {
-        let start = calendar.startOfDay(for: referenceDate)
-        let days = (0..<range).compactMap { offset -> PlannerWidgetDaySnapshot? in
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
-            let key = WidgetDayKey.make(from: date, calendar: calendar)
-
-            return PlannerWidgetDaySnapshot(
-                dayKey: key,
-                date: date,
-                titleText: Self.headerFormatter.string(from: date),
-                weekdayShortText: Self.weekdayFormatter.string(from: date).uppercased(),
-                dayNumberText: Self.dayNumberFormatter.string(from: date),
-                tasks: []
-            )
-        }
-
-        return .init(generatedAt: .now, days: days)
+        PlannerWidgetSnapshotFactory(calendar: calendar)
+            .makeEmptySnapshot(referenceDate: referenceDate, range: range)
     }
-
-    private static let headerFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("d MMMM")
-        return f
-    }()
-
-    private static let weekdayFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("EEE")
-        return f
-    }()
-
-    private static let dayNumberFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = .current
-        f.setLocalizedDateFormatFromTemplate("d")
-        return f
-    }()
 }
 
-struct PlannerWidgetDaySnapshot: Codable, Equatable, Identifiable {
+nonisolated struct PlannerWidgetDaySnapshot: Codable, Equatable, Identifiable, Sendable {
     var id: String { dayKey }
 
     let dayKey: String
@@ -77,11 +42,58 @@ struct PlannerWidgetDaySnapshot: Codable, Equatable, Identifiable {
     let tasks: [PlannerWidgetTaskSnapshot]
 }
 
-struct PlannerWidgetTaskSnapshot: Codable, Equatable, Identifiable {
+nonisolated struct PlannerWidgetTaskSnapshot: Codable, Equatable, Identifiable, Sendable {
     let id: String
     let title: String
     let subtitle: String
     let timeText: String
     let isCompleted: Bool
     let colorRaw: String
+}
+
+nonisolated struct PlannerWidgetSnapshotFactory {
+    private let calendar: Calendar
+    private let locale: Locale
+    private let headerFormatter: DateFormatter
+    private let weekdayFormatter: DateFormatter
+    private let dayNumberFormatter: DateFormatter
+
+    init(calendar: Calendar, locale: Locale = .current) {
+        self.calendar = calendar
+        self.locale = locale
+        self.headerFormatter = Self.makeFormatter(template: "d MMMM", calendar: calendar, locale: locale)
+        self.weekdayFormatter = Self.makeFormatter(template: "EEE", calendar: calendar, locale: locale)
+        self.dayNumberFormatter = Self.makeFormatter(template: "d", calendar: calendar, locale: locale)
+    }
+
+    func makeEmptySnapshot(referenceDate: Date = .now, range: Int = 30) -> PlannerWidgetSnapshot {
+        let start = calendar.startOfDay(for: referenceDate)
+        let days = (0..<range).compactMap { offset -> PlannerWidgetDaySnapshot? in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
+            return makeDaySnapshot(for: date, tasks: [])
+        }
+
+        return .init(generatedAt: .now, days: days)
+    }
+
+    func makeDaySnapshot(for date: Date, tasks: [PlannerWidgetTaskSnapshot]) -> PlannerWidgetDaySnapshot {
+        let normalizedDate = calendar.startOfDay(for: date)
+
+        return PlannerWidgetDaySnapshot(
+            dayKey: WidgetDayKey.make(from: normalizedDate, calendar: calendar),
+            date: normalizedDate,
+            titleText: headerFormatter.string(from: normalizedDate),
+            weekdayShortText: weekdayFormatter.string(from: normalizedDate).uppercased(with: locale),
+            dayNumberText: dayNumberFormatter.string(from: normalizedDate),
+            tasks: tasks
+        )
+    }
+
+    private static func makeFormatter(template: String, calendar: Calendar, locale: Locale) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = locale
+        formatter.setLocalizedDateFormatFromTemplate(template)
+        return formatter
+    }
 }

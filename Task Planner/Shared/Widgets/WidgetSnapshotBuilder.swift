@@ -15,9 +15,7 @@ nonisolated enum WidgetSnapshotBuilder {
     ) -> PlannerWidgetSnapshot {
         let calendar = TaskOccurrence.calendar(weekStartsOnMonday: weekStartsOnMonday)
         let start = calendar.startOfDay(for: referenceDate)
-        let headerFormatter = makeFormatter(template: "d MMMM")
-        let weekdayFormatter = makeFormatter(template: "EEE")
-        let dayNumberFormatter = makeFormatter(template: "d")
+        let snapshotFactory = PlannerWidgetSnapshotFactory(calendar: calendar)
         let visibleDays: [Date] = (0..<30).compactMap { offset in
             calendar.date(byAdding: .day, value: offset, to: start).map { calendar.startOfDay(for: $0) }
         }
@@ -45,27 +43,13 @@ nonisolated enum WidgetSnapshotBuilder {
                 )
             }
 
-            return PlannerWidgetDaySnapshot(
-                dayKey: WidgetDayKey.make(from: dayKey, calendar: calendar),
-                date: dayKey,
-                titleText: headerFormatter.string(from: dayKey),
-                weekdayShortText: weekdayFormatter.string(from: dayKey).uppercased(),
-                dayNumberText: dayNumberFormatter.string(from: dayKey),
-                tasks: rows
-            )
+            return snapshotFactory.makeDaySnapshot(for: dayKey, tasks: rows)
         }
 
         return PlannerWidgetSnapshot(
             generatedAt: .now,
             days: days
         )
-    }
-
-    private static func makeFormatter(template: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.setLocalizedDateFormatFromTemplate(template)
-        return formatter
     }
 
     private static func subtitle(for occurrence: PlannerTaskOccurrence) -> String {
