@@ -14,9 +14,12 @@ struct StatisticsView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
+    @State private var isViewVisible = false
     @State private var selectedSliceId: String? = nil
     @State private var headerCollapseProgress: CGFloat = 0
+    @State private var headerReservedHeight: CGFloat = 0
 
+    private let isActive: Bool
     private let onOpenSettings: () -> Void
     private let onOpenComparison: (StatisticsViewModel) -> Void
     private let onOpenPaywall: (PaywallEntryPoint) -> Void
@@ -24,6 +27,7 @@ struct StatisticsView: View {
     init(
         taskRepository: TaskRepository,
         preferencesRepository: PreferencesRepository,
+        isActive: Bool = true,
         onOpenSettings: @escaping () -> Void,
         onOpenComparison: @escaping (StatisticsViewModel) -> Void,
         onOpenPaywall: @escaping (PaywallEntryPoint) -> Void
@@ -34,6 +38,7 @@ struct StatisticsView: View {
                 preferencesRepository: preferencesRepository
             )
         )
+        self.isActive = isActive
         self.onOpenSettings = onOpenSettings
         self.onOpenComparison = onOpenComparison
         self.onOpenPaywall = onOpenPaywall
@@ -43,7 +48,7 @@ struct StatisticsView: View {
         let snapshot = viewModel.snapshot
         let breakdownSnapshot = snapshot.breakdownSnapshot(for: viewModel.breakdown)
 
-        ZStack {
+        ZStack(alignment: .top) {
             AppBackgroundView(
                 gradient: DS.GradientToken.pinkPurpleSoft,
                 gradientOpacity: 0.55,
@@ -52,38 +57,41 @@ struct StatisticsView: View {
             )
 
             ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
-                    StatisticsPeriodCard(viewModel: viewModel)
-                    donutCard(
-                        snapshot: breakdownSnapshot,
-                        totalMinutesText: snapshot.totalMinutesText
-                    )
-                    totalCard(
-                        snapshot: breakdownSnapshot,
-                        totalMinutesText: snapshot.totalMinutesText
-                    )
-                    comparisonPreviewCard(snapshot: snapshot.comparison)
+                VStack(alignment: .leading, spacing: 0) {
+                    topContentSpacer
+
+                    VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
+                        StatisticsPeriodCard(viewModel: viewModel)
+                        donutCard(
+                            snapshot: breakdownSnapshot,
+                            totalMinutesText: snapshot.totalMinutesText
+                        )
+                        totalCard(
+                            snapshot: breakdownSnapshot,
+                            totalMinutesText: snapshot.totalMinutesText
+                        )
+                        comparisonPreviewCard(snapshot: snapshot.comparison)
+                    }
+                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+                    .padding(.bottom, dsMetrics.spacing(24))
+                    .dsContentFrame(.screen)
                 }
-                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
-                .padding(.bottom, dsMetrics.spacing(24))
-                .dsContentFrame(.screen)
             }
             .background(Color.clear)
             .contentMargins(.bottom, dsMetrics.tabBarReservedScrollSpace, for: .scrollContent)
-            .onScrollViewOffsetChange { offset in
-                updateHeaderCollapse(offset, style: .statistics)
-            }
+
+            headerOverlay
         }
         .navigationBarHidden(true)
-        .safeAreaInset(edge: .top) {
-            header
-        }
         .onAppear {
-            viewModel.onViewAppear()
+            handleVisibilityChange(isActive)
+        }
+        .onChange(of: isActive) { _, newValue in
+            handleVisibilityChange(newValue)
         }
         .onDisappear {
-            viewModel.onViewDisappear()
+            handleVisibilityChange(false)
         }
         .onChange(of: viewModel.breakdown) { _, _ in
             selectedSliceId = nil
@@ -119,6 +127,66 @@ struct StatisticsView: View {
                 onOpenSettings()
             }
             .accessibilityLabel("Settings")
+        }
+    }
+
+    private var resolvedHeaderReservedHeight: CGFloat {
+        headerReservedHeight > 0 ? headerReservedHeight : dsMetrics.controlSize(72)
+    }
+
+    private var topContentSpacer: some View {
+        Color.clear
+            .frame(height: resolvedHeaderReservedHeight)
+            .frame(maxWidth: .infinity)
+            .background {
+                if isActive {
+                    // Statistics now uses the same stable contract as Planner:
+                    // scroll movement drives progress, while the header no longer changes
+                    // the scroll view's insets during bounce/overscroll.
+                    ScrollViewOffsetReader(measurement: .relativeToInitialOffset) { offset in
+                        updateHeaderCollapse(offset, style: .statistics)
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private var headerOverlay: some View {
+        ZStack(alignment: .top) {
+            header
+
+            header
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .background {
+                    GeometryReader { proxy in
+                        let nextHeight = ceil(proxy.size.height)
+
+                        Color.clear
+                            .task(id: nextHeight) {
+                                updateHeaderReservedHeight(nextHeight)
+                            }
+                    }
+                }
+        }
+    }
+
+    private func updateHeaderReservedHeight(_ height: CGFloat) {
+        guard height > 0 else { return }
+        guard abs(height - headerReservedHeight) > 0.5 else { return }
+        headerReservedHeight = height
+    }
+
+    private func handleVisibilityChange(_ shouldBeVisible: Bool) {
+        guard shouldBeVisible != isViewVisible else { return }
+        isViewVisible = shouldBeVisible
+
+        if shouldBeVisible {
+            viewModel.onViewAppear()
+        } else {
+            viewModel.onViewDisappear()
         }
     }
 

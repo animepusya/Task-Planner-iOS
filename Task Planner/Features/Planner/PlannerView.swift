@@ -14,11 +14,13 @@ struct PlannerView: View {
     @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @State private var didTriggerSwipe = false
+    @State private var isViewVisible = false
     @State private var headerCollapseProgress: CGFloat = 0
     @State private var headerReservedHeight: CGFloat = 0
     private let swipeThreshold: CGFloat = 72
     private let monthAnim = PlannerViewModel.monthTransitionAnimation
     private let plannerHeaderFallbackHeight: CGFloat = 84
+    private let isActive: Bool
 
     private enum MonthNavDirection {
         case next
@@ -30,8 +32,12 @@ struct PlannerView: View {
 
     @State private var monthDirection: MonthNavDirection = .next
 
-    init(viewModel: PlannerViewModel) {
+    init(
+        viewModel: PlannerViewModel,
+        isActive: Bool = true
+    ) {
         _viewModel = StateObject(wrappedValue: viewModel)
+        self.isActive = isActive
     }
 
     init(
@@ -39,6 +45,7 @@ struct PlannerView: View {
         preferencesRepository: PreferencesRepository,
         calendarSync: CalendarSyncService,
         seriesService: TaskSeriesService,
+        isActive: Bool = true,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void,
         onOpenRecurringBaseTasks: @escaping () -> Void
@@ -54,6 +61,7 @@ struct PlannerView: View {
                 onOpenRecurringBaseTasks: onOpenRecurringBaseTasks
             )
         )
+        self.isActive = isActive
     }
 
     var body: some View {
@@ -63,164 +71,34 @@ struct PlannerView: View {
 
         ZStack(alignment: .top) {
             List {
-                Color.clear
-                    .frame(height: resolvedHeaderReservedHeight)
-                    .listRowInsets(.init())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
-                    .allowsHitTesting(false)
-                    .accessibilityHidden(true)
+                topContentSpacer
 
-                Section {
-                    VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
-                        calendarCard(snapshot: monthSnapshot)
-                    }
-                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
-                    .padding(.bottom, dsMetrics.spacing(DS.Spacing.md))
-                    .dsContentFrame(.wide)
-                }
-                .listRowInsets(.init())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
-
-                Section {
-                    VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
-                        tasksHeader(snapshot: selectedDaySnapshot)
-                    }
-                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                    .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
-                    .padding(.bottom, dsMetrics.spacing(DS.Spacing.xs))
-                    .dsContentFrame(.wide)
-                }
-                .listRowInsets(.init())
-                .listRowBackground(Color.clear)
-                .listRowSeparator(.hidden)
+                calendarSection(snapshot: monthSnapshot)
+                tasksHeaderSection(snapshot: selectedDaySnapshot)
 
                 if selectedDaySnapshot.isEmpty {
-                    Section {
-                        EmptyTasksCardView(onTap: viewModel.openCreateTask)
-                            .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                            .padding(.bottom, dsMetrics.spacing(DS.Spacing.lg))
-                            .dsContentFrame(.wide)
-                    }
-                    .listRowInsets(.init())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                    emptyTasksSection
                 } else {
-                    Section {
-                        ForEach(selectedDaySnapshot.items) { item in
-                            switch item {
-                            case .task(let row):
-                                let occurrence = row.occurrence
-                                let isVisuallyDone = viewModel.isVisuallyDone(
-                                    taskKey: occurrence.taskKey,
-                                    modelCompleted: row.modelCompleted
-                                )
-
-                                TaskCardView(
-                                    occurrence: occurrence,
-                                    isVisuallyDone: isVisuallyDone
-                                )
-                                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                                .padding(.vertical, dsMetrics.spacing(6))
-                                .dsContentFrame(.wide)
-                                .listRowInsets(.init())
-                                .listRowBackground(Color.clear)
-                                .listRowSeparator(.hidden)
-                                .onTapGesture {
-                                    viewModel.openEditTask(taskKey: occurrence.taskKey)
-                                }
-                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                                    Button {
-                                        viewModel.toggleDoneTwoPhase(
-                                            taskKey: occurrence.taskKey,
-                                            on: viewModel.selectedDay
-                                        )
-                                    } label: {
-                                        Label(
-                                            row.modelCompleted ? "Undo" : "Done",
-                                            systemImage: row.modelCompleted
-                                            ? "arrow.uturn.backward.circle"
-                                            : "checkmark.circle.fill"
-                                        )
-                                    }
-                                    .tint(DS.ColorToken.purple)
-
-                                    if occurrence.isRepeatingTask {
-                                        Menu {
-                                            Text("Delete from")
-                                                .foregroundStyle(DS.ColorToken.textSecondary)
-                                                .disabled(true)
-
-                                            Button(role: .destructive) {
-                                                viewModel.deleteOccurrence(
-                                                    taskKey: occurrence.taskKey,
-                                                    occurrenceStartDay: occurrence.occurrenceStartDay,
-                                                    scope: .onlyThisDay
-                                                )
-                                            } label: {
-                                                Text("Only this day")
-                                            }
-
-                                            Button(role: .destructive) {
-                                                viewModel.deleteOccurrence(
-                                                    taskKey: occurrence.taskKey,
-                                                    occurrenceStartDay: occurrence.occurrenceStartDay,
-                                                    scope: .allFutureDays
-                                                )
-                                            } label: {
-                                                Text("All future days")
-                                            }
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                        .tint(.red)
-                                    } else {
-                                        Button(role: .destructive) {
-                                            viewModel.delete(taskKey: occurrence.taskKey)
-                                        } label: {
-                                            Label("Delete", systemImage: "trash")
-                                        }
-                                    }
-                                }
-
-                            case .imported(let row):
-                                ImportedEventCardView(row: row)
-                                    .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
-                                    .padding(.vertical, dsMetrics.spacing(6))
-                                    .dsContentFrame(.wide)
-                                    .listRowInsets(.init())
-                                    .listRowBackground(Color.clear)
-                                    .listRowSeparator(.hidden)
-                            }
-                        }
-                    }
-                    .listRowInsets(.init())
-                    .listRowBackground(Color.clear)
-                    .listRowSeparator(.hidden)
+                    tasksSection(snapshot: selectedDaySnapshot)
                 }
             }
             .listStyle(.plain)
             .scrollContentBackground(.hidden)
             .contentMargins(.bottom, dsMetrics.tabBarReservedScrollSpace, for: .scrollContent)
             .background(DS.ColorToken.appBackground.ignoresSafeArea())
-            .onScrollViewOffsetChange(measurement: .relativeToInitialOffset) { offset in
-                updateHeaderCollapse(offset, style: .planner)
-            }
             .navigationBarHidden(true)
 
-            header
-                .onHeightChange { height in
-                    updateHeaderReservedHeight(height)
-                }
+            headerOverlay
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear {
-            viewModel.onViewAppear()
+            handleVisibilityChange(isActive)
+        }
+        .onChange(of: isActive) { _, newValue in
+            handleVisibilityChange(newValue)
         }
         .onDisappear {
-            viewModel.onViewDisappear()
+            handleVisibilityChange(false)
         }
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { note in
             guard let context = note.object as? ModelContext, context == modelContext else { return }
@@ -238,11 +116,70 @@ struct PlannerView: View {
         : dsMetrics.controlSize(plannerHeaderFallbackHeight)
     }
 
-    private var header: some View {
+    private var topContentSpacer: some View {
+        Color.clear
+            .frame(height: resolvedHeaderReservedHeight)
+            .frame(maxWidth: .infinity)
+            .background {
+                if isActive {
+                    // Planner uses a stable overlay header, so progress is driven only by
+                    // the list's own movement and never by the header changing the list inset.
+                    ScrollViewOffsetReader(measurement: .relativeToInitialOffset) { offset in
+                        updateHeaderCollapse(offset, style: .planner)
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+            .listRowInsets(.init())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .environment(\.defaultMinListRowHeight, 0)
+    }
+
+    private var headerOverlay: some View {
+        ZStack(alignment: .top) {
+            plannerHeader(collapseProgress: headerCollapseProgress)
+
+            plannerHeader(collapseProgress: 0)
+                .hidden()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+                .background {
+                    GeometryReader { proxy in
+                        let nextHeight = ceil(proxy.size.height)
+
+                        Color.clear
+                            .task(id: nextHeight) {
+                                updateHeaderReservedHeight(nextHeight)
+                            }
+                    }
+                }
+        }
+    }
+
+    private func updateHeaderReservedHeight(_ height: CGFloat) {
+        guard height > 0 else { return }
+        guard abs(height - headerReservedHeight) > 0.5 else { return }
+        headerReservedHeight = height
+    }
+
+    private func handleVisibilityChange(_ shouldBeVisible: Bool) {
+        guard shouldBeVisible != isViewVisible else { return }
+        isViewVisible = shouldBeVisible
+
+        if shouldBeVisible {
+            viewModel.onViewAppear()
+        } else {
+            viewModel.onViewDisappear()
+        }
+    }
+
+    private func plannerHeader(collapseProgress: CGFloat) -> some View {
         ScreenTopSection(
             title: String(localized: "Task Planner"),
             subtitle: String(localized: "Organize your day with ease"),
-            collapseProgress: headerCollapseProgress,
+            collapseProgress: collapseProgress,
             style: .planner
         ) {
             HStack(spacing: dsMetrics.spacing(10)) {
@@ -259,18 +196,51 @@ struct PlannerView: View {
         }
     }
 
-    private func updateHeaderReservedHeight(_ height: CGFloat) {
-        let nextHeight = ceil(height)
-        guard nextHeight > 0 else { return }
-
-        if headerCollapseProgress == 0 {
-            guard abs(nextHeight - headerReservedHeight) > 0.5 else { return }
-            headerReservedHeight = nextHeight
-            return
+    private func calendarSection(snapshot: PlannerMonthSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.lg)) {
+            calendarCard(snapshot: snapshot)
         }
+        .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+        .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+        .padding(.bottom, dsMetrics.spacing(DS.Spacing.md))
+        .dsContentFrame(.wide)
+        .listRowInsets(.init())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
 
-        guard nextHeight > headerReservedHeight + 0.5 else { return }
-        headerReservedHeight = nextHeight
+    private func tasksHeaderSection(snapshot: PlannerSelectedDaySnapshot) -> some View {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.md)) {
+            tasksHeader(snapshot: snapshot)
+        }
+        .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+        .padding(.top, dsMetrics.spacing(DS.Spacing.sm))
+        .padding(.bottom, dsMetrics.spacing(DS.Spacing.xs))
+        .dsContentFrame(.wide)
+        .listRowInsets(.init())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
+    }
+
+    private var emptyTasksSection: some View {
+        EmptyTasksCardView(onTap: viewModel.openCreateTask)
+            .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+            .padding(.bottom, dsMetrics.spacing(DS.Spacing.lg))
+            .dsContentFrame(.wide)
+            .listRowInsets(.init())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+    }
+
+    private func tasksSection(snapshot: PlannerSelectedDaySnapshot) -> some View {
+        Section {
+            ForEach(snapshot.items) { item in
+                taskListRow(item)
+            }
+        }
+        .listRowInsets(.init())
+        .listRowBackground(Color.clear)
+        .listRowSeparator(.hidden)
     }
 
     private func calendarCard(snapshot: PlannerMonthSnapshot) -> some View {
@@ -438,6 +408,94 @@ struct PlannerView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Create Task")
             }
+        }
+    }
+
+    @ViewBuilder
+    private func taskListRow(_ item: PlannerSelectedDayItemViewData) -> some View {
+        switch item {
+        case .task(let row):
+            let occurrence = row.occurrence
+            let isVisuallyDone = viewModel.isVisuallyDone(
+                taskKey: occurrence.taskKey,
+                modelCompleted: row.modelCompleted
+            )
+
+            TaskCardView(
+                occurrence: occurrence,
+                isVisuallyDone: isVisuallyDone
+            )
+            .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+            .padding(.vertical, dsMetrics.spacing(6))
+            .dsContentFrame(.wide)
+            .listRowInsets(.init())
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
+            .onTapGesture {
+                viewModel.openEditTask(taskKey: occurrence.taskKey)
+            }
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button {
+                    viewModel.toggleDoneTwoPhase(
+                        taskKey: occurrence.taskKey,
+                        on: viewModel.selectedDay
+                    )
+                } label: {
+                    Label(
+                        row.modelCompleted ? "Undo" : "Done",
+                        systemImage: row.modelCompleted
+                        ? "arrow.uturn.backward.circle"
+                        : "checkmark.circle.fill"
+                    )
+                }
+                .tint(DS.ColorToken.purple)
+
+                if occurrence.isRepeatingTask {
+                    Menu {
+                        Text("Delete from")
+                            .foregroundStyle(DS.ColorToken.textSecondary)
+                            .disabled(true)
+
+                        Button(role: .destructive) {
+                            viewModel.deleteOccurrence(
+                                taskKey: occurrence.taskKey,
+                                occurrenceStartDay: occurrence.occurrenceStartDay,
+                                scope: .onlyThisDay
+                            )
+                        } label: {
+                            Text("Only this day")
+                        }
+
+                        Button(role: .destructive) {
+                            viewModel.deleteOccurrence(
+                                taskKey: occurrence.taskKey,
+                                occurrenceStartDay: occurrence.occurrenceStartDay,
+                                scope: .allFutureDays
+                            )
+                        } label: {
+                            Text("All future days")
+                        }
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                    .tint(.red)
+                } else {
+                    Button(role: .destructive) {
+                        viewModel.delete(taskKey: occurrence.taskKey)
+                    } label: {
+                        Label("Delete", systemImage: "trash")
+                    }
+                }
+            }
+
+        case .imported(let row):
+            ImportedEventCardView(row: row)
+                .padding(.horizontal, dsMetrics.screenPadding(DS.Spacing.lg))
+                .padding(.vertical, dsMetrics.spacing(6))
+                .dsContentFrame(.wide)
+                .listRowInsets(.init())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
         }
     }
 

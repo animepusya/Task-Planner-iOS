@@ -13,7 +13,35 @@ enum ScrollViewOffsetMeasurement {
     case relativeToInitialOffset
 }
 
-struct ScrollViewOffsetObserver: UIViewRepresentable {
+struct ScrollViewOffsetReader: View {
+    let measurement: ScrollViewOffsetMeasurement
+    let perform: (CGFloat) -> Void
+
+    init(
+        measurement: ScrollViewOffsetMeasurement = .adjustedContentInsetTop,
+        perform: @escaping (CGFloat) -> Void
+    ) {
+        self.measurement = measurement
+        self.perform = perform
+    }
+
+    var body: some View {
+        // The probe must live inside the scroll content branch so it can bind to
+        // the nearest enclosing scroll view without ever walking into sibling tabs.
+        Color.clear
+            .frame(height: 0)
+            .background {
+                ScrollViewOffsetObserverRepresentable(
+                    measurement: measurement,
+                    onOffsetChange: perform
+                )
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+}
+
+private struct ScrollViewOffsetObserverRepresentable: UIViewRepresentable {
     let measurement: ScrollViewOffsetMeasurement
     let onOffsetChange: (CGFloat) -> Void
 
@@ -24,15 +52,15 @@ struct ScrollViewOffsetObserver: UIViewRepresentable {
         )
     }
 
-    func makeUIView(context: Context) -> ObservationView {
-        let view = ObservationView()
+    func makeUIView(context: Context) -> ScrollViewObservationView {
+        let view = ScrollViewObservationView()
         view.coordinator = context.coordinator
         view.isUserInteractionEnabled = false
         view.backgroundColor = .clear
         return view
     }
 
-    func updateUIView(_ uiView: ObservationView, context: Context) {
+    func updateUIView(_ uiView: ScrollViewObservationView, context: Context) {
         context.coordinator.measurement = measurement
         context.coordinator.onOffsetChange = onOffsetChange
         uiView.coordinator = context.coordinator
@@ -43,14 +71,18 @@ struct ScrollViewOffsetObserver: UIViewRepresentable {
     }
 }
 
-extension ScrollViewOffsetObserver {
+private extension ScrollViewOffsetObserverRepresentable {
     final class Coordinator: NSObject {
         var measurement: ScrollViewOffsetMeasurement
         var onOffsetChange: (CGFloat) -> Void
 
         private weak var scrollView: UIScrollView?
         private var contentOffsetObservation: NSKeyValueObservation?
+        private var contentInsetObservation: NSKeyValueObservation?
+        private var boundsObservation: NSKeyValueObservation?
         private var initialContentOffsetY: CGFloat?
+        private var pendingOffset: CGFloat?
+        private var isDeliveryScheduled = false
 
         init(
             measurement: ScrollViewOffsetMeasurement,
@@ -61,10 +93,12 @@ extension ScrollViewOffsetObserver {
         }
 
         func attachIfNeeded(from view: UIView) {
-            guard let resolvedScrollView = findScrollView(from: view) else { return }
+            guard let resolvedScrollView = view.enclosingScrollView else { return }
 
             if scrollView !== resolvedScrollView {
                 contentOffsetObservation = nil
+                contentInsetObservation = nil
+                boundsObservation = nil
                 scrollView = resolvedScrollView
                 initialContentOffsetY = nil
                 observe(scrollView: resolvedScrollView)
@@ -77,6 +111,20 @@ extension ScrollViewOffsetObserver {
             contentOffsetObservation = scrollView.observe(
                 \.contentOffset,
                 options: [.initial, .new]
+            ) { [weak self] scrollView, _ in
+                self?.notifyOffset(from: scrollView)
+            }
+
+            contentInsetObservation = scrollView.observe(
+                \.contentInset,
+                options: [.initial, .new]
+            ) { [weak self] scrollView, _ in
+                self?.notifyOffset(from: scrollView)
+            }
+
+            boundsObservation = scrollView.observe(
+                \.bounds,
+                options: [.new]
             ) { [weak self] scrollView, _ in
                 self?.notifyOffset(from: scrollView)
             }
@@ -106,67 +154,72 @@ extension ScrollViewOffsetObserver {
                 effectiveOffset = max(0, currentOffsetY - (initialContentOffsetY ?? currentOffsetY))
             }
 
-            onOffsetChange(effectiveOffset)
+            queueOffsetDelivery(effectiveOffset)
         }
 
-        private func findScrollView(from view: UIView) -> UIScrollView? {
-            var current: UIView? = view
+        private func queueOffsetDelivery(_ offset: CGFloat) {
+            pendingOffset = offset
+            guard !isDeliveryScheduled else { return }
+            isDeliveryScheduled = true
 
-            while let candidate = current {
-                if let scrollView = candidate as? UIScrollView {
-                    return scrollView
-                }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                self.isDeliveryScheduled = false
 
-                if let descendant = findScrollViewInTree(candidate) {
-                    return descendant
-                }
-
-                current = candidate.superview
+                guard let offset = self.pendingOffset else { return }
+                self.pendingOffset = nil
+                self.onOffsetChange(offset)
             }
-
-            return nil
-        }
-
-        private func findScrollViewInTree(_ root: UIView) -> UIScrollView? {
-            for subview in root.subviews {
-                if let scrollView = subview as? UIScrollView {
-                    return scrollView
-                }
-
-                if let nestedScrollView = findScrollViewInTree(subview) {
-                    return nestedScrollView
-                }
-            }
-
-            return nil
         }
     }
 }
 
-final class ObservationView: UIView {
-    weak var coordinator: ScrollViewOffsetObserver.Coordinator?
+private final class ScrollViewObservationView: UIView {
+    weak var coordinator: ScrollViewOffsetObserverRepresentable.Coordinator?
+    private var isRefreshScheduled = false
+    private var lastBoundsSize: CGSize = .zero
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
+        scheduleRefresh()
+    }
+
+    override func didMoveToSuperview() {
+        super.didMoveToSuperview()
+        scheduleRefresh()
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard bounds.size != lastBoundsSize else { return }
+        lastBoundsSize = bounds.size
+        scheduleRefresh()
+    }
+
+    private func scheduleRefresh() {
+        guard !isRefreshScheduled else { return }
+        isRefreshScheduled = true
 
         DispatchQueue.main.async { [weak self] in
-            guard let self, let coordinator else { return }
-            coordinator.attachIfNeeded(from: self)
+            guard let self else { return }
+            self.isRefreshScheduled = false
+            self.coordinator?.attachIfNeeded(from: self)
         }
     }
 }
 
-extension View {
-    func onScrollViewOffsetChange(
-        measurement: ScrollViewOffsetMeasurement = .adjustedContentInsetTop,
-        perform action: @escaping (CGFloat) -> Void
-    ) -> some View {
-        background {
-            ScrollViewOffsetObserver(
-                measurement: measurement,
-                onOffsetChange: action
-            )
-            .frame(width: 0, height: 0)
+private extension UIView {
+    var enclosingScrollView: UIScrollView? {
+        var current = superview
+
+        while let candidate = current {
+            if let scrollView = candidate as? UIScrollView {
+                return scrollView
+            }
+
+            current = candidate.superview
         }
+
+        return nil
     }
 }

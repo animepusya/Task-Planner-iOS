@@ -133,6 +133,7 @@ private struct AppRootTabShellView: View {
             preferencesRepository: dependencies.preferencesRepository,
             calendarSync: dependencies.calendarSyncService,
             seriesService: dependencies.seriesService,
+            isActive: selectedTab == .planner,
             onOpenTaskEditor: { taskId, day in
                 sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
             },
@@ -150,6 +151,7 @@ private struct AppRootTabShellView: View {
             StatisticsView(
                 taskRepository: dependencies.taskRepository,
                 preferencesRepository: dependencies.preferencesRepository,
+                isActive: selectedTab == .statistics,
                 onOpenSettings: openSettings,
                 onOpenComparison: openStatisticsComparison,
                 onOpenPaywall: openPaywall
