@@ -47,11 +47,15 @@ struct ScheduledReminderRow: View {
                         )
                         .foregroundStyle(isSuppressed ? DS.ColorToken.textSecondary : DS.ColorToken.textPrimary)
                         .strikethrough(isSuppressed, color: DS.ColorToken.textSecondary.opacity(0.85))
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .layoutPriority(1)
 
-                    StatusPill(title: String(localized: "Disabled for this day"), isOn: false)
-                        .scaleEffect(0.92, anchor: .leading)
-                        .opacity(isSuppressed ? 1.0 : 0.0)
+                    if isSuppressed {
+                        StatusPill(title: String(localized: "Disabled for this day"), isOn: false)
+                            .scaleEffect(0.92, anchor: .leading)
+                            .fixedSize(horizontal: true, vertical: false)
+                    }
 
                     Spacer(minLength: 0)
 
@@ -78,8 +82,7 @@ struct ScheduledReminderRow: View {
                     .strikethrough(isSuppressed, pattern: .solid, color: DS.ColorToken.textSecondary.opacity(0.55))
                     .opacity(isSuppressed ? 0.65 : 1.0)
             }
-
-            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(dsMetrics.spacing(12))
         .background(cardSurface)
