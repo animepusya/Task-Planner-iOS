@@ -7128,61 +7128,61 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Serienaufgabe bearbeiten"
+            "value" : "Bearbeiten"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Edit Recurring Task"
+            "value" : "Edit"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Editar tarea recurrente"
+            "value" : "Editar"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifier la tâche récurrente"
+            "value" : "Modifier"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Modifica attività ricorrente"
+            "value" : "Modifica"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "繰り返しタスクを編集"
+            "value" : "編集"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "반복 할 일 편집"
+            "value" : "편집"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Editar tarefa recorrente"
+            "value" : "Editar"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Изменить повторяющуюся задачу"
+            "value" : "Редактировать"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Редагувати повторюване завдання"
+            "value" : "Редагувати"
           }
         }
       }
