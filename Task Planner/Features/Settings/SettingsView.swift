@@ -455,13 +455,7 @@ struct SettingsView: View {
 
     private var monetizationSummaryRow: some View {
         Button {
-            if subscriptionStore.isPro {
-                Task {
-                    monetizationNotice = await subscriptionStore.manageSubscription()
-                }
-            } else {
-                onOpenPaywall(.settings)
-            }
+            onOpenPaywall(.settings)
         } label: {
             HStack(alignment: .center, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
                 ProBadge(size: .regular)

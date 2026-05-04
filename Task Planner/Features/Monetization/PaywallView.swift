@@ -29,7 +29,11 @@ struct PaywallView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: DS.Spacing.lg) {
                     topSection
-                    planSection
+                    if subscriptionStore.isPro {
+                        activeProSection
+                    } else {
+                        planSection
+                    }
                     comparisonSection
                     actionsSection
                 }
@@ -83,15 +87,45 @@ struct PaywallView: View {
             }
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("A little more, when you need it")
+                Text(paywallTitle)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundStyle(DS.ColorToken.textPrimary)
 
-                Text(entryPoint.subtitle)
+                Text(paywallSubtitle)
                     .font(DS.Typography.subtitle)
                     .foregroundStyle(DS.ColorToken.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+        }
+    }
+
+    private var activeProSection: some View {
+        HStack(alignment: .top, spacing: DS.Spacing.md) {
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 22, weight: .semibold))
+                .foregroundStyle(DS.ColorToken.purple)
+                .frame(width: 34, height: 34)
+                .background(DS.ColorToken.purple.opacity(0.10), in: Circle())
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Current plan")
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+
+                Text(subscriptionStore.currentPlanTitle)
+                    .font(.system(size: 20, weight: .semibold, design: .rounded))
+                    .foregroundStyle(DS.ColorToken.textPrimary)
+
+                Text(subscriptionStore.planSummaryText)
+                    .font(DS.Typography.body)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .dsCard(cornerRadius: DS.Radius.lg) {
+            DS.Surface.card
         }
     }
 
@@ -206,6 +240,37 @@ struct PaywallView: View {
             .buttonStyle(.plain)
             .disabled(subscriptionStore.isPurchaseInFlight || subscriptionStore.isRestoreInFlight)
 
+            secondaryActions
+
+            HStack(spacing: 14) {
+                ForEach(SubscriptionLegalLink.allCases) { link in
+                    Button(link.title) {
+                        openLegal(link)
+                    }
+                    .buttonStyle(.plain)
+                    .font(DS.Typography.caption)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+                }
+            }
+            .padding(.top, 2)
+        }
+        .dsCard(cornerRadius: DS.Radius.lg) {
+            DS.Surface.chrome
+        }
+    }
+
+    @ViewBuilder
+    private var secondaryActions: some View {
+        if subscriptionStore.isPro {
+            Button("Restore Purchases") {
+                Task {
+                    notice = await subscriptionStore.restorePurchases()
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 14, weight: .semibold, design: .rounded))
+            .foregroundStyle(DS.ColorToken.purple)
+        } else {
             HStack(spacing: DS.Spacing.md) {
                 Button("Restore Purchases") {
                     Task {
@@ -227,22 +292,23 @@ struct PaywallView: View {
                 .font(.system(size: 14, weight: .semibold, design: .rounded))
                 .foregroundStyle(DS.ColorToken.textSecondary)
             }
+        }
+    }
 
-            HStack(spacing: 14) {
-                ForEach(SubscriptionLegalLink.allCases) { link in
-                    Button(link.title) {
-                        openLegal(link)
-                    }
-                    .buttonStyle(.plain)
-                    .font(DS.Typography.caption)
-                    .foregroundStyle(DS.ColorToken.textSecondary)
-                }
-            }
-            .padding(.top, 2)
+    private var paywallTitle: String {
+        if subscriptionStore.isPro {
+            return String(localized: "You're Pro")
         }
-        .dsCard(cornerRadius: DS.Radius.lg) {
-            DS.Surface.chrome
+
+        return String(localized: "A little more, when you need it")
+    }
+
+    private var paywallSubtitle: String {
+        if subscriptionStore.isPro {
+            return String(localized: "Thanks for supporting Task Planner.")
         }
+
+        return entryPoint.subtitle
     }
 
     private var primaryActionTitle: String {
