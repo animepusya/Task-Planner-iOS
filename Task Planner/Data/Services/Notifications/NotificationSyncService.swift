@@ -52,9 +52,8 @@ final class NotificationSyncService {
             return
         }
 
-        await notificationService.cancelAll()
-
         let reminders = buildPendingRemindersForRollingWindow(tasks: tasks, prefs: prefs)
+        await notificationService.cancelAll()
         await notificationService.scheduleReminders(reminders)
     }
 
@@ -62,10 +61,6 @@ final class NotificationSyncService {
         guard !tasks.isEmpty else { return }
 
         let uniqueTasks = uniqueTasksPreservingOrder(tasks)
-        let taskIDsToCancel = uniqueTasks.map { String(describing: $0.persistentModelID) }
-        if !taskIDsToCancel.isEmpty {
-            await notificationService.cancel(taskIDs: taskIDsToCancel)
-        }
 
         let prefs: AppPreferencesEntity
         do {
@@ -74,13 +69,32 @@ final class NotificationSyncService {
             return
         }
 
-        guard prefs.notificationsEnabled else { return }
+        let taskIDsToCancel = uniqueTasks.map { taskKey(for: $0) }
+        guard prefs.notificationsEnabled else {
+            await notificationService.cancel(taskIDs: taskIDsToCancel)
+            return
+        }
 
         let auth = await notificationService.getAuthorizationStatus()
         guard auth == .authorized else { return }
 
         let reminders = buildPendingRemindersForRollingWindow(tasks: uniqueTasks, prefs: prefs)
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "before targeted replace taskIDs=\(taskIDsToCancel)")
+        #endif
+
+        await notificationService.cancel(taskIDs: taskIDsToCancel, matching: reminders)
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "after targeted cancel taskIDs=\(taskIDsToCancel)")
+        #endif
+
         await notificationService.scheduleReminders(reminders)
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "after targeted schedule taskIDs=\(taskIDsToCancel)")
+        #endif
     }
 
     func cancelAllImmediately() async {
@@ -88,14 +102,18 @@ final class NotificationSyncService {
     }
 
     func cancelForTask(task: TaskEntity) async {
-        let taskID = String(describing: task.persistentModelID)
+        let taskID = taskKey(for: task)
+        await notificationService.cancel(taskIDs: [taskID])
+    }
+
+    func cancelForTask(taskId: PersistentIdentifier) async {
+        let taskID = taskKey(for: taskId)
         await notificationService.cancel(taskIDs: [taskID])
     }
 
     func cancelSingle(taskId: PersistentIdentifier, occurrenceKey: String) async {
-        let taskKey = String(describing: taskId)
-        let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
-        await notificationService.cancel(ids: [id])
+        let taskKey = taskKey(for: taskId)
+        await notificationService.cancel(ids: notificationIds(taskKey: taskKey, occurrenceKey: occurrenceKey))
     }
 
     func scheduleSingleOccurrence(task: TaskEntity, occurrenceDay: Date) async {
@@ -124,7 +142,7 @@ final class NotificationSyncService {
 
         guard let fireDate = computeFireDate(task: task, occurrenceDay: occ, prefs: prefs, calendar: cal) else { return }
 
-        let taskKey = String(describing: task.persistentModelID)
+        let taskKey = taskKey(for: task)
         let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
         let reminder = PendingReminder(
@@ -138,7 +156,21 @@ final class NotificationSyncService {
             isAllDay: tpl.isAllDay
         )
 
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "before single occurrence replace taskID=\(taskKey) occurrenceKey=\(occurrenceKey)")
+        #endif
+
+        await notificationService.cancel(taskIDs: [taskKey], matching: [reminder])
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "after single occurrence cancel taskID=\(taskKey) occurrenceKey=\(occurrenceKey)")
+        #endif
+
         await notificationService.scheduleReminders([reminder])
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "after single occurrence schedule taskID=\(taskKey) occurrenceKey=\(occurrenceKey)")
+        #endif
     }
 
     // MARK: - Diagnostics / UI list (next 7 days) — includes suppressed rows
@@ -207,7 +239,7 @@ final class NotificationSyncService {
                 guard tpl.reminderEnabled else { continue }
                 guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
 
-                let taskKey = String(describing: task.persistentModelID)
+                let taskKey = taskKey(for: task)
                 let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
                 out.append(
@@ -252,7 +284,7 @@ final class NotificationSyncService {
                 let occurrenceKey = TaskEntity.dayKey(for: day, calendar: cal)
                 let isSuppressed = task.isReminderSuppressed(for: occurrenceKey)
 
-                let taskKey = String(describing: task.persistentModelID)
+                let taskKey = taskKey(for: task)
                 let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
                 out.append(
@@ -316,6 +348,25 @@ final class NotificationSyncService {
 
     private func notificationId(taskKey: String, occurrenceKey: String) -> String {
         "\(taskKey)_\(occurrenceKey)"
+    }
+
+    private func legacyNotificationId(taskKey: String, occurrenceKey: String) -> String {
+        "task-\(taskKey)-\(occurrenceKey)"
+    }
+
+    private func notificationIds(taskKey: String, occurrenceKey: String) -> [String] {
+        [
+            notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey),
+            legacyNotificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+        ]
+    }
+
+    private func taskKey(for task: TaskEntity) -> String {
+        taskKey(for: task.persistentModelID)
+    }
+
+    private func taskKey(for taskId: PersistentIdentifier) -> String {
+        String(describing: taskId)
     }
 
     private func uniqueTasksPreservingOrder(_ tasks: [TaskEntity]) -> [TaskEntity] {
