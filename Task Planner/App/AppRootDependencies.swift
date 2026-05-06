@@ -21,6 +21,8 @@ final class AppRootDependencies: ObservableObject {
     let widgetSnapshotSyncService: WidgetSnapshotSyncService
     let subscriptionStore: SubscriptionStore
 
+    private var isReconcilingNotifications = false
+
     init(container: DependencyContainer, context: ModelContext) {
         let preferencesRepository = container.makePreferencesRepository(context: context)
         let categoryRepository = container.makeCategoryRepository(context: context)
@@ -74,5 +76,22 @@ final class AppRootDependencies: ObservableObject {
         try? categoryRepository.ensureSystemCategories()
         widgetSnapshotSyncService.refreshSnapshot()
         subscriptionStore.start()
+
+        Task { [weak self] in
+            await self?.reconcileNotificationsIfAllowed()
+        }
+    }
+
+    func reconcileNotificationsIfAllowed() async {
+        guard isReconcilingNotifications == false else { return }
+        isReconcilingNotifications = true
+        defer { isReconcilingNotifications = false }
+
+        do {
+            let tasks = try taskRepository.fetchAll()
+            await notificationSyncService.reconcileAll(tasks: tasks)
+        } catch {
+            // Best-effort only. Task CRUD flows still do targeted notification sync.
+        }
     }
 }

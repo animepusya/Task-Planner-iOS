@@ -51,6 +51,7 @@ private struct AppRootContentView: View {
 
             Task {
                 await dependencies.subscriptionStore.refreshOnAppForeground()
+                await dependencies.reconcileNotificationsIfAllowed()
             }
         }
         .onOpenURL(perform: handleOpenURL)

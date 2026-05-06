@@ -48,6 +48,7 @@ final class NotifyingTaskRepository: TaskRepository {
     }
 
     func add(_ task: TaskEntity) throws {
+        task.ensureReminderStableID()
         try base.add(task)
         let taskID = task.persistentModelID
         Task { [weak self] in
@@ -56,9 +57,10 @@ final class NotifyingTaskRepository: TaskRepository {
     }
 
     func delete(_ task: TaskEntity) throws {
-        let taskID = task.persistentModelID
+        let stableTaskID = task.reminderStableID
+        let legacyTaskID = task.reminderLegacyTaskKey
         Task { [notificationSync] in
-            await notificationSync.cancelForTask(taskId: taskID)
+            await notificationSync.cancelForTask(stableTaskID: stableTaskID, legacyTaskID: legacyTaskID)
         }
         try base.delete(task)
     }
@@ -71,6 +73,7 @@ final class NotifyingTaskRepository: TaskRepository {
     }
 
     func save() throws {
+        try ensureStableReminderIDsForAllTasksIfNeeded()
         try base.save()
         Task { [weak self] in
             await self?.rescheduleAllIfAllowed()
@@ -78,6 +81,7 @@ final class NotifyingTaskRepository: TaskRepository {
     }
 
     func save(_ tasks: [TaskEntity]) throws {
+        ensureStableReminderIDsIfNeeded(in: tasks)
         try base.save(tasks)
         let taskIDs = tasks.map(\.persistentModelID)
         Task { [weak self] in
@@ -174,9 +178,7 @@ final class NotifyingTaskRepository: TaskRepository {
         }
 
         if prefs.notificationsEnabled == false {
-            for taskID in taskIDs {
-                await notificationSync.cancelForTask(taskId: taskID)
-            }
+            await notificationSync.cancelAllImmediately()
             return
         }
 
@@ -193,6 +195,17 @@ final class NotifyingTaskRepository: TaskRepository {
             } catch {
                 return nil
             }
+        }
+    }
+
+    private func ensureStableReminderIDsForAllTasksIfNeeded() throws {
+        let tasks = try base.fetchAll()
+        ensureStableReminderIDsIfNeeded(in: tasks)
+    }
+
+    private func ensureStableReminderIDsIfNeeded(in tasks: [TaskEntity]) {
+        for task in tasks {
+            task.ensureReminderStableID()
         }
     }
 }

@@ -34,6 +34,10 @@ final class NotificationSyncService {
     // MARK: - Reschedule entry points
 
     func rescheduleAll(tasks: [TaskEntity]) async {
+        await reconcileAll(tasks: tasks)
+    }
+
+    func reconcileAll(tasks: [TaskEntity]) async {
         let prefs: AppPreferencesEntity
         do {
             prefs = try preferencesRepository.getOrCreate()
@@ -53,8 +57,16 @@ final class NotificationSyncService {
         }
 
         let reminders = buildPendingRemindersForRollingWindow(tasks: tasks, prefs: prefs)
-        await notificationService.cancelAll()
-        await notificationService.scheduleReminders(reminders)
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "before full reconcile")
+        #endif
+
+        await notificationService.reconcile(reminders: reminders)
+
+        #if DEBUG
+        await notificationService.debugLogPendingRequests(label: "after full reconcile")
+        #endif
     }
 
     func replacePendingReminders(for tasks: [TaskEntity]) async {
@@ -69,7 +81,7 @@ final class NotificationSyncService {
             return
         }
 
-        let taskIDsToCancel = uniqueTasks.map { taskKey(for: $0) }
+        let taskIDsToCancel = uniqueTasks.flatMap { taskCancellationKeys(for: $0) }
         guard prefs.notificationsEnabled else {
             await notificationService.cancel(taskIDs: taskIDsToCancel)
             return
@@ -102,8 +114,14 @@ final class NotificationSyncService {
     }
 
     func cancelForTask(task: TaskEntity) async {
-        let taskID = taskKey(for: task)
-        await notificationService.cancel(taskIDs: [taskID])
+        await notificationService.cancel(taskIDs: taskCancellationKeys(for: task))
+    }
+
+    func cancelForTask(stableTaskID: String?, legacyTaskID: String) async {
+        let ids = [stableTaskID, legacyTaskID]
+            .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+        await notificationService.cancel(taskIDs: ids)
     }
 
     func cancelForTask(taskId: PersistentIdentifier) async {
@@ -143,11 +161,13 @@ final class NotificationSyncService {
         guard let fireDate = computeFireDate(task: task, occurrenceDay: occ, prefs: prefs, calendar: cal) else { return }
 
         let taskKey = taskKey(for: task)
+        let legacyTaskKey = legacyTaskKey(for: task)
         let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
         let reminder = PendingReminder(
             id: id,
             taskId: taskKey,
+            legacyTaskId: legacyTaskKey,
             occurrenceKey: occurrenceKey,
             taskTitle: tpl.title,
             taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
@@ -160,7 +180,7 @@ final class NotificationSyncService {
         await notificationService.debugLogPendingRequests(label: "before single occurrence replace taskID=\(taskKey) occurrenceKey=\(occurrenceKey)")
         #endif
 
-        await notificationService.cancel(taskIDs: [taskKey], matching: [reminder])
+        await notificationService.cancel(taskIDs: taskCancellationKeys(for: task), matching: [reminder])
 
         #if DEBUG
         await notificationService.debugLogPendingRequests(label: "after single occurrence cancel taskID=\(taskKey) occurrenceKey=\(occurrenceKey)")
@@ -240,12 +260,14 @@ final class NotificationSyncService {
                 guard let fireDate = computeFireDate(task: task, occurrenceDay: day, prefs: prefs, calendar: cal) else { continue }
 
                 let taskKey = taskKey(for: task)
+                let legacyTaskKey = legacyTaskKey(for: task)
                 let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
                 out.append(
                     PendingReminder(
                         id: id,
                         taskId: taskKey,
+                        legacyTaskId: legacyTaskKey,
                         occurrenceKey: occurrenceKey,
                         taskTitle: tpl.title,
                         taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
@@ -285,12 +307,13 @@ final class NotificationSyncService {
                 let isSuppressed = task.isReminderSuppressed(for: occurrenceKey)
 
                 let taskKey = taskKey(for: task)
+                let scheduledTaskID = legacyTaskKey(for: task)
                 let id = notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
 
                 out.append(
                     ScheduledReminderItem(
                         id: id,
-                        taskId: taskKey,
+                        taskId: scheduledTaskID,
                         occurrenceKey: occurrenceKey,
                         taskTitle: tpl.title,
                         taskColor: TaskColor(rawValue: tpl.colorRaw) ?? task.color,
@@ -347,26 +370,39 @@ final class NotificationSyncService {
     }
 
     private func notificationId(taskKey: String, occurrenceKey: String) -> String {
+        "reminder-v2-\(taskKey)-\(occurrenceKey)"
+    }
+
+    private func currentLegacyNotificationId(taskKey: String, occurrenceKey: String) -> String {
         "\(taskKey)_\(occurrenceKey)"
     }
 
-    private func legacyNotificationId(taskKey: String, occurrenceKey: String) -> String {
+    private func oldLegacyNotificationId(taskKey: String, occurrenceKey: String) -> String {
         "task-\(taskKey)-\(occurrenceKey)"
     }
 
     private func notificationIds(taskKey: String, occurrenceKey: String) -> [String] {
         [
             notificationId(taskKey: taskKey, occurrenceKey: occurrenceKey),
-            legacyNotificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
+            currentLegacyNotificationId(taskKey: taskKey, occurrenceKey: occurrenceKey),
+            oldLegacyNotificationId(taskKey: taskKey, occurrenceKey: occurrenceKey)
         ]
     }
 
     private func taskKey(for task: TaskEntity) -> String {
-        taskKey(for: task.persistentModelID)
+        task.reminderTaskKeyForScheduling
+    }
+
+    private func legacyTaskKey(for task: TaskEntity) -> String {
+        task.reminderLegacyTaskKey
     }
 
     private func taskKey(for taskId: PersistentIdentifier) -> String {
         String(describing: taskId)
+    }
+
+    private func taskCancellationKeys(for task: TaskEntity) -> [String] {
+        Array(Set([taskKey(for: task), legacyTaskKey(for: task)].filter { $0.isEmpty == false }))
     }
 
     private func uniqueTasksPreservingOrder(_ tasks: [TaskEntity]) -> [TaskEntity] {

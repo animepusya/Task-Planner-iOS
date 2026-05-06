@@ -16,6 +16,7 @@ enum NotificationAuthorizationStatus: Equatable {
 struct PendingReminder: Identifiable, Hashable {
     let id: String
     let taskId: String
+    let legacyTaskId: String
     let occurrenceKey: String
     let taskTitle: String
     let taskColor: TaskColor
@@ -31,6 +32,7 @@ protocol NotificationService {
     func openSystemSettings()
 
     func scheduleReminders(_ reminders: [PendingReminder]) async
+    func reconcile(reminders: [PendingReminder]) async
     func cancel(ids: [String]) async
     func cancel(taskIDs: [String]) async
     func cancel(taskIDs: [String], matching reminders: [PendingReminder]) async
@@ -42,6 +44,11 @@ protocol NotificationService {
 }
 
 extension NotificationService {
+    func reconcile(reminders: [PendingReminder]) async {
+        await cancel(ids: reminders.map(\.id))
+        await scheduleReminders(reminders)
+    }
+
     func cancel(taskIDs: [String], matching reminders: [PendingReminder]) async {
         await cancel(taskIDs: taskIDs)
         await cancel(ids: reminders.map(\.id))

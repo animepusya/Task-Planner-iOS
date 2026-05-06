@@ -27,6 +27,7 @@ final class TaskEntity {
     var reminderEnabled: Bool
     var reminderOffsetMinutes: Int
     var reminderAllDayTimeMinutes: Int?
+    var reminderStableID: String?
     var suppressedReminderKeysRaw: String?
     var seriesSegmentsRaw: String?
     var seriesOverridesRaw: String?
@@ -65,6 +66,7 @@ final class TaskEntity {
         self.reminderEnabled = reminderEnabled
         self.reminderOffsetMinutes = reminderOffsetMinutes
         self.reminderAllDayTimeMinutes = reminderAllDayTimeMinutes
+        self.reminderStableID = UUID().uuidString
         self.suppressedReminderKeysRaw = nil
         self.seriesSegmentsRaw = nil
         self.seriesOverridesRaw = nil
@@ -84,6 +86,37 @@ final class TaskEntity {
     var color: TaskColor {
         get { TaskColor(rawValue: colorRaw) ?? .purple }
         set { colorRaw = newValue.rawValue }
+    }
+}
+
+// MARK: - Reminder identity
+extension TaskEntity {
+    var reminderLegacyTaskKey: String {
+        String(describing: persistentModelID)
+    }
+
+    var reminderTaskKeyForScheduling: String {
+        normalizedReminderStableID ?? reminderLegacyTaskKey
+    }
+
+    @discardableResult
+    func ensureReminderStableID() -> String {
+        if let normalizedReminderStableID {
+            return normalizedReminderStableID
+        }
+
+        let id = UUID().uuidString
+        reminderStableID = id
+        return id
+    }
+
+    private var normalizedReminderStableID: String? {
+        guard let id = reminderStableID?.trimmingCharacters(in: .whitespacesAndNewlines),
+              id.isEmpty == false else {
+            return nil
+        }
+
+        return id
     }
 }
 
