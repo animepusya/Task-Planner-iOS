@@ -318,6 +318,10 @@ final class TaskEditorViewModel {
         }
     }
 
+    func setCreationSourceStatisticsLinkEnabled(_ isEnabled: Bool) {
+        creationSourceState.setStatisticsLinkEnabled(isEnabled)
+    }
+
     func setStartTime(_ newValue: Date) {
         guard newValue != form.startTime else { return }
         onStartTimeChanged(to: newValue)
@@ -772,8 +776,46 @@ final class TaskEditorViewModel {
             )
             new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
+            try applyCreationSourceStatisticsIdentityIfNeeded(to: new)
             try taskRepository.add(new)
         }
+    }
+
+    private func applyCreationSourceStatisticsIdentityIfNeeded(
+        to newTask: TaskEntity
+    ) throws {
+        guard creationSourceState.isStatisticsLinkEnabled,
+              let selectedSource = creationSourceState.selectedSource else {
+            return
+        }
+
+        guard let source = try taskRepository.fetch(by: selectedSource.id) else {
+            throw EditorError.creationSourceNotFound
+        }
+
+        let currentSource = TaskCreationSourceResolver.candidate(
+            from: source,
+            referenceDay: form.dayDate
+        )
+        let fallbackTitle = currentSource.snapshot.title
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeFallbackTitle = fallbackTitle.isEmpty ? "Untitled" : fallbackTitle
+        let fallbackColor = currentSource.color
+
+        let identity = TaskStatisticsIdentity(
+            id: source.statisticsIdentityID,
+            title: source.statisticsIdentityTitle,
+            colorRaw: source.statisticsIdentityColorRaw,
+            fallbackTitle: safeFallbackTitle,
+            fallbackColorRaw: fallbackColor.rawValue
+        ) ?? TaskStatisticsIdentity(
+            id: UUID().uuidString,
+            canonicalTitle: safeFallbackTitle,
+            canonicalColor: fallbackColor
+        )
+
+        identity.write(to: source)
+        identity.write(to: newTask)
     }
 
     private func wireSectionCallbacks() {
@@ -1125,6 +1167,7 @@ final class TaskEditorViewModel {
 
     enum EditorError: LocalizedError {
         case taskNotFound
+        case creationSourceNotFound
         case invalidTimeRange
         case repeatConflict
         case repeatingTasksMustUseSeriesSave
@@ -1133,6 +1176,8 @@ final class TaskEditorViewModel {
             switch self {
             case .taskNotFound:
                 return String(localized: "The task couldn't be found. It may have been deleted.")
+            case .creationSourceNotFound:
+                return String(localized: "The source task no longer exists. Choose another task or count this task separately.")
             case .invalidTimeRange:
                 return String(localized: "End date & time must be later than start date & time.")
             case .repeatConflict:
@@ -1268,6 +1313,7 @@ extension TaskEditorViewModel {
         @Published private(set) var suggestions: [TaskCreationSourceCandidate] = []
         @Published private(set) var hasMoreSuggestions = false
         @Published private(set) var selectedSource: TaskCreationSourceCandidate?
+        @Published private(set) var isStatisticsLinkEnabled = false
         @Published private(set) var loadErrorMessage: String?
 
         private var titleQuery = ""
@@ -1334,8 +1380,14 @@ extension TaskEditorViewModel {
 
         func select(_ candidate: TaskCreationSourceCandidate) {
             selectedSource = candidate
+            isStatisticsLinkEnabled = true
             loadErrorMessage = nil
             refreshSuggestions()
+        }
+
+        func setStatisticsLinkEnabled(_ isEnabled: Bool) {
+            guard selectedSource != nil else { return }
+            isStatisticsLinkEnabled = isEnabled
         }
 
         func setError(_ message: String) {

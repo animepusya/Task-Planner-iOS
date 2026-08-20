@@ -24,6 +24,7 @@ struct TaskCreationSourceSnapshot: Equatable {
     let reminderEnabled: Bool
     let reminderOffsetMinutes: Int
     let reminderAllDayTimeMinutes: Int?
+    let statisticsIdentityTitle: String?
 }
 
 struct TaskCreationSourceCandidate: Identifiable, Equatable {
@@ -36,6 +37,14 @@ struct TaskCreationSourceCandidate: Identifiable, Equatable {
     var title: String { snapshot.title }
     var color: TaskColor { TaskColor(rawValue: snapshot.colorRaw) ?? .purple }
     var repeatRule: RepeatRule { snapshot.repeatRule }
+
+    var statisticsDisplayTitle: String {
+        guard let identityTitle = snapshot.statisticsIdentityTitle else {
+            return displayTitle
+        }
+
+        return LocalizedDisplayText.taskTitle(identityTitle)
+    }
 
     var displayTitle: String {
         LocalizedDisplayText.taskTitle(snapshot.title)

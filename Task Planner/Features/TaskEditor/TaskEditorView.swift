@@ -120,6 +120,7 @@ struct TaskEditorView: View {
                             onLoadCreationSources: viewModel.loadCreationSourcesIfNeeded,
                             onRequestCreationSources: openCreationSourcePicker,
                             onSelectCreationSource: handleCreationSourceSelection,
+                            onSetStatisticsLinkEnabled: viewModel.setCreationSourceStatisticsLinkEnabled,
                             onRequestRepeatUnlock: {
                                 navigationPath.append(.paywall(.advancedRepeats))
                             },
@@ -308,6 +309,7 @@ private struct TaskEditorContentView: View {
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSetStatisticsLinkEnabled: (Bool) -> Void
     let onRequestRepeatUnlock: () -> Void
     let onOpenNotificationsCenter: () -> Void
 
@@ -327,7 +329,8 @@ private struct TaskEditorContentView: View {
                         isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                         onLoadCreationSources: onLoadCreationSources,
                         onRequestCreationSources: onRequestCreationSources,
-                        onSelectCreationSource: onSelectCreationSource
+                        onSelectCreationSource: onSelectCreationSource,
+                        onSetStatisticsLinkEnabled: onSetStatisticsLinkEnabled
                     )
                 }
 

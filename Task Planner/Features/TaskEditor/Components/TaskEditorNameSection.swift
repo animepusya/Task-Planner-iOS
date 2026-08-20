@@ -23,6 +23,7 @@ struct TaskEditorNameSection: View {
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSetStatisticsLinkEnabled: (Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
@@ -36,7 +37,8 @@ struct TaskEditorNameSection: View {
                     isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                     onLoadCreationSources: onLoadCreationSources,
                     onRequestCreationSources: onRequestCreationSources,
-                    onSelectCreationSource: onSelectCreationSource
+                    onSelectCreationSource: onSelectCreationSource,
+                    onSetStatisticsLinkEnabled: onSetStatisticsLinkEnabled
                 )
             }
 
@@ -65,6 +67,7 @@ private struct TaskEditorTitleRow: View {
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSetStatisticsLinkEnabled: (Bool) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
@@ -111,6 +114,10 @@ private struct TaskEditorTitleRow: View {
                 suggestions
             }
 
+            if let source = creationSourceState.selectedSource {
+                statisticsLinkStatus(source: source)
+            }
+
             if let errorMessage = creationSourceState.loadErrorMessage {
                 Text(errorMessage)
                     .font(dsMetrics.font(12, weight: .medium, category: .caption))
@@ -123,6 +130,53 @@ private struct TaskEditorTitleRow: View {
                 onLoadCreationSources()
             }
         }
+    }
+
+    private func statisticsLinkStatus(source: TaskCreationSourceCandidate) -> some View {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(8)) {
+            Divider()
+
+            HStack(alignment: .top, spacing: dsMetrics.spacing(10)) {
+                Image(systemName: creationSourceState.isStatisticsLinkEnabled ? "link" : "chart.bar")
+                    .foregroundStyle(DS.ColorToken.purple)
+                    .frame(width: dsMetrics.controlSize(18))
+
+                VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
+                    Text(statisticsLinkTitle(source: source))
+                        .font(dsMetrics.font(12, weight: .semibold, category: .caption))
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    if creationSourceState.isStatisticsLinkEnabled {
+                        Text("Tasks and schedules stay separate.")
+                            .font(dsMetrics.font(11, weight: .regular, category: .micro))
+                            .foregroundStyle(DS.ColorToken.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+
+                    Button(creationSourceState.isStatisticsLinkEnabled ? "Keep separate" : "Count together") {
+                        onSetStatisticsLinkEnabled(!creationSourceState.isStatisticsLinkEnabled)
+                    }
+                    .font(dsMetrics.font(12, weight: .semibold, category: .caption))
+                    .foregroundStyle(DS.ColorToken.purple)
+                    .buttonStyle(.plain)
+                }
+
+                Spacer(minLength: 0)
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private func statisticsLinkTitle(source: TaskCreationSourceCandidate) -> String {
+        guard creationSourceState.isStatisticsLinkEnabled else {
+            return String(localized: "Counted separately in statistics")
+        }
+
+        return String.localizedStringWithFormat(
+            String(localized: "Counted with “%@” in statistics"),
+            source.statisticsDisplayTitle
+        )
     }
 
     @ViewBuilder

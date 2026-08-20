@@ -62,7 +62,8 @@ enum TaskCreationSourceResolver {
             photoThumbData: template.photoThumbData,
             reminderEnabled: template.reminderEnabled,
             reminderOffsetMinutes: template.reminderOffsetMinutes,
-            reminderAllDayTimeMinutes: template.reminderAllDayTimeMinutes
+            reminderAllDayTimeMinutes: template.reminderAllDayTimeMinutes,
+            statisticsIdentityTitle: TaskStatisticsIdentity(task: task)?.title
         )
     }
 

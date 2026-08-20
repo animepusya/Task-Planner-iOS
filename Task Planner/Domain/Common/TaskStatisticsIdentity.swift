@@ -12,6 +12,12 @@ nonisolated struct TaskStatisticsIdentity: Equatable, Sendable {
     let title: String
     let colorRaw: String
 
+    init(id: String, canonicalTitle: String, canonicalColor: TaskColor) {
+        self.id = id
+        self.title = canonicalTitle
+        self.colorRaw = canonicalColor.rawValue
+    }
+
     init?(
         id: String?,
         title: String?,
@@ -43,6 +49,13 @@ nonisolated struct TaskStatisticsIdentity: Equatable, Sendable {
             fallbackTitle: task.title,
             fallbackColorRaw: task.colorRaw
         )
+    }
+
+    @MainActor
+    func write(to task: TaskEntity) {
+        task.statisticsIdentityID = id
+        task.statisticsIdentityTitle = title
+        task.statisticsIdentityColorRaw = colorRaw
     }
 
     private static func normalizedNonempty(_ value: String?) -> String? {
