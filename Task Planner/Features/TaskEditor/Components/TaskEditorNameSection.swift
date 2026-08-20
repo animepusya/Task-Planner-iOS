@@ -12,19 +12,31 @@ struct TaskEditorNameSection: View {
 
     let titleState: TaskEditorViewModel.TitleSectionState
     let descriptionState: TaskEditorViewModel.DescriptionSectionState
+    @ObservedObject var creationSourceState: TaskEditorViewModel.CreationSourceState
     let fixedCategoryChipWidth: CGFloat
 
     @FocusState.Binding var focusedField: TaskEditorField?
     let showsTitleAndCategory: Bool
     let showsNotesEditor: Bool
+    let canChooseCreationSource: Bool
+    let isAdvancedRepeatLocked: Bool
+    let onLoadCreationSources: () -> Void
+    let onRequestCreationSources: () -> Void
+    let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
             if showsTitleAndCategory {
                 TaskEditorTitleRow(
                     state: titleState,
+                    creationSourceState: creationSourceState,
                     fixedCategoryChipWidth: fixedCategoryChipWidth,
-                    focusedField: $focusedField
+                    focusedField: $focusedField,
+                    canChooseCreationSource: canChooseCreationSource,
+                    isAdvancedRepeatLocked: isAdvancedRepeatLocked,
+                    onLoadCreationSources: onLoadCreationSources,
+                    onRequestCreationSources: onRequestCreationSources,
+                    onSelectCreationSource: onSelectCreationSource
                 )
             }
 
@@ -44,21 +56,35 @@ private struct TaskEditorTitleRow: View {
     @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @ObservedObject var state: TaskEditorViewModel.TitleSectionState
+    @ObservedObject var creationSourceState: TaskEditorViewModel.CreationSourceState
 
     let fixedCategoryChipWidth: CGFloat
     @FocusState.Binding var focusedField: TaskEditorField?
+    let canChooseCreationSource: Bool
+    let isAdvancedRepeatLocked: Bool
+    let onLoadCreationSources: () -> Void
+    let onRequestCreationSources: () -> Void
+    let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
-            Text("Task Name")
-                .font(
-                    dsMetrics.font(
-                        12,
-                        weight: .medium,
-                        category: .caption
+            HStack(spacing: dsMetrics.spacing(8)) {
+                Text("Task Name")
+                    .font(
+                        dsMetrics.font(
+                            12,
+                            weight: .medium,
+                            category: .caption
+                        )
                     )
-                )
-                .foregroundStyle(DS.ColorToken.textSecondary)
+                    .foregroundStyle(DS.ColorToken.textSecondary)
+
+                Spacer()
+
+                if canChooseCreationSource {
+                    creationSourceActions
+                }
+            }
 
             HStack(spacing: dsMetrics.spacing(10)) {
                 TextField("Enter title", text: state.titleBinding)
@@ -80,6 +106,97 @@ private struct TaskEditorTitleRow: View {
                 categoryMenuChip
             }
             .padding(.vertical, dsMetrics.spacing(4))
+
+            if shouldShowSuggestions {
+                suggestions
+            }
+
+            if let errorMessage = creationSourceState.loadErrorMessage {
+                Text(errorMessage)
+                    .font(dsMetrics.font(12, weight: .medium, category: .caption))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .onChange(of: focusedField) { _, newValue in
+            if newValue == .title, canChooseCreationSource {
+                onLoadCreationSources()
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var creationSourceActions: some View {
+        Group {
+            if creationSourceState.selectedSource == nil {
+                Button {
+                    focusedField = nil
+                    onRequestCreationSources()
+                } label: {
+                    Label("Fill task", systemImage: "doc.on.doc")
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                }
+            } else {
+                Button {
+                    focusedField = nil
+                    onRequestCreationSources()
+                } label: {
+                    Label("Change", systemImage: "doc.on.doc")
+                }
+            }
+        }
+        .font(dsMetrics.font(12, weight: .semibold, category: .caption))
+        .foregroundStyle(DS.ColorToken.purple)
+        .buttonStyle(.plain)
+    }
+
+    private var shouldShowSuggestions: Bool {
+        canChooseCreationSource
+            && focusedField == .title
+            && creationSourceState.selectedSource == nil
+            && creationSourceState.hasMeaningfulQuery
+    }
+
+    @ViewBuilder
+    private var suggestions: some View {
+        Divider()
+
+        if creationSourceState.suggestions.isEmpty {
+            Text("No matching tasks")
+                .font(dsMetrics.font(12, weight: .regular, category: .caption))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, dsMetrics.spacing(4))
+        } else {
+            VStack(spacing: dsMetrics.spacing(DS.Spacing.xs)) {
+                ForEach(creationSourceState.suggestions) { candidate in
+                    Button {
+                        focusedField = nil
+                        onSelectCreationSource(candidate)
+                    } label: {
+                        TaskCreationSourceRow(
+                            candidate: candidate,
+                            showsProBadge: isAdvancedRepeatLocked && candidate.repeatRule.requiresProAccess,
+                            trailingSystemName: "doc.on.doc"
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if creationSourceState.hasMoreSuggestions {
+                    Button {
+                        focusedField = nil
+                        onRequestCreationSources()
+                    } label: {
+                        Text("Show all")
+                            .font(dsMetrics.font(13, weight: .semibold, category: .body))
+                            .foregroundStyle(DS.ColorToken.purple)
+                            .frame(maxWidth: .infinity, minHeight: dsMetrics.controlSize(40))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 

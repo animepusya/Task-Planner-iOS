@@ -17,6 +17,8 @@ struct TaskEditorView: View {
     @StateObject private var visibility: TaskEditorViewModel.VisibilityState
     @StateObject private var alertState: TaskEditorViewModel.AlertState
     @State private var navigationPath: [TaskEditorRoute] = []
+    @State private var pendingLockedSource: TaskCreationSourceCandidate?
+    @State private var showsLockedSourceOptions = false
 
     let onOpenNotificationsCenter: () -> Void
 
@@ -113,7 +115,11 @@ struct TaskEditorView: View {
                             viewModel: viewModel,
                             fixedCategoryChipWidth: metrics.isLargePad ? 220 : 132,
                             focusedField: $focusedField,
+                            canChooseCreationSource: viewModel.isEditing == false,
                             isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
+                            onLoadCreationSources: viewModel.loadCreationSourcesIfNeeded,
+                            onRequestCreationSources: openCreationSourcePicker,
+                            onSelectCreationSource: handleCreationSourceSelection,
                             onRequestRepeatUnlock: {
                                 navigationPath.append(.paywall(.advancedRepeats))
                             },
@@ -159,10 +165,47 @@ struct TaskEditorView: View {
                 }
                 .navigationDestination(for: TaskEditorRoute.self) { route in
                     switch route {
+                    case .creationSourcePicker:
+                        TaskCreationSourcePicker(
+                            state: viewModel.creationSourceState,
+                            isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
+                            onSelect: handleCreationSourceSelection
+                        )
                     case .paywall(let entryPoint):
                         PaywallView(entryPoint: entryPoint)
                     }
                 }
+            }
+        }
+        .confirmationDialog(
+            "This task uses a Pro repeat",
+            isPresented: $showsLockedSourceOptions,
+            presenting: pendingLockedSource
+        ) { candidate in
+            Button("Upgrade to Pro") {
+                pendingLockedSource = nil
+                navigationPath.append(.paywall(.advancedRepeats))
+            }
+
+            Button("Copy without repeat") {
+                pendingLockedSource = nil
+                applyCreationSource(candidate, includeRepeatRule: false)
+            }
+
+            Button("Cancel", role: .cancel) {
+                pendingLockedSource = nil
+            }
+        } message: { _ in
+            Text("Copy all settings by opening Pro, or copy without the repeat rule.")
+        }
+        .onChange(of: subscriptionStore.isRefreshing) { _, isRefreshing in
+            guard isRefreshing == false, let candidate = pendingLockedSource else { return }
+
+            if subscriptionStore.isPro {
+                pendingLockedSource = nil
+                applyCreationSource(candidate, includeRepeatRule: true)
+            } else {
+                showsLockedSourceOptions = true
             }
         }
     }
@@ -170,6 +213,45 @@ struct TaskEditorView: View {
     private func dismissKeyboard() {
         focusedField = nil
         UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    private func openCreationSourcePicker() {
+        dismissKeyboard()
+        viewModel.loadCreationSourcesIfNeeded()
+
+        guard navigationPath.last != .creationSourcePicker else { return }
+        navigationPath.append(.creationSourcePicker)
+    }
+
+    private func handleCreationSourceSelection(_ candidate: TaskCreationSourceCandidate) {
+        if candidate.repeatRule.requiresProAccess,
+           subscriptionStore.isLocked(.advancedRepeats) {
+            pendingLockedSource = candidate
+
+            if subscriptionStore.isRefreshing == false {
+                showsLockedSourceOptions = true
+            }
+            return
+        }
+
+        applyCreationSource(candidate, includeRepeatRule: true)
+    }
+
+    private func applyCreationSource(
+        _ candidate: TaskCreationSourceCandidate,
+        includeRepeatRule: Bool
+    ) {
+        guard viewModel.applyCreationSource(
+            candidate,
+            includeRepeatRule: includeRepeatRule
+        ) else {
+            return
+        }
+
+        dismissKeyboard()
+        if navigationPath.last == .creationSourcePicker {
+            navigationPath.removeLast()
+        }
     }
 
     private func saveNormal() {
@@ -221,7 +303,11 @@ private struct TaskEditorContentView: View {
 
     @FocusState.Binding var focusedField: TaskEditorField?
 
+    let canChooseCreationSource: Bool
     let isAdvancedRepeatLocked: Bool
+    let onLoadCreationSources: () -> Void
+    let onRequestCreationSources: () -> Void
+    let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
     let onRequestRepeatUnlock: () -> Void
     let onOpenNotificationsCenter: () -> Void
 
@@ -232,10 +318,16 @@ private struct TaskEditorContentView: View {
                     TaskEditorNameSection(
                         titleState: viewModel.titleSection,
                         descriptionState: viewModel.descriptionSection,
+                        creationSourceState: viewModel.creationSourceState,
                         fixedCategoryChipWidth: fixedCategoryChipWidth,
                         focusedField: $focusedField,
                         showsTitleAndCategory: visibility.showsTitleAndCategory,
-                        showsNotesEditor: visibility.showsNotesEditor
+                        showsNotesEditor: visibility.showsNotesEditor,
+                        canChooseCreationSource: canChooseCreationSource,
+                        isAdvancedRepeatLocked: isAdvancedRepeatLocked,
+                        onLoadCreationSources: onLoadCreationSources,
+                        onRequestCreationSources: onRequestCreationSources,
+                        onSelectCreationSource: onSelectCreationSource
                     )
                 }
 
@@ -315,5 +407,6 @@ private struct TaskEditorLayoutMetrics {
 }
 
 private enum TaskEditorRoute: Hashable {
+    case creationSourcePicker
     case paywall(PaywallEntryPoint)
 }

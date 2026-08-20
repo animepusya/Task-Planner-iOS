@@ -27,6 +27,7 @@ final class TaskEditorViewModel {
     private var occurrenceStartDay: Date?
 
     private var didBootstrap = false
+    private var didLoadCreationSources = false
     private var weekStartsOnMonday = true
     private var defaultAllDayTimeMinutes: Int = 9 * 60
     private var availableCategories: [String] = [CategorySystem.workTitle]
@@ -35,6 +36,7 @@ final class TaskEditorViewModel {
     let chrome: ChromeState
     let visibility: VisibilityState
     let alertState: AlertState
+    let creationSourceState: CreationSourceState
 
     let titleSection: TitleSectionState
     let descriptionSection: DescriptionSectionState
@@ -104,6 +106,7 @@ final class TaskEditorViewModel {
         self.chrome = ChromeState(editMode: editMode, isEditing: taskId != nil)
         self.visibility = VisibilityState(editMode: editMode)
         self.alertState = AlertState()
+        self.creationSourceState = CreationSourceState()
 
         self.titleSection = TitleSectionState()
         self.descriptionSection = DescriptionSectionState()
@@ -232,6 +235,87 @@ final class TaskEditorViewModel {
 
         form.dayDate = newDay
         onStartDayChanged()
+        refreshCreationSourcesIfLoaded()
+    }
+
+    func loadCreationSourcesIfNeeded() {
+        guard taskId == nil, didLoadCreationSources == false else { return }
+        reloadCreationSources()
+    }
+
+    @discardableResult
+    func applyCreationSource(
+        _ candidate: TaskCreationSourceCandidate,
+        includeRepeatRule: Bool
+    ) -> Bool {
+        guard taskId == nil else { return false }
+
+        do {
+            guard let source = try taskRepository.fetch(by: candidate.id) else {
+                creationSourceState.setError(String(localized: "This task no longer exists."))
+                return false
+            }
+
+            let resolvedCandidate = TaskCreationSourceResolver.candidate(
+                from: source,
+                referenceDay: form.dayDate
+            )
+            let snapshot = resolvedCandidate.snapshot
+            let preservedDay = time.startOfDay(form.dayDate)
+            let endDay = Calendar.current.date(
+                byAdding: .day,
+                value: max(0, snapshot.endDayOffset),
+                to: preservedDay
+            ) ?? preservedDay
+
+            form.title = snapshot.title
+            form.notes = snapshot.notes ?? ""
+            form.dayDate = preservedDay
+            form.endDayDate = endDay
+            form.startTime = TimeMinutes.date(
+                on: preservedDay,
+                minutes: snapshot.startMinutes,
+                calendar: .current
+            )
+            form.endTime = TimeMinutes.date(
+                on: endDay,
+                minutes: snapshot.endMinutes,
+                calendar: .current
+            )
+            form.isAllDay = snapshot.isAllDay
+            form.repeatRule = includeRepeatRule ? snapshot.repeatRule : .none
+            form.repeatIntervalDays = includeRepeatRule
+                ? max(1, snapshot.repeatIntervalDays ?? 2)
+                : 2
+            form.color = TaskColor(rawValue: snapshot.colorRaw) ?? source.color
+
+            let sourceCategory = snapshot.categoryTitle ?? CategorySystem.uncategorizedTitle
+            form.categoryTitle = category.ensureCategoryIsValid(
+                current: sourceCategory,
+                available: availableCategories
+            )
+
+            form.photoThumbData = snapshot.photoThumbData
+            form.reminderEnabled = reminderGate == nil && snapshot.reminderEnabled
+            form.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(
+                snapshot.reminderOffsetMinutes
+            )
+            form.reminderAllDayTimeMinutes = snapshot.reminderAllDayTimeMinutes
+
+            let validated = time.normalizeAndValidate(
+                dayDate: form.dayDate,
+                endDayDate: form.endDayDate,
+                startTime: form.startTime,
+                endTime: form.endTime
+            )
+            apply(validated)
+            publishAllState()
+            creationSourceState.select(resolvedCandidate)
+            return true
+        } catch {
+            creationSourceState.setError(error.localizedDescription)
+            return false
+        }
     }
 
     func setStartTime(_ newValue: Date) {
@@ -749,6 +833,7 @@ final class TaskEditorViewModel {
     private func updateTitle(_ newValue: String) {
         guard newValue != form.title else { return }
         form.title = newValue
+        creationSourceState.updateTitleQuery(newValue)
     }
 
     private func updateCategoryTitle(_ newValue: String) {
@@ -938,6 +1023,7 @@ final class TaskEditorViewModel {
         publishRepeatState()
         colorSection.render(color: form.color)
         photoSection.render(thumbData: form.photoThumbData)
+        creationSourceState.updateTitleQuery(form.title)
         chrome.updateValidation(
             timeRangeInvalid: form.isTimeRangeInvalid,
             repeatInvalid: form.isRepeatInvalid
@@ -985,6 +1071,26 @@ final class TaskEditorViewModel {
             isInvalid: form.isRepeatInvalid,
             validationMessage: form.repeatValidationMessage
         )
+    }
+
+    private func reloadCreationSources() {
+        do {
+            let candidates = try taskRepository.fetchAll().map {
+                TaskCreationSourceResolver.candidate(
+                    from: $0,
+                    referenceDay: form.dayDate
+                )
+            }
+            didLoadCreationSources = true
+            creationSourceState.setCandidates(candidates)
+        } catch {
+            creationSourceState.setError(String(localized: "Couldn't load"))
+        }
+    }
+
+    private func refreshCreationSourcesIfLoaded() {
+        guard didLoadCreationSources else { return }
+        reloadCreationSources()
     }
 
     struct FormState: Equatable {
@@ -1154,6 +1260,99 @@ extension TaskEditorViewModel {
     @MainActor
     final class AlertState: ObservableObject {
         @Published var alert: TaskEditorAlert?
+    }
+
+    @MainActor
+    final class CreationSourceState: ObservableObject {
+        @Published private(set) var candidates: [TaskCreationSourceCandidate] = []
+        @Published private(set) var suggestions: [TaskCreationSourceCandidate] = []
+        @Published private(set) var hasMoreSuggestions = false
+        @Published private(set) var selectedSource: TaskCreationSourceCandidate?
+        @Published private(set) var loadErrorMessage: String?
+
+        private var titleQuery = ""
+
+        var hasMeaningfulQuery: Bool {
+            TaskTitleNormalizer.normalize(titleQuery).isEmpty == false
+        }
+
+        func filteredCandidates(matching query: String) -> [TaskCreationSourceCandidate] {
+            let normalizedQuery = TaskTitleNormalizer.normalize(query)
+
+            return candidates
+                .compactMap { candidate -> (candidate: TaskCreationSourceCandidate, rank: Int)? in
+                    guard let rank = TaskTitleNormalizer.matchRank(
+                        title: candidate.title,
+                        query: normalizedQuery
+                    ) else {
+                        return nil
+                    }
+
+                    return (candidate, rank)
+                }
+                .sorted { lhs, rhs in
+                    if lhs.rank != rhs.rank {
+                        return lhs.rank < rhs.rank
+                    }
+                    if lhs.candidate.isEnded != rhs.candidate.isEnded {
+                        return lhs.candidate.isEnded == false
+                    }
+
+                    let titleOrder = lhs.candidate.displayTitle.localizedCaseInsensitiveCompare(
+                        rhs.candidate.displayTitle
+                    )
+                    if titleOrder != .orderedSame {
+                        return titleOrder == .orderedAscending
+                    }
+
+                    if lhs.candidate.sourceDay != rhs.candidate.sourceDay {
+                        return lhs.candidate.sourceDay > rhs.candidate.sourceDay
+                    }
+
+                    return String(describing: lhs.candidate.id) < String(describing: rhs.candidate.id)
+                }
+                .map(\.candidate)
+        }
+
+        func setCandidates(_ candidates: [TaskCreationSourceCandidate]) {
+            self.candidates = candidates
+            loadErrorMessage = nil
+
+            if let selectedSource,
+               let refreshed = candidates.first(where: { $0.id == selectedSource.id }) {
+                self.selectedSource = refreshed
+            }
+
+            refreshSuggestions()
+        }
+
+        func updateTitleQuery(_ query: String) {
+            guard query != titleQuery else { return }
+            titleQuery = query
+            refreshSuggestions()
+        }
+
+        func select(_ candidate: TaskCreationSourceCandidate) {
+            selectedSource = candidate
+            loadErrorMessage = nil
+            refreshSuggestions()
+        }
+
+        func setError(_ message: String) {
+            loadErrorMessage = message
+        }
+
+        private func refreshSuggestions() {
+            guard hasMeaningfulQuery, selectedSource == nil else {
+                suggestions = []
+                hasMoreSuggestions = false
+                return
+            }
+
+            let matches = filteredCandidates(matching: titleQuery)
+            suggestions = Array(matches.prefix(4))
+            hasMoreSuggestions = matches.count > suggestions.count
+        }
     }
 
     @MainActor
