@@ -138,6 +138,7 @@ nonisolated struct StatisticsTaskSeriesOverrideSource: Equatable, Sendable {
 
 nonisolated struct StatisticsTaskSource: Equatable, Sendable {
     let id: String
+    let statisticsIdentity: TaskStatisticsIdentity?
     let baseDay: Date
     let seriesEndDay: Date?
     let baseTemplate: StatisticsTaskSeriesTemplateSource
@@ -170,6 +171,7 @@ nonisolated struct StatisticsTaskSource: Equatable, Sendable {
         }
 
         self.id = String(describing: task.persistentModelID)
+        self.statisticsIdentity = TaskStatisticsIdentity(task: task)
         self.baseDay = baseDay
         self.seriesEndDay = task.seriesEndDay.map { calendar.startOfDay(for: $0) }
         self.baseTemplate = baseTemplate
@@ -270,6 +272,7 @@ enum StatisticsComputationBuilder {
         )
         let visibleStart = context.startDay
         let visibleEnd = context.endDay
+        let identityPresentationByID = makeIdentityPresentationByID(from: tasks)
         let candidateTasks = tasks.filter {
             $0.hasRelevantStarts(between: visibleStart, and: visibleEnd, calendar: calendar)
         }
@@ -286,6 +289,7 @@ enum StatisticsComputationBuilder {
                 visibleEnd: visibleEnd,
                 calendar: calendar,
                 weekStartsOnMonday: key.weekStartsOnMonday,
+                identityPresentationByID: identityPresentationByID,
                 perCategory: &perCategory,
                 perTask: &perTask,
                 totalMinutes: &totalMinutes
@@ -318,7 +322,8 @@ enum StatisticsComputationBuilder {
     }
 
     nonisolated private static func aggregateOccurrence(
-        taskID: String,
+        taskAggregationKey: String,
+        statisticsIdentity: TaskStatisticsIdentity?,
         occurrenceStartDay: Date,
         template: StatisticsTaskSeriesTemplateSource,
         visibleStart: Date,
@@ -372,18 +377,19 @@ enum StatisticsComputationBuilder {
                 )
             }
 
-            let taskTitle = normalizedTaskTitle(template.title)
+            let taskTitle = normalizedTaskTitle(statisticsIdentity?.title ?? template.title)
+            let taskColorRaw = statisticsIdentity?.colorRaw ?? colorRaw
 
-            if var existingTask = perTask[taskID] {
+            if var existingTask = perTask[taskAggregationKey] {
                 existingTask.minutes += minutes
                 existingTask.title = taskTitle
-                existingTask.colorRaw = colorRaw
-                perTask[taskID] = existingTask
+                existingTask.colorRaw = taskColorRaw
+                perTask[taskAggregationKey] = existingTask
             } else {
-                perTask[taskID] = (
+                perTask[taskAggregationKey] = (
                     title: taskTitle,
                     minutes: minutes,
-                    colorRaw: colorRaw
+                    colorRaw: taskColorRaw
                 )
             }
         }
@@ -395,10 +401,22 @@ enum StatisticsComputationBuilder {
         visibleEnd: Date,
         calendar: Calendar,
         weekStartsOnMonday: Bool,
+        identityPresentationByID: [String: TaskStatisticsIdentity],
         perCategory: inout [String: (totalMinutes: Int, colorMinutes: [String: Int])],
         perTask: inout [String: (title: String, minutes: Int, colorRaw: String)],
         totalMinutes: inout Int
     ) {
+        let taskAggregationKey: String
+        let statisticsIdentity: TaskStatisticsIdentity?
+
+        if let identity = task.statisticsIdentity {
+            taskAggregationKey = "identity:\(identity.id)"
+            statisticsIdentity = identityPresentationByID[identity.id] ?? identity
+        } else {
+            taskAggregationKey = task.id
+            statisticsIdentity = nil
+        }
+
         let overrideDaysInRange = task.overridesByDayKey.keys
             .compactMap { dayKey -> Date? in
                 let day = calendar.startOfDay(for: DayKey.parse(dayKey, calendar: calendar))
@@ -429,7 +447,8 @@ enum StatisticsComputationBuilder {
             }
 
             aggregateOccurrence(
-                taskID: task.id,
+                taskAggregationKey: taskAggregationKey,
+                statisticsIdentity: statisticsIdentity,
                 occurrenceStartDay: day,
                 template: template,
                 visibleStart: visibleStart,
@@ -454,7 +473,8 @@ enum StatisticsComputationBuilder {
             }
 
             aggregateOccurrence(
-                taskID: task.id,
+                taskAggregationKey: taskAggregationKey,
+                statisticsIdentity: statisticsIdentity,
                 occurrenceStartDay: task.baseDay,
                 template: task.baseTemplate,
                 visibleStart: visibleStart,
@@ -500,6 +520,8 @@ enum StatisticsComputationBuilder {
                 weekStartsOnMonday: weekStartsOnMonday,
                 visibleStart: visibleStart,
                 visibleEnd: visibleEnd,
+                taskAggregationKey: taskAggregationKey,
+                statisticsIdentity: statisticsIdentity,
                 perCategory: &perCategory,
                 perTask: &perTask,
                 totalMinutes: &totalMinutes
@@ -551,6 +573,8 @@ enum StatisticsComputationBuilder {
         weekStartsOnMonday: Bool,
         visibleStart: Date,
         visibleEnd: Date,
+        taskAggregationKey: String,
+        statisticsIdentity: TaskStatisticsIdentity?,
         perCategory: inout [String: (totalMinutes: Int, colorMinutes: [String: Int])],
         perTask: inout [String: (title: String, minutes: Int, colorRaw: String)],
         totalMinutes: inout Int
@@ -561,7 +585,8 @@ enum StatisticsComputationBuilder {
             guard suppressedDays.contains(normalizedDay) == false else { return }
 
             aggregateOccurrence(
-                taskID: task.id,
+                taskAggregationKey: taskAggregationKey,
+                statisticsIdentity: statisticsIdentity,
                 occurrenceStartDay: normalizedDay,
                 template: template,
                 visibleStart: visibleStart,
@@ -828,6 +853,23 @@ enum StatisticsComputationBuilder {
             colorRaw: ""
         )
         return top + [other]
+    }
+
+    nonisolated private static func makeIdentityPresentationByID(
+        from tasks: [StatisticsTaskSource]
+    ) -> [String: TaskStatisticsIdentity] {
+        var result: [String: TaskStatisticsIdentity] = [:]
+
+        for task in tasks.sorted(by: { $0.id < $1.id }) {
+            guard let identity = task.statisticsIdentity,
+                  result[identity.id] == nil else {
+                continue
+            }
+
+            result[identity.id] = identity
+        }
+
+        return result
     }
 
     nonisolated private static func normalizedCategoryTitle(_ raw: String?) -> String {
