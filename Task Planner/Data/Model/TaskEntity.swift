@@ -20,6 +20,9 @@ final class TaskEntity {
     var repeatIntervalDays: Int?
     var statusRaw: String
     var colorRaw: String
+    var statisticsIdentityID: String? = nil
+    var statisticsIdentityTitle: String? = nil
+    var statisticsIdentityColorRaw: String? = nil
     var categoryTitle: String?
     var photoThumbData: Data?
     var completedDayKeysRaw: String
