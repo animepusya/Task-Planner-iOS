@@ -4845,48 +4845,48 @@
         }
       }
     },
-    "Counted with “%@” in statistics" : {
+    "Counted as “%@” in statistics" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In der Statistik zusammen mit „%@“ gezählt"
+            "value" : "In der Statistik als „%@“ gezählt"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se contabiliza con “%@” en las estadísticas"
+            "value" : "Se contabiliza como “%@” en las estadísticas"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comptabilisée avec « %@ » dans les statistiques"
+            "value" : "Comptabilisée comme « %@ » dans les statistiques"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conteggiata con “%@” nelle statistiche"
+            "value" : "Conteggiata come “%@” nelle statistiche"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "統計では「%@」とまとめて集計"
+            "value" : "統計では「%@」として集計"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "통계에서 “%@”와 함께 집계"
+            "value" : "통계에서 “%@” 항목으로 집계"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contabilizada com “%@” nas estatísticas"
+            "value" : "Contabilizada como “%@” nas estatísticas"
           }
         },
         "ru" : {

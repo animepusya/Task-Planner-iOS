@@ -47,6 +47,8 @@ final class SwiftDataTaskRepository: TaskRepository {
     }
 
     func delete(_ task: TaskEntity) throws {
+        let allTasks = try fetchAll()
+        TaskStatisticsIdentity.unlink(task, among: allTasks)
         context.delete(task)
         try save()
     }

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 
 nonisolated struct TaskStatisticsIdentity: Equatable, Sendable {
     let id: String
@@ -56,6 +57,36 @@ nonisolated struct TaskStatisticsIdentity: Equatable, Sendable {
         task.statisticsIdentityID = id
         task.statisticsIdentityTitle = title
         task.statisticsIdentityColorRaw = colorRaw
+    }
+
+    @MainActor
+    static func clear(from task: TaskEntity) {
+        task.statisticsIdentityID = nil
+        task.statisticsIdentityTitle = nil
+        task.statisticsIdentityColorRaw = nil
+    }
+
+    @MainActor
+    static func unlink(
+        _ task: TaskEntity,
+        among allTasks: [TaskEntity]
+    ) {
+        guard let identity = TaskStatisticsIdentity(task: task) else {
+            clear(from: task)
+            return
+        }
+
+        let remainingMembers = allTasks.filter { candidate in
+            candidate.persistentModelID != task.persistentModelID
+                && TaskStatisticsIdentity(task: candidate)?.id == identity.id
+        }
+
+        clear(from: task)
+
+        if remainingMembers.count == 1,
+           let lastMember = remainingMembers.first {
+            clear(from: lastMember)
+        }
     }
 
     private static func normalizedNonempty(_ value: String?) -> String? {

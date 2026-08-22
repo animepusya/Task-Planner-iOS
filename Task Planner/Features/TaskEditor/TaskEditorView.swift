@@ -119,9 +119,9 @@ struct TaskEditorView: View {
                             isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
                             onLoadCreationSources: viewModel.loadCreationSourcesIfNeeded,
                             onRequestCreationSources: openCreationSourcePicker,
-                            onRequestDuplicateTitleStatisticsSources: openDuplicateTitleStatisticsPicker,
+                            onRequestStatisticsLinkSources: openStatisticsLinkPicker,
                             onSelectCreationSource: handleCreationSourceSelection,
-                            onSelectDuplicateTitleStatisticsSource: viewModel.selectDuplicateTitleStatisticsSource,
+                            onSelectDuplicateTitleStatisticsSource: viewModel.selectStatisticsLinkSource,
                             onDismissDuplicateTitleSuggestion: viewModel.dismissDuplicateTitleSuggestion,
                             onSetStatisticsLinkEnabled: viewModel.setCreationSourceStatisticsLinkEnabled,
                             onRequestRepeatUnlock: {
@@ -182,7 +182,7 @@ struct TaskEditorView: View {
                             navigationTitle: String(localized: "Count together"),
                             isAdvancedRepeatLocked: false,
                             trailingSystemName: "link",
-                            onSelect: applyDuplicateTitleStatisticsSource
+                            onSelect: applyStatisticsLinkSource
                         )
                     case .paywall(let entryPoint):
                         PaywallView(entryPoint: entryPoint)
@@ -236,9 +236,9 @@ struct TaskEditorView: View {
         navigationPath.append(.creationSourcePicker)
     }
 
-    private func openDuplicateTitleStatisticsPicker() {
+    private func openStatisticsLinkPicker() {
         dismissKeyboard()
-        viewModel.loadCreationSourcesIfNeeded()
+        viewModel.loadStatisticsLinkSourcesIfNeeded()
 
         let route = TaskEditorRoute.statisticsLinkPicker(
             query: viewModel.creationSourceState.currentTitleQuery
@@ -247,8 +247,8 @@ struct TaskEditorView: View {
         navigationPath.append(route)
     }
 
-    private func applyDuplicateTitleStatisticsSource(_ candidate: TaskCreationSourceCandidate) {
-        viewModel.selectDuplicateTitleStatisticsSource(candidate)
+    private func applyStatisticsLinkSource(_ candidate: TaskCreationSourceCandidate) {
+        viewModel.selectStatisticsLinkSource(candidate)
         dismissKeyboard()
 
         if let lastRoute = navigationPath.last,
@@ -341,7 +341,7 @@ private struct TaskEditorContentView: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
-    let onRequestDuplicateTitleStatisticsSources: () -> Void
+    let onRequestStatisticsLinkSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
     let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
     let onDismissDuplicateTitleSuggestion: () -> Void
@@ -365,7 +365,7 @@ private struct TaskEditorContentView: View {
                         isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                         onLoadCreationSources: onLoadCreationSources,
                         onRequestCreationSources: onRequestCreationSources,
-                        onRequestDuplicateTitleStatisticsSources: onRequestDuplicateTitleStatisticsSources,
+                        onRequestStatisticsLinkSources: onRequestStatisticsLinkSources,
                         onSelectCreationSource: onSelectCreationSource,
                         onSelectDuplicateTitleStatisticsSource: onSelectDuplicateTitleStatisticsSource,
                         onDismissDuplicateTitleSuggestion: onDismissDuplicateTitleSuggestion,

@@ -243,6 +243,11 @@ final class TaskEditorViewModel {
         reloadCreationSources()
     }
 
+    func loadStatisticsLinkSourcesIfNeeded() {
+        guard didLoadCreationSources == false else { return }
+        reloadCreationSources()
+    }
+
     @discardableResult
     func applyCreationSource(
         _ candidate: TaskCreationSourceCandidate,
@@ -322,7 +327,7 @@ final class TaskEditorViewModel {
         creationSourceState.setStatisticsLinkEnabled(isEnabled)
     }
 
-    func selectDuplicateTitleStatisticsSource(_ candidate: TaskCreationSourceCandidate) {
+    func selectStatisticsLinkSource(_ candidate: TaskCreationSourceCandidate) {
         creationSourceState.selectStatisticsLink(candidate)
     }
 
@@ -459,6 +464,11 @@ final class TaskEditorViewModel {
                 )
                 return
             }
+
+            creationSourceState.configureExistingTask(
+                id: existing.persistentModelID,
+                statisticsIdentity: TaskStatisticsIdentity(task: existing)
+            )
 
             let isEditingRepeatingTask = existing.repeatRule != .none
             chrome.setRepeatingTaskEditing(isEditingRepeatingTask)
@@ -685,6 +695,8 @@ final class TaskEditorViewModel {
         let safeCategory = trimmedCategory.isEmpty ? CategorySystem.workTitle : trimmedCategory
         let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
+        try applyPendingStatisticsIdentity(to: existing)
+
         try seriesService.applyBaseRecurringIdentityEdit(
             taskId: taskId,
             changes: .init(
@@ -764,6 +776,7 @@ final class TaskEditorViewModel {
             existing.reminderOffsetMinutes = reminderOffset
             existing.reminderAllDayTimeMinutes = reminderAllDayTime
 
+            try applyPendingStatisticsIdentity(to: existing)
             try taskRepository.save(existing)
         } else {
             let new = TaskEntity(
@@ -784,21 +797,55 @@ final class TaskEditorViewModel {
             )
             new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
-            try applyStatisticsIdentityIfNeeded(to: new)
+            try applyPendingStatisticsIdentity(to: new)
             try taskRepository.add(new)
         }
     }
 
-    private func applyStatisticsIdentityIfNeeded(
-        to newTask: TaskEntity
+    private func applyPendingStatisticsIdentity(
+        to task: TaskEntity
     ) throws {
+        if taskId != nil {
+            guard creationSourceState.hasStatisticsLinkChanges else { return }
+
+            guard creationSourceState.isStatisticsLinkEnabled else {
+                let allTasks = try taskRepository.fetchAll()
+                TaskStatisticsIdentity.unlink(task, among: allTasks)
+                return
+            }
+
+            if let statisticsLinkSource = creationSourceState.statisticsLinkSource {
+                try applyStatisticsLink(from: statisticsLinkSource, to: task)
+            } else if let existingIdentity = creationSourceState.existingStatisticsIdentity {
+                existingIdentity.write(to: task)
+            }
+            return
+        }
+
         guard creationSourceState.isStatisticsLinkEnabled,
               let statisticsLinkSource = creationSourceState.statisticsLinkSource else {
             return
         }
 
+        try applyStatisticsLink(from: statisticsLinkSource, to: task)
+    }
+
+    private func applyStatisticsLink(
+        from statisticsLinkSource: TaskCreationSourceCandidate,
+        to task: TaskEntity
+    ) throws {
         guard let source = try taskRepository.fetch(by: statisticsLinkSource.id) else {
             throw EditorError.creationSourceNotFound
+        }
+
+        let sourceIdentity = TaskStatisticsIdentity(task: source)
+        let currentIdentity = TaskStatisticsIdentity(task: task)
+
+        if taskId != nil,
+           let currentIdentity,
+           currentIdentity.id != sourceIdentity?.id {
+            let allTasks = try taskRepository.fetchAll()
+            TaskStatisticsIdentity.unlink(task, among: allTasks)
         }
 
         let currentSource = TaskCreationSourceResolver.candidate(
@@ -810,20 +857,14 @@ final class TaskEditorViewModel {
         let safeFallbackTitle = fallbackTitle.isEmpty ? "Untitled" : fallbackTitle
         let fallbackColor = currentSource.color
 
-        let identity = TaskStatisticsIdentity(
-            id: source.statisticsIdentityID,
-            title: source.statisticsIdentityTitle,
-            colorRaw: source.statisticsIdentityColorRaw,
-            fallbackTitle: safeFallbackTitle,
-            fallbackColorRaw: fallbackColor.rawValue
-        ) ?? TaskStatisticsIdentity(
+        let identity = sourceIdentity ?? TaskStatisticsIdentity(
             id: UUID().uuidString,
             canonicalTitle: safeFallbackTitle,
             canonicalColor: fallbackColor
         )
 
         identity.write(to: source)
-        identity.write(to: newTask)
+        identity.write(to: task)
     }
 
     private func wireSectionCallbacks() {
@@ -1324,13 +1365,33 @@ extension TaskEditorViewModel {
         @Published private(set) var hasMoreDuplicateTitleCandidates = false
         @Published private(set) var selectedSource: TaskCreationSourceCandidate?
         @Published private(set) var statisticsLinkSource: TaskCreationSourceCandidate?
+        @Published private(set) var existingStatisticsIdentity: TaskStatisticsIdentity?
         @Published private(set) var isStatisticsLinkEnabled = false
         @Published private(set) var loadErrorMessage: String?
 
         private var titleQuery = ""
         private var dismissedDuplicateTitleKeys: Set<String> = []
+        private var currentTaskID: PersistentIdentifier?
+        private(set) var hasStatisticsLinkChanges = false
 
         var currentTitleQuery: String { titleQuery }
+
+        var shouldShowStatisticsLinkStatus: Bool {
+            currentTaskID != nil || statisticsLinkSource != nil
+        }
+
+        var statisticsLinkDisplayTitle: String? {
+            if let statisticsLinkSource {
+                return statisticsLinkSource.statisticsDisplayTitle
+            }
+
+            guard let existingStatisticsIdentity else { return nil }
+            return LocalizedDisplayText.taskTitle(existingStatisticsIdentity.title)
+        }
+
+        var canEnableStatisticsLink: Bool {
+            statisticsLinkSource != nil || existingStatisticsIdentity != nil
+        }
 
         var hasMeaningfulQuery: Bool {
             TaskTitleNormalizer.normalize(titleQuery).isEmpty == false
@@ -1340,6 +1401,7 @@ extension TaskEditorViewModel {
             let normalizedQuery = TaskTitleNormalizer.normalize(query)
 
             return candidates
+                .filter { $0.id != currentTaskID }
                 .compactMap { candidate -> (candidate: TaskCreationSourceCandidate, rank: Int)? in
                     guard let rank = TaskTitleNormalizer.matchRank(
                         title: candidate.title,
@@ -1397,6 +1459,18 @@ extension TaskEditorViewModel {
             refreshSuggestions()
         }
 
+        func configureExistingTask(
+            id: PersistentIdentifier,
+            statisticsIdentity: TaskStatisticsIdentity?
+        ) {
+            currentTaskID = id
+            existingStatisticsIdentity = statisticsIdentity
+            statisticsLinkSource = nil
+            isStatisticsLinkEnabled = statisticsIdentity != nil
+            hasStatisticsLinkChanges = false
+            refreshSuggestions()
+        }
+
         func select(_ candidate: TaskCreationSourceCandidate) {
             selectedSource = candidate
             statisticsLinkSource = candidate
@@ -1408,14 +1482,21 @@ extension TaskEditorViewModel {
         func selectStatisticsLink(_ candidate: TaskCreationSourceCandidate) {
             statisticsLinkSource = candidate
             isStatisticsLinkEnabled = true
+            if currentTaskID != nil {
+                hasStatisticsLinkChanges = true
+            }
             dismissCurrentDuplicateTitle()
             loadErrorMessage = nil
             refreshSuggestions()
         }
 
         func setStatisticsLinkEnabled(_ isEnabled: Bool) {
-            guard statisticsLinkSource != nil else { return }
+            guard canEnableStatisticsLink else { return }
+            guard isStatisticsLinkEnabled != isEnabled else { return }
             isStatisticsLinkEnabled = isEnabled
+            if currentTaskID != nil {
+                hasStatisticsLinkChanges = true
+            }
         }
 
         func dismissDuplicateTitleSuggestion() {

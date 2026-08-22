@@ -22,7 +22,7 @@ struct TaskEditorNameSection: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
-    let onRequestDuplicateTitleStatisticsSources: () -> Void
+    let onRequestStatisticsLinkSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
     let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
     let onDismissDuplicateTitleSuggestion: () -> Void
@@ -40,7 +40,7 @@ struct TaskEditorNameSection: View {
                     isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                     onLoadCreationSources: onLoadCreationSources,
                     onRequestCreationSources: onRequestCreationSources,
-                    onRequestDuplicateTitleStatisticsSources: onRequestDuplicateTitleStatisticsSources,
+                    onRequestStatisticsLinkSources: onRequestStatisticsLinkSources,
                     onSelectCreationSource: onSelectCreationSource,
                     onSelectDuplicateTitleStatisticsSource: onSelectDuplicateTitleStatisticsSource,
                     onDismissDuplicateTitleSuggestion: onDismissDuplicateTitleSuggestion,
@@ -72,7 +72,7 @@ private struct TaskEditorTitleRow: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
-    let onRequestDuplicateTitleStatisticsSources: () -> Void
+    let onRequestStatisticsLinkSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
     let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
     let onDismissDuplicateTitleSuggestion: () -> Void
@@ -123,8 +123,8 @@ private struct TaskEditorTitleRow: View {
                 suggestions
             }
 
-            if let source = creationSourceState.statisticsLinkSource {
-                statisticsLinkStatus(source: source)
+            if creationSourceState.shouldShowStatisticsLinkStatus {
+                statisticsLinkStatus
             }
 
             if let errorMessage = creationSourceState.loadErrorMessage {
@@ -141,7 +141,7 @@ private struct TaskEditorTitleRow: View {
         }
     }
 
-    private func statisticsLinkStatus(source: TaskCreationSourceCandidate) -> some View {
+    private var statisticsLinkStatus: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(8)) {
             Divider()
 
@@ -151,7 +151,7 @@ private struct TaskEditorTitleRow: View {
                     .frame(width: dsMetrics.controlSize(18))
 
                 VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
-                    Text(statisticsLinkTitle(source: source))
+                    Text(statisticsLinkTitle)
                         .font(dsMetrics.font(12, weight: .semibold, category: .caption))
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -163,8 +163,31 @@ private struct TaskEditorTitleRow: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Button(creationSourceState.isStatisticsLinkEnabled ? "Keep separate" : "Count together") {
-                        onSetStatisticsLinkEnabled(!creationSourceState.isStatisticsLinkEnabled)
+                    HStack(spacing: dsMetrics.spacing(14)) {
+                        if creationSourceState.isStatisticsLinkEnabled {
+                            Button("Change") {
+                                focusedField = nil
+                                onRequestStatisticsLinkSources()
+                            }
+
+                            Button("Keep separate") {
+                                onSetStatisticsLinkEnabled(false)
+                            }
+                        } else if creationSourceState.canEnableStatisticsLink {
+                            Button("Count together") {
+                                onSetStatisticsLinkEnabled(true)
+                            }
+
+                            Button("Change") {
+                                focusedField = nil
+                                onRequestStatisticsLinkSources()
+                            }
+                        } else {
+                            Button("Choose a task") {
+                                focusedField = nil
+                                onRequestStatisticsLinkSources()
+                            }
+                        }
                     }
                     .font(dsMetrics.font(12, weight: .semibold, category: .caption))
                     .foregroundStyle(DS.ColorToken.purple)
@@ -177,14 +200,15 @@ private struct TaskEditorTitleRow: View {
         .accessibilityElement(children: .contain)
     }
 
-    private func statisticsLinkTitle(source: TaskCreationSourceCandidate) -> String {
-        guard creationSourceState.isStatisticsLinkEnabled else {
+    private var statisticsLinkTitle: String {
+        guard creationSourceState.isStatisticsLinkEnabled,
+              let displayTitle = creationSourceState.statisticsLinkDisplayTitle else {
             return String(localized: "Counted separately in statistics")
         }
 
         return String.localizedStringWithFormat(
-            String(localized: "Counted with “%@” in statistics"),
-            source.statisticsDisplayTitle
+            String(localized: "Counted as “%@” in statistics"),
+            displayTitle
         )
     }
 
@@ -306,7 +330,7 @@ private struct TaskEditorTitleRow: View {
                 if creationSourceState.hasMoreDuplicateTitleCandidates {
                     Button("Show all") {
                         focusedField = nil
-                        onRequestDuplicateTitleStatisticsSources()
+                        onRequestStatisticsLinkSources()
                     }
                 }
             }
