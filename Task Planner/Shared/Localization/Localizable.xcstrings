@@ -4787,118 +4787,118 @@
         }
       }
     },
-    "Counted separately in statistics" : {
+    "Separate in statistics" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In der Statistik getrennt gezählt"
+            "value" : "In der Statistik getrennt"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se contabiliza por separado en las estadísticas"
+            "value" : "Por separado en las estadísticas"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comptabilisée séparément dans les statistiques"
+            "value" : "Séparée dans les statistiques"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conteggiata separatamente nelle statistiche"
+            "value" : "Separata nelle statistiche"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "統計では別々に集計"
+            "value" : "統計では別々"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "통계에서 별도로 집계"
+            "value" : "통계에서 별도"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contabilizada separadamente nas estatísticas"
+            "value" : "Separada nas estatísticas"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Учитывается отдельно в статистике"
+            "value" : "В статистике отдельно"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Враховується окремо в статистиці"
+            "value" : "У статистиці окремо"
           }
         }
       }
     },
-    "Counted as “%@” in statistics" : {
+    "Together with “%@” in statistics" : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In der Statistik als „%@“ gezählt"
+            "value" : "In der Statistik zusammen mit „%@“"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Se contabiliza como “%@” en las estadísticas"
+            "value" : "Junto con “%@” en las estadísticas"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comptabilisée comme « %@ » dans les statistiques"
+            "value" : "Avec « %@ » dans les statistiques"
           }
         },
         "it" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conteggiata come “%@” nelle statistiche"
+            "value" : "Insieme a “%@” nelle statistiche"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "統計では「%@」として集計"
+            "value" : "統計では「%@」と一緒"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "통계에서 “%@” 항목으로 집계"
+            "value" : "통계에서 “%@”와 함께"
           }
         },
         "pt-BR" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Contabilizada como “%@” nas estatísticas"
+            "value" : "Junto com “%@” nas estatísticas"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Учитывается как «%@» в статистике"
+            "value" : "В статистике вместе с «%@»"
           }
         },
         "uk" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Враховується як «%@» у статистиці"
+            "value" : "У статистиці разом із «%@»"
           }
         }
       }

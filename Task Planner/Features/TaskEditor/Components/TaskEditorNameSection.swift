@@ -146,9 +146,19 @@ private struct TaskEditorTitleRow: View {
             Divider()
 
             HStack(alignment: .top, spacing: dsMetrics.spacing(10)) {
-                Image(systemName: creationSourceState.isStatisticsLinkEnabled ? "link" : "chart.bar")
-                    .foregroundStyle(DS.ColorToken.purple)
+                Image(systemName: "link")
+                    .foregroundStyle(
+                        creationSourceState.isStatisticsLinkEnabled
+                            ? DS.ColorToken.purple
+                            : DS.ColorToken.textSecondary
+                    )
                     .frame(width: dsMetrics.controlSize(18))
+                    .scaleEffect(creationSourceState.isStatisticsLinkEnabled ? 1.0 : 0.94)
+                    .animation(
+                        .easeInOut(duration: 0.18),
+                        value: creationSourceState.isStatisticsLinkEnabled
+                    )
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: dsMetrics.spacing(4)) {
                     Text(statisticsLinkTitle)
@@ -156,22 +166,15 @@ private struct TaskEditorTitleRow: View {
                         .foregroundStyle(DS.ColorToken.textPrimary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if creationSourceState.isStatisticsLinkEnabled {
-                        Text("Tasks and schedules stay separate.")
-                            .font(dsMetrics.font(11, weight: .regular, category: .micro))
-                            .foregroundStyle(DS.ColorToken.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-
                     HStack(spacing: dsMetrics.spacing(14)) {
                         if creationSourceState.isStatisticsLinkEnabled {
+                            Button("Keep separate") {
+                                onSetStatisticsLinkEnabled(false)
+                            }
+
                             Button("Change") {
                                 focusedField = nil
                                 onRequestStatisticsLinkSources()
-                            }
-
-                            Button("Keep separate") {
-                                onSetStatisticsLinkEnabled(false)
                             }
                         } else if creationSourceState.canEnableStatisticsLink {
                             Button("Count together") {
@@ -203,11 +206,11 @@ private struct TaskEditorTitleRow: View {
     private var statisticsLinkTitle: String {
         guard creationSourceState.isStatisticsLinkEnabled,
               let displayTitle = creationSourceState.statisticsLinkDisplayTitle else {
-            return String(localized: "Counted separately in statistics")
+            return String(localized: "Separate in statistics")
         }
 
         return String.localizedStringWithFormat(
-            String(localized: "Counted as “%@” in statistics"),
+            String(localized: "Together with “%@” in statistics"),
             displayTitle
         )
     }
@@ -292,7 +295,7 @@ private struct TaskEditorTitleRow: View {
 
     private var duplicateTitleSuggestion: some View {
         VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
-            Label("A task with this name already exists.", systemImage: "chart.bar.doc.horizontal")
+            Label("A task with this name already exists.", systemImage: "link")
                 .font(dsMetrics.font(13, weight: .semibold, category: .body))
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
