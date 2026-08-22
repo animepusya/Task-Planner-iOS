@@ -24,6 +24,7 @@ struct TaskCreationSourceSnapshot: Equatable {
     let reminderEnabled: Bool
     let reminderOffsetMinutes: Int
     let reminderAllDayTimeMinutes: Int?
+    let statisticsIdentityID: String?
     let statisticsIdentityTitle: String?
 }
 

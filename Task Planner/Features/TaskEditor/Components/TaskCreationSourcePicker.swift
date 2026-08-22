@@ -12,10 +12,28 @@ struct TaskCreationSourcePicker: View {
     @Environment(\.dsAdaptiveMetrics) private var dsMetrics
 
     @ObservedObject var state: TaskEditorViewModel.CreationSourceState
-    @State private var query = ""
+    @State private var query: String
 
+    let navigationTitle: String
     let isAdvancedRepeatLocked: Bool
+    let trailingSystemName: String?
     let onSelect: (TaskCreationSourceCandidate) -> Void
+
+    init(
+        state: TaskEditorViewModel.CreationSourceState,
+        initialQuery: String = "",
+        navigationTitle: String = String(localized: "Choose a task"),
+        isAdvancedRepeatLocked: Bool,
+        trailingSystemName: String? = nil,
+        onSelect: @escaping (TaskCreationSourceCandidate) -> Void
+    ) {
+        self.state = state
+        _query = State(initialValue: initialQuery)
+        self.navigationTitle = navigationTitle
+        self.isAdvancedRepeatLocked = isAdvancedRepeatLocked
+        self.trailingSystemName = trailingSystemName
+        self.onSelect = onSelect
+    }
 
     private var filteredCandidates: [TaskCreationSourceCandidate] {
         state.filteredCandidates(matching: query)
@@ -64,7 +82,7 @@ struct TaskCreationSourcePicker: View {
 
             Spacer()
 
-            Text("Choose a task")
+            Text(navigationTitle)
                 .font(dsMetrics.font(18, weight: .semibold, category: .title))
                 .foregroundStyle(DS.ColorToken.textPrimary)
 
@@ -120,7 +138,7 @@ struct TaskCreationSourcePicker: View {
                         TaskCreationSourceRow(
                             candidate: candidate,
                             showsProBadge: isAdvancedRepeatLocked && candidate.repeatRule.requiresProAccess,
-                            trailingSystemName: nil
+                            trailingSystemName: trailingSystemName
                         )
                     }
                     .buttonStyle(.plain)

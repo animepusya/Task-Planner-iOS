@@ -22,7 +22,10 @@ struct TaskEditorNameSection: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
+    let onRequestDuplicateTitleStatisticsSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
+    let onDismissDuplicateTitleSuggestion: () -> Void
     let onSetStatisticsLinkEnabled: (Bool) -> Void
 
     var body: some View {
@@ -37,7 +40,10 @@ struct TaskEditorNameSection: View {
                     isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                     onLoadCreationSources: onLoadCreationSources,
                     onRequestCreationSources: onRequestCreationSources,
+                    onRequestDuplicateTitleStatisticsSources: onRequestDuplicateTitleStatisticsSources,
                     onSelectCreationSource: onSelectCreationSource,
+                    onSelectDuplicateTitleStatisticsSource: onSelectDuplicateTitleStatisticsSource,
+                    onDismissDuplicateTitleSuggestion: onDismissDuplicateTitleSuggestion,
                     onSetStatisticsLinkEnabled: onSetStatisticsLinkEnabled
                 )
             }
@@ -66,7 +72,10 @@ private struct TaskEditorTitleRow: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
+    let onRequestDuplicateTitleStatisticsSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
+    let onDismissDuplicateTitleSuggestion: () -> Void
     let onSetStatisticsLinkEnabled: (Bool) -> Void
 
     var body: some View {
@@ -114,7 +123,7 @@ private struct TaskEditorTitleRow: View {
                 suggestions
             }
 
-            if let source = creationSourceState.selectedSource {
+            if let source = creationSourceState.statisticsLinkSource {
                 statisticsLinkStatus(source: source)
             }
 
@@ -209,6 +218,7 @@ private struct TaskEditorTitleRow: View {
         canChooseCreationSource
             && focusedField == .title
             && creationSourceState.selectedSource == nil
+            && creationSourceState.statisticsLinkSource == nil
             && creationSourceState.hasMeaningfulQuery
     }
 
@@ -216,7 +226,9 @@ private struct TaskEditorTitleRow: View {
     private var suggestions: some View {
         Divider()
 
-        if creationSourceState.suggestions.isEmpty {
+        if creationSourceState.duplicateTitleCandidates.isEmpty == false {
+            duplicateTitleSuggestion
+        } else if creationSourceState.suggestions.isEmpty {
             Text("No matching tasks")
                 .font(dsMetrics.font(12, weight: .regular, category: .caption))
                 .foregroundStyle(DS.ColorToken.textSecondary)
@@ -252,6 +264,62 @@ private struct TaskEditorTitleRow: View {
                 }
             }
         }
+    }
+
+    private var duplicateTitleSuggestion: some View {
+        VStack(alignment: .leading, spacing: dsMetrics.spacing(DS.Spacing.sm)) {
+            Label("A task with this name already exists.", systemImage: "chart.bar.doc.horizontal")
+                .font(dsMetrics.font(13, weight: .semibold, category: .body))
+                .foregroundStyle(DS.ColorToken.textPrimary)
+
+            Text(duplicateTitlePrompt)
+                .font(dsMetrics.font(12, weight: .regular, category: .caption))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Tasks and schedules stay separate.")
+                .font(dsMetrics.font(11, weight: .regular, category: .micro))
+                .foregroundStyle(DS.ColorToken.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(creationSourceState.duplicateTitleCandidates) { candidate in
+                Button {
+                    focusedField = nil
+                    onSelectDuplicateTitleStatisticsSource(candidate)
+                } label: {
+                    TaskCreationSourceRow(
+                        candidate: candidate,
+                        showsProBadge: false,
+                        trailingSystemName: "link"
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Count together")
+            }
+
+            HStack(spacing: dsMetrics.spacing(16)) {
+                Button("Keep separate") {
+                    focusedField = nil
+                    onDismissDuplicateTitleSuggestion()
+                }
+
+                if creationSourceState.hasMoreDuplicateTitleCandidates {
+                    Button("Show all") {
+                        focusedField = nil
+                        onRequestDuplicateTitleStatisticsSources()
+                    }
+                }
+            }
+            .font(dsMetrics.font(12, weight: .semibold, category: .caption))
+            .foregroundStyle(DS.ColorToken.purple)
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var duplicateTitlePrompt: String {
+        creationSourceState.duplicateTitleCandidates.count == 1
+            ? String(localized: "Count together in statistics?")
+            : String(localized: "Choose which task to count together with.")
     }
 
     private var categoryMenuChip: some View {

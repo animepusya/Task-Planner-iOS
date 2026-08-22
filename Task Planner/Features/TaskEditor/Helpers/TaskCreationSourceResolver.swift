@@ -46,6 +46,7 @@ enum TaskCreationSourceResolver {
             referenceDay: referenceDay,
             calendar: calendar
         )
+        let statisticsIdentity = TaskStatisticsIdentity(task: task)
 
         return TaskCreationSourceSnapshot(
             sourceID: task.persistentModelID,
@@ -63,7 +64,8 @@ enum TaskCreationSourceResolver {
             reminderEnabled: template.reminderEnabled,
             reminderOffsetMinutes: template.reminderOffsetMinutes,
             reminderAllDayTimeMinutes: template.reminderAllDayTimeMinutes,
-            statisticsIdentityTitle: TaskStatisticsIdentity(task: task)?.title
+            statisticsIdentityID: statisticsIdentity?.id,
+            statisticsIdentityTitle: statisticsIdentity?.title
         )
     }
 

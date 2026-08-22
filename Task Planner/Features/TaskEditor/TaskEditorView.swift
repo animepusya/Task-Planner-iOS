@@ -119,7 +119,10 @@ struct TaskEditorView: View {
                             isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
                             onLoadCreationSources: viewModel.loadCreationSourcesIfNeeded,
                             onRequestCreationSources: openCreationSourcePicker,
+                            onRequestDuplicateTitleStatisticsSources: openDuplicateTitleStatisticsPicker,
                             onSelectCreationSource: handleCreationSourceSelection,
+                            onSelectDuplicateTitleStatisticsSource: viewModel.selectDuplicateTitleStatisticsSource,
+                            onDismissDuplicateTitleSuggestion: viewModel.dismissDuplicateTitleSuggestion,
                             onSetStatisticsLinkEnabled: viewModel.setCreationSourceStatisticsLinkEnabled,
                             onRequestRepeatUnlock: {
                                 navigationPath.append(.paywall(.advancedRepeats))
@@ -172,6 +175,15 @@ struct TaskEditorView: View {
                             isAdvancedRepeatLocked: subscriptionStore.isLocked(.advancedRepeats),
                             onSelect: handleCreationSourceSelection
                         )
+                    case .statisticsLinkPicker(let query):
+                        TaskCreationSourcePicker(
+                            state: viewModel.creationSourceState,
+                            initialQuery: query,
+                            navigationTitle: String(localized: "Count together"),
+                            isAdvancedRepeatLocked: false,
+                            trailingSystemName: "link",
+                            onSelect: applyDuplicateTitleStatisticsSource
+                        )
                     case .paywall(let entryPoint):
                         PaywallView(entryPoint: entryPoint)
                     }
@@ -222,6 +234,27 @@ struct TaskEditorView: View {
 
         guard navigationPath.last != .creationSourcePicker else { return }
         navigationPath.append(.creationSourcePicker)
+    }
+
+    private func openDuplicateTitleStatisticsPicker() {
+        dismissKeyboard()
+        viewModel.loadCreationSourcesIfNeeded()
+
+        let route = TaskEditorRoute.statisticsLinkPicker(
+            query: viewModel.creationSourceState.currentTitleQuery
+        )
+        guard navigationPath.last != route else { return }
+        navigationPath.append(route)
+    }
+
+    private func applyDuplicateTitleStatisticsSource(_ candidate: TaskCreationSourceCandidate) {
+        viewModel.selectDuplicateTitleStatisticsSource(candidate)
+        dismissKeyboard()
+
+        if let lastRoute = navigationPath.last,
+           case .statisticsLinkPicker = lastRoute {
+            navigationPath.removeLast()
+        }
     }
 
     private func handleCreationSourceSelection(_ candidate: TaskCreationSourceCandidate) {
@@ -308,7 +341,10 @@ private struct TaskEditorContentView: View {
     let isAdvancedRepeatLocked: Bool
     let onLoadCreationSources: () -> Void
     let onRequestCreationSources: () -> Void
+    let onRequestDuplicateTitleStatisticsSources: () -> Void
     let onSelectCreationSource: (TaskCreationSourceCandidate) -> Void
+    let onSelectDuplicateTitleStatisticsSource: (TaskCreationSourceCandidate) -> Void
+    let onDismissDuplicateTitleSuggestion: () -> Void
     let onSetStatisticsLinkEnabled: (Bool) -> Void
     let onRequestRepeatUnlock: () -> Void
     let onOpenNotificationsCenter: () -> Void
@@ -329,7 +365,10 @@ private struct TaskEditorContentView: View {
                         isAdvancedRepeatLocked: isAdvancedRepeatLocked,
                         onLoadCreationSources: onLoadCreationSources,
                         onRequestCreationSources: onRequestCreationSources,
+                        onRequestDuplicateTitleStatisticsSources: onRequestDuplicateTitleStatisticsSources,
                         onSelectCreationSource: onSelectCreationSource,
+                        onSelectDuplicateTitleStatisticsSource: onSelectDuplicateTitleStatisticsSource,
+                        onDismissDuplicateTitleSuggestion: onDismissDuplicateTitleSuggestion,
                         onSetStatisticsLinkEnabled: onSetStatisticsLinkEnabled
                     )
                 }
@@ -411,5 +450,6 @@ private struct TaskEditorLayoutMetrics {
 
 private enum TaskEditorRoute: Hashable {
     case creationSourcePicker
+    case statisticsLinkPicker(query: String)
     case paywall(PaywallEntryPoint)
 }

@@ -322,6 +322,14 @@ final class TaskEditorViewModel {
         creationSourceState.setStatisticsLinkEnabled(isEnabled)
     }
 
+    func selectDuplicateTitleStatisticsSource(_ candidate: TaskCreationSourceCandidate) {
+        creationSourceState.selectStatisticsLink(candidate)
+    }
+
+    func dismissDuplicateTitleSuggestion() {
+        creationSourceState.dismissDuplicateTitleSuggestion()
+    }
+
     func setStartTime(_ newValue: Date) {
         guard newValue != form.startTime else { return }
         onStartTimeChanged(to: newValue)
@@ -776,20 +784,20 @@ final class TaskEditorViewModel {
             )
             new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
-            try applyCreationSourceStatisticsIdentityIfNeeded(to: new)
+            try applyStatisticsIdentityIfNeeded(to: new)
             try taskRepository.add(new)
         }
     }
 
-    private func applyCreationSourceStatisticsIdentityIfNeeded(
+    private func applyStatisticsIdentityIfNeeded(
         to newTask: TaskEntity
     ) throws {
         guard creationSourceState.isStatisticsLinkEnabled,
-              let selectedSource = creationSourceState.selectedSource else {
+              let statisticsLinkSource = creationSourceState.statisticsLinkSource else {
             return
         }
 
-        guard let source = try taskRepository.fetch(by: selectedSource.id) else {
+        guard let source = try taskRepository.fetch(by: statisticsLinkSource.id) else {
             throw EditorError.creationSourceNotFound
         }
 
@@ -1312,11 +1320,17 @@ extension TaskEditorViewModel {
         @Published private(set) var candidates: [TaskCreationSourceCandidate] = []
         @Published private(set) var suggestions: [TaskCreationSourceCandidate] = []
         @Published private(set) var hasMoreSuggestions = false
+        @Published private(set) var duplicateTitleCandidates: [TaskCreationSourceCandidate] = []
+        @Published private(set) var hasMoreDuplicateTitleCandidates = false
         @Published private(set) var selectedSource: TaskCreationSourceCandidate?
+        @Published private(set) var statisticsLinkSource: TaskCreationSourceCandidate?
         @Published private(set) var isStatisticsLinkEnabled = false
         @Published private(set) var loadErrorMessage: String?
 
         private var titleQuery = ""
+        private var dismissedDuplicateTitleKeys: Set<String> = []
+
+        var currentTitleQuery: String { titleQuery }
 
         var hasMeaningfulQuery: Bool {
             TaskTitleNormalizer.normalize(titleQuery).isEmpty == false
@@ -1369,6 +1383,11 @@ extension TaskEditorViewModel {
                 self.selectedSource = refreshed
             }
 
+            if let statisticsLinkSource,
+               let refreshed = candidates.first(where: { $0.id == statisticsLinkSource.id }) {
+                self.statisticsLinkSource = refreshed
+            }
+
             refreshSuggestions()
         }
 
@@ -1380,14 +1399,28 @@ extension TaskEditorViewModel {
 
         func select(_ candidate: TaskCreationSourceCandidate) {
             selectedSource = candidate
+            statisticsLinkSource = candidate
             isStatisticsLinkEnabled = true
             loadErrorMessage = nil
             refreshSuggestions()
         }
 
+        func selectStatisticsLink(_ candidate: TaskCreationSourceCandidate) {
+            statisticsLinkSource = candidate
+            isStatisticsLinkEnabled = true
+            dismissCurrentDuplicateTitle()
+            loadErrorMessage = nil
+            refreshSuggestions()
+        }
+
         func setStatisticsLinkEnabled(_ isEnabled: Bool) {
-            guard selectedSource != nil else { return }
+            guard statisticsLinkSource != nil else { return }
             isStatisticsLinkEnabled = isEnabled
+        }
+
+        func dismissDuplicateTitleSuggestion() {
+            dismissCurrentDuplicateTitle()
+            refreshSuggestions()
         }
 
         func setError(_ message: String) {
@@ -1395,15 +1428,52 @@ extension TaskEditorViewModel {
         }
 
         private func refreshSuggestions() {
-            guard hasMeaningfulQuery, selectedSource == nil else {
+            guard hasMeaningfulQuery,
+                  selectedSource == nil,
+                  statisticsLinkSource == nil else {
                 suggestions = []
                 hasMoreSuggestions = false
+                duplicateTitleCandidates = []
+                hasMoreDuplicateTitleCandidates = false
                 return
             }
 
             let matches = filteredCandidates(matching: titleQuery)
             suggestions = Array(matches.prefix(4))
             hasMoreSuggestions = matches.count > suggestions.count
+
+            let normalizedTitle = TaskTitleNormalizer.normalize(titleQuery)
+            guard dismissedDuplicateTitleKeys.contains(normalizedTitle) == false else {
+                duplicateTitleCandidates = []
+                hasMoreDuplicateTitleCandidates = false
+                return
+            }
+
+            let exactMatches = uniqueStatisticsTargets(
+                from: matches.filter {
+                    TaskTitleNormalizer.normalize($0.title) == normalizedTitle
+                }
+            )
+            duplicateTitleCandidates = Array(exactMatches.prefix(4))
+            hasMoreDuplicateTitleCandidates = exactMatches.count > duplicateTitleCandidates.count
+        }
+
+        private func dismissCurrentDuplicateTitle() {
+            let normalizedTitle = TaskTitleNormalizer.normalize(titleQuery)
+            guard normalizedTitle.isEmpty == false else { return }
+            dismissedDuplicateTitleKeys.insert(normalizedTitle)
+        }
+
+        private func uniqueStatisticsTargets(
+            from candidates: [TaskCreationSourceCandidate]
+        ) -> [TaskCreationSourceCandidate] {
+            var seenKeys: Set<String> = []
+
+            return candidates.filter { candidate in
+                let key = candidate.snapshot.statisticsIdentityID.map { "identity:\($0)" }
+                    ?? "task:\(String(describing: candidate.id))"
+                return seenKeys.insert(key).inserted
+            }
         }
     }
 
