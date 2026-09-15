@@ -192,7 +192,7 @@ final class StatisticsViewModel: ObservableObject {
 
         let newTaskSources: [StatisticsTaskSource]
         do {
-            newTaskSources = try taskRepository.fetchAll().map { StatisticsTaskSource(task: $0) }
+            newTaskSources = try taskRepository.fetchScheduled().compactMap { StatisticsTaskSource(task: $0) }
         } catch {
             assertionFailure("Statistics fetch failed: \(error)")
             newTaskSources = []

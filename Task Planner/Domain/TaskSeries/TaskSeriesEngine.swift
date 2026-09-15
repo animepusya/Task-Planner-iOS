@@ -12,14 +12,20 @@ import Foundation
 enum TaskSeriesEngine {
 
     static func ensureBaseSegmentIfNeeded(for task: TaskEntity, calendar: Calendar = .current) {
-        guard task.repeatRule != .none else { return }
+        guard task.repeatRule != .none, let schedule = task.schedule else { return }
         if task.seriesSegments.isEmpty {
-            let baseStart = calendar.startOfDay(for: task.dayDate)
+            let baseStart = calendar.startOfDay(for: schedule.dayDate)
+            guard let baseTemplate = templateFromTask(
+                task,
+                dayStart: baseStart,
+                calendar: calendar
+            ) else { return }
+
             let seg = TaskSeriesSegment(
                 id: UUID(),
                 startDayKey: DayKey.format(baseStart, calendar: calendar),
                 endDayKey: nil,
-                template: templateFromTask(task, dayStart: baseStart, calendar: calendar)
+                template: baseTemplate
             )
             task.seriesSegments = [seg]
         }
@@ -51,7 +57,12 @@ enum TaskSeriesEngine {
             return nil
         }
 
-        return templateFromTask(task, dayStart: calendar.startOfDay(for: task.dayDate), calendar: calendar)
+        guard let schedule = task.schedule else { return nil }
+        return templateFromTask(
+            task,
+            dayStart: calendar.startOfDay(for: schedule.dayDate),
+            calendar: calendar
+        )
     }
 
     static func explicitOverride(
@@ -82,7 +93,8 @@ enum TaskSeriesEngine {
         if isBeyondSeriesEnd(task, day: targetDay, calendar: cal) { return false }
 
         if task.repeatRule == .none && task.seriesSegments.isEmpty && task.seriesOverrides.isEmpty {
-            let baseDay = cal.startOfDay(for: task.dayDate)
+            guard let schedule = task.schedule else { return false }
+            let baseDay = cal.startOfDay(for: schedule.dayDate)
             return cal.isDate(targetDay, inSameDayAs: baseDay)
         }
 
@@ -164,9 +176,19 @@ enum TaskSeriesEngine {
         return calendar.startOfDay(for: seg.startDay)
     }
 
-    static func templateFromTask(_ task: TaskEntity, dayStart: Date, calendar: Calendar) -> TaskSeriesTemplate {
-        let startMinutes = TimeMinutes.minutes(from: task.startTime, calendar: calendar)
-        let (endOffset, endMinutes) = TimeMinutes.endOffsetAndMinutes(start: task.startTime, end: task.endTime, calendar: calendar)
+    static func templateFromTask(
+        _ task: TaskEntity,
+        dayStart: Date,
+        calendar: Calendar
+    ) -> TaskSeriesTemplate? {
+        guard let schedule = task.schedule else { return nil }
+
+        let startMinutes = TimeMinutes.minutes(from: schedule.startTime, calendar: calendar)
+        let (endOffset, endMinutes) = TimeMinutes.endOffsetAndMinutes(
+            start: schedule.startTime,
+            end: schedule.endTime,
+            calendar: calendar
+        )
 
         return TaskSeriesTemplate(
             title: task.title,

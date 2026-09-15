@@ -73,13 +73,13 @@ final class WidgetSnapshotSyncService {
         pendingReferenceDate = nil
 
         do {
-            let tasks = try taskRepository.fetchAll()
+            let tasks = try taskRepository.fetchScheduled()
             let preferences = try preferencesRepository.getOrCreate()
             let calendar = Calendar.current
 
             return WidgetSnapshotRefreshRequest(
                 referenceDate: referenceDate,
-                taskSources: tasks.map { $0.plannerSource(calendar: calendar) },
+                taskSources: tasks.compactMap { $0.plannerSource(calendar: calendar) },
                 weekStartsOnMonday: preferences.weekStartsOnMonday,
                 theme: preferences.theme
             )

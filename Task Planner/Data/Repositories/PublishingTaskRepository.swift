@@ -27,6 +27,14 @@ final class PublishingTaskRepository: TaskRepository {
         try base.fetchAll()
     }
 
+    func fetchScheduled() throws -> [TaskEntity] {
+        try base.fetchScheduled()
+    }
+
+    func fetchUnscheduled() throws -> [TaskEntity] {
+        try base.fetchUnscheduled()
+    }
+
     func fetchRecurring() throws -> [TaskEntity] {
         try base.fetchRecurring()
     }

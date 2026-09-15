@@ -193,7 +193,7 @@ final class NotificationsViewModel: ObservableObject {
         guard systemStatus == .authorized else { return }
 
         do {
-            let tasks = try taskRepository.fetchAll()
+            let tasks = try taskRepository.fetchScheduled()
             await notificationSync.rescheduleAll(tasks: tasks)
         } catch { }
     }

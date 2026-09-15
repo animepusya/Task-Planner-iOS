@@ -39,6 +39,14 @@ final class NotifyingTaskRepository: TaskRepository {
         try base.fetchAll()
     }
 
+    func fetchScheduled() throws -> [TaskEntity] {
+        try base.fetchScheduled()
+    }
+
+    func fetchUnscheduled() throws -> [TaskEntity] {
+        try base.fetchUnscheduled()
+    }
+
     func fetchRecurring() throws -> [TaskEntity] {
         try base.fetchRecurring()
     }
@@ -160,7 +168,7 @@ final class NotifyingTaskRepository: TaskRepository {
         }
 
         do {
-            let tasks = try base.fetchAll()
+            let tasks = try base.fetchScheduled()
             await notificationSync.rescheduleAll(tasks: tasks)
         } catch {
             // best-effort

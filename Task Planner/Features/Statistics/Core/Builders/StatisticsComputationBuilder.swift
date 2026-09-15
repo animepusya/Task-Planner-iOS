@@ -77,11 +77,12 @@ nonisolated struct StatisticsTaskSeriesTemplateSource: Equatable, Sendable {
     }
 
     @MainActor
-    init(task: TaskEntity, calendar: Calendar = .current) {
-        let startMinutes = TimeMinutes.minutes(from: task.startTime, calendar: calendar)
+    init?(task: TaskEntity, calendar: Calendar = .current) {
+        guard let schedule = task.schedule else { return nil }
+        let startMinutes = TimeMinutes.minutes(from: schedule.startTime, calendar: calendar)
         let (endOffset, endMinutes) = TimeMinutes.endOffsetAndMinutes(
-            start: task.startTime,
-            end: task.endTime,
+            start: schedule.startTime,
+            end: schedule.endTime,
             calendar: calendar
         )
         let totalEnd = max(0, endOffset) * 1440 + max(0, endMinutes)
@@ -146,9 +147,13 @@ nonisolated struct StatisticsTaskSource: Equatable, Sendable {
     let overridesByDayKey: [String: StatisticsTaskSeriesOverrideSource]
 
     @MainActor
-    init(task: TaskEntity, calendar: Calendar = .current) {
-        let baseDay = calendar.startOfDay(for: task.dayDate)
-        let baseTemplate = StatisticsTaskSeriesTemplateSource(task: task, calendar: calendar)
+    init?(task: TaskEntity, calendar: Calendar = .current) {
+        guard let schedule = task.schedule,
+              let baseTemplate = StatisticsTaskSeriesTemplateSource(task: task, calendar: calendar)
+        else {
+            return nil
+        }
+        let baseDay = calendar.startOfDay(for: schedule.dayDate)
 
         var segments = task.seriesSegments
             .map(StatisticsTaskSeriesSegmentSource.init(segment:))

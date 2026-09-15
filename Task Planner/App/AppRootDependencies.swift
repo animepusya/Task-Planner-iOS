@@ -88,7 +88,7 @@ final class AppRootDependencies: ObservableObject {
         defer { isReconcilingNotifications = false }
 
         do {
-            let tasks = try taskRepository.fetchAll()
+            let tasks = try taskRepository.fetchScheduled()
             await notificationSyncService.reconcileAll(tasks: tasks)
         } catch {
             // Best-effort only. Task CRUD flows still do targeted notification sync.

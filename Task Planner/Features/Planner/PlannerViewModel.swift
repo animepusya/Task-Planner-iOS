@@ -345,14 +345,14 @@ final class PlannerViewModel: ObservableObject {
         let tasks: [TaskEntity]
 
         do {
-            tasks = try taskRepository.fetchAll()
+            tasks = try taskRepository.fetchScheduled()
         } catch {
             assertionFailure("Planner fetch failed: \(error)")
             tasks = []
         }
 
         let calendar = Calendar.current
-        let newPlannerTasks = tasks.map { $0.plannerSource(calendar: calendar) }
+        let newPlannerTasks = tasks.compactMap { $0.plannerSource(calendar: calendar) }
         let newTaskIDsByKey = Dictionary(
             uniqueKeysWithValues: tasks.map { ($0.plannerTaskKey, $0.persistentModelID) }
         )

@@ -119,7 +119,7 @@ final class RecurringTasksViewModel: ObservableObject {
         let newTaskSources: [RecurringTaskSource]
 
         do {
-            newTaskSources = try taskRepository.fetchRecurring().map {
+            newTaskSources = try taskRepository.fetchRecurring().compactMap {
                 RecurringTaskSource(task: $0, calendar: .current)
             }
         } catch {

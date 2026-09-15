@@ -245,7 +245,8 @@ enum TaskDaySegment {
 
         let searchDays = enumerateDays(from: searchStart, to: visibleEnd, calendar: calendar)
         let candidateTasks = tasks.filter { task in
-            let baseDay = calendar.startOfDay(for: task.dayDate)
+            guard let schedule = task.schedule else { return false }
+            let baseDay = calendar.startOfDay(for: schedule.dayDate)
             guard baseDay <= visibleEnd else { return false }
 
             if let seriesEndDay = task.seriesEndDay {

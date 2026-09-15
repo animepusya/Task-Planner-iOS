@@ -19,11 +19,15 @@ nonisolated struct RecurringTaskSource: Identifiable, Equatable, Sendable {
     let plannerSource: PlannerTaskSource
 
     @MainActor
-    init(task: TaskEntity, calendar: Calendar = .current) {
-        let source = task.plannerSource(calendar: calendar)
+    init?(task: TaskEntity, calendar: Calendar = .current) {
+        guard let schedule = task.schedule,
+              let source = task.plannerSource(calendar: calendar)
+        else {
+            return nil
+        }
 
         self.id = task.persistentModelID
-        self.dayDate = calendar.startOfDay(for: task.dayDate)
+        self.dayDate = calendar.startOfDay(for: schedule.dayDate)
         self.title = source.baseTemplate.title
         self.categoryTitle = source.baseTemplate.categoryTitle
         self.repeatRule = source.ownerRepeatRule

@@ -12,9 +12,9 @@ import SwiftData
 final class TaskEntity {
     var title: String
     var notes: String?
-    var dayDate: Date
-    var startTime: Date
-    var endTime: Date
+    private(set) var dayDate: Date?
+    private(set) var startTime: Date?
+    private(set) var endTime: Date?
     var isAllDay: Bool
     var repeatRuleRaw: String
     var repeatIntervalDays: Int?
@@ -76,6 +76,37 @@ final class TaskEntity {
         self.seriesEndDay = nil
     }
 
+    init(
+        unscheduledTitle title: String,
+        notes: String? = nil,
+        status: TaskStatus = .todo,
+        color: TaskColor = .purple,
+        categoryTitle: String? = nil
+    ) {
+        self.title = title
+        self.notes = notes
+        self.dayDate = nil
+        self.startTime = nil
+        self.endTime = nil
+        self.isAllDay = false
+        self.repeatRuleRaw = RepeatRule.none.rawValue
+        self.repeatIntervalDays = nil
+        self.statusRaw = status.rawValue
+        self.colorRaw = color.rawValue
+        self.categoryTitle = categoryTitle
+        self.photoThumbData = nil
+        self.completedDayKeysRaw = "[]"
+        self.appleEventIdentifier = nil
+        self.reminderEnabled = false
+        self.reminderOffsetMinutes = 10
+        self.reminderAllDayTimeMinutes = nil
+        self.reminderStableID = UUID().uuidString
+        self.suppressedReminderKeysRaw = nil
+        self.seriesSegmentsRaw = nil
+        self.seriesOverridesRaw = nil
+        self.seriesEndDay = nil
+    }
+
     var repeatRule: RepeatRule {
         get { RepeatRule(rawValue: repeatRuleRaw) ?? .none }
         set { repeatRuleRaw = newValue.rawValue }
@@ -89,6 +120,43 @@ final class TaskEntity {
     var color: TaskColor {
         get { TaskColor(rawValue: colorRaw) ?? .purple }
         set { colorRaw = newValue.rawValue }
+    }
+
+    var schedule: TaskSchedule? {
+        guard let dayDate, let startTime, let endTime else { return nil }
+        return TaskSchedule(
+            dayDate: dayDate,
+            startTime: startTime,
+            endTime: endTime
+        )
+    }
+
+    var isScheduled: Bool {
+        schedule != nil
+    }
+
+    var hasSeriesState: Bool {
+        repeatRule != .none
+            || seriesSegments.isEmpty == false
+            || seriesOverrides.isEmpty == false
+            || seriesEndDay != nil
+    }
+
+    func setSchedule(dayDate: Date, startTime: Date, endTime: Date) {
+        self.dayDate = dayDate
+        self.startTime = startTime
+        self.endTime = endTime
+    }
+
+    func removeSchedule() throws {
+        guard hasSeriesState == false else {
+            throw TaskSchedulingError.seriesManagedTask
+        }
+
+        dayDate = nil
+        startTime = nil
+        endTime = nil
+        reminderEnabled = false
     }
 }
 

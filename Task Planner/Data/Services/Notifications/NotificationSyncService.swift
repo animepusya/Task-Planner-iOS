@@ -226,6 +226,7 @@ final class NotificationSyncService {
 
     private func candidateTasksForReminderScan(from tasks: [TaskEntity]) -> [TaskEntity] {
         tasks.filter { task in
+            guard task.isScheduled else { return false }
             if task.repeatRule != .none { return true }
             return task.reminderEnabled
         }

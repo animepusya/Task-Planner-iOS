@@ -122,13 +122,17 @@ enum TaskDayOverlap {
         }
 
         if task.repeatRule == .none && task.seriesSegments.isEmpty {
-            let baseDay = cal.startOfDay(for: task.dayDate)
+            guard let schedule = task.schedule else { return nil }
+            let baseDay = cal.startOfDay(for: schedule.dayDate)
             guard TaskOccurrence.occursStartOn(task, on: baseDay, weekStartsOnMonday: weekStartsOnMonday) else {
                 return nil
             }
 
-            let template = TaskSeriesEngine.template(for: task, startDay: baseDay, calendar: cal)
+            guard let template = TaskSeriesEngine.template(for: task, startDay: baseDay, calendar: cal)
                 ?? TaskSeriesEngine.templateFromTask(task, dayStart: baseDay, calendar: cal)
+            else {
+                return nil
+            }
 
             return overlappingInterval(
                 occurrenceStartDay: baseDay,

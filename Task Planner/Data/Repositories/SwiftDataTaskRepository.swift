@@ -23,11 +23,41 @@ final class SwiftDataTaskRepository: TaskRepository {
         return try context.fetch(descriptor)
     }
 
+    func fetchScheduled() throws -> [TaskEntity] {
+        let descriptor = FetchDescriptor<TaskEntity>(
+            predicate: #Predicate<TaskEntity> { task in
+                task.dayDate != nil
+                    && task.startTime != nil
+                    && task.endTime != nil
+            },
+            sortBy: [SortDescriptor(\.dayDate, order: .forward)]
+        )
+        return try context.fetch(descriptor)
+    }
+
+    func fetchUnscheduled() throws -> [TaskEntity] {
+        let descriptor = FetchDescriptor<TaskEntity>(
+            predicate: #Predicate<TaskEntity> { task in
+                task.dayDate == nil
+            },
+            sortBy: [SortDescriptor(\.title, order: .forward)]
+        )
+
+        return try context.fetch(descriptor)
+            .filter { $0.dayDate == nil && $0.startTime == nil && $0.endTime == nil }
+            .sorted {
+                $0.title.localizedStandardCompare($1.title) == .orderedAscending
+            }
+    }
+
     func fetchRecurring() throws -> [TaskEntity] {
         let noneRuleRaw = RepeatRule.none.rawValue
         let descriptor = FetchDescriptor<TaskEntity>(
             predicate: #Predicate<TaskEntity> { task in
                 task.repeatRuleRaw != noneRuleRaw
+                    && task.dayDate != nil
+                    && task.startTime != nil
+                    && task.endTime != nil
             },
             sortBy: [
                 SortDescriptor(\.title, order: .forward),

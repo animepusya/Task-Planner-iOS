@@ -261,10 +261,13 @@ final class TaskEditorViewModel {
                 return false
             }
 
-            let resolvedCandidate = TaskCreationSourceResolver.candidate(
+            guard let resolvedCandidate = TaskCreationSourceResolver.candidate(
                 from: source,
                 referenceDay: form.dayDate
-            )
+            ) else {
+                creationSourceState.setError(String(localized: "This task no longer exists."))
+                return false
+            }
             let snapshot = resolvedCandidate.snapshot
             let preservedDay = time.startOfDay(form.dayDate)
             let endDay = Calendar.current.date(
@@ -464,6 +467,13 @@ final class TaskEditorViewModel {
                 )
                 return
             }
+            guard let existingSchedule = existing.schedule else {
+                alertState.alert = .init(
+                    title: String(localized: "Couldn't load"),
+                    message: String(localized: "This task does not have a schedule yet.")
+                )
+                return
+            }
 
             creationSourceState.configureExistingTask(
                 id: existing.persistentModelID,
@@ -476,7 +486,7 @@ final class TaskEditorViewModel {
             if existing.repeatRule != .none {
                 TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
 
-                let ownerDay = Calendar.current.startOfDay(for: existing.dayDate)
+                let ownerDay = Calendar.current.startOfDay(for: existingSchedule.dayDate)
 
                 let targetDay: Date
                 if isBaseRecurringIdentityMode {
@@ -492,8 +502,19 @@ final class TaskEditorViewModel {
                 occurrenceStartDay = isBaseRecurringIdentityMode ? ownerDay : occStart
                 visibility.setEditingRepeatingOccurrence(!isBaseRecurringIdentityMode)
 
-                let tpl = TaskSeriesEngine.template(for: existing, startDay: occurrenceStartDay ?? ownerDay, calendar: .current)
+                guard let tpl = TaskSeriesEngine.template(
+                    for: existing,
+                    startDay: occurrenceStartDay ?? ownerDay,
+                    calendar: .current
+                )
                     ?? TaskSeriesEngine.templateFromTask(existing, dayStart: ownerDay, calendar: .current)
+                else {
+                    alertState.alert = .init(
+                        title: String(localized: "Couldn't load"),
+                        message: String(localized: "This task does not have a valid schedule.")
+                    )
+                    return
+                }
 
                 form.title = tpl.title
                 form.notes = tpl.notes ?? ""
@@ -533,10 +554,10 @@ final class TaskEditorViewModel {
 
             form.title = existing.title
             form.notes = existing.notes ?? ""
-            form.dayDate = time.startOfDay(existing.dayDate)
-            form.startTime = existing.startTime
-            form.endTime = existing.endTime
-            form.endDayDate = time.startOfDay(existing.endTime)
+            form.dayDate = time.startOfDay(existingSchedule.dayDate)
+            form.startTime = existingSchedule.startTime
+            form.endTime = existingSchedule.endTime
+            form.endDayDate = time.startOfDay(existingSchedule.endTime)
             form.isAllDay = existing.isAllDay
             form.repeatRule = existing.repeatRule
             form.repeatIntervalDays = existing.repeatIntervalDays ?? 2
@@ -759,9 +780,11 @@ final class TaskEditorViewModel {
 
             existing.title = safeTitle
             existing.notes = normalizedNotes
-            existing.dayDate = time.startOfDay(form.dayDate)
-            existing.startTime = normalizedTimes.start
-            existing.endTime = normalizedTimes.end
+            existing.setSchedule(
+                dayDate: time.startOfDay(form.dayDate),
+                startTime: normalizedTimes.start,
+                endTime: normalizedTimes.end
+            )
 
             existing.isAllDay = form.isAllDay
             existing.repeatRule = form.repeatRule
@@ -848,10 +871,12 @@ final class TaskEditorViewModel {
             TaskStatisticsIdentity.unlink(task, among: allTasks)
         }
 
-        let currentSource = TaskCreationSourceResolver.candidate(
+        guard let currentSource = TaskCreationSourceResolver.candidate(
             from: source,
             referenceDay: form.dayDate
-        )
+        ) else {
+            throw EditorError.creationSourceNotFound
+        }
         let fallbackTitle = currentSource.snapshot.title
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let safeFallbackTitle = fallbackTitle.isEmpty ? "Untitled" : fallbackTitle
@@ -1166,7 +1191,7 @@ final class TaskEditorViewModel {
 
     private func reloadCreationSources() {
         do {
-            let candidates = try taskRepository.fetchAll().map {
+            let candidates = try taskRepository.fetchScheduled().compactMap {
                 TaskCreationSourceResolver.candidate(
                     from: $0,
                     referenceDay: form.dayDate

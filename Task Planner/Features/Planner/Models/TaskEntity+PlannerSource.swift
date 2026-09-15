@@ -9,9 +9,16 @@ import Foundation
 
 extension TaskEntity {
     @MainActor
-    func plannerSource(calendar: Calendar = .current) -> PlannerTaskSource {
-        let normalizedBaseDay = calendar.startOfDay(for: dayDate)
-        let baseTemplate = TaskSeriesEngine.templateFromTask(self, dayStart: normalizedBaseDay, calendar: calendar)
+    func plannerSource(calendar: Calendar = .current) -> PlannerTaskSource? {
+        guard let schedule else { return nil }
+        let normalizedBaseDay = calendar.startOfDay(for: schedule.dayDate)
+        guard let baseTemplate = TaskSeriesEngine.templateFromTask(
+            self,
+            dayStart: normalizedBaseDay,
+            calendar: calendar
+        ) else {
+            return nil
+        }
 
         var effectiveSegments = seriesSegments.sorted { $0.startDay < $1.startDay }
         if repeatRule != .none && effectiveSegments.isEmpty {

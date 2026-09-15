@@ -17,6 +17,8 @@ struct TaskRepositoryChange: Equatable, Sendable {
 protocol TaskRepository {
     var changePublisher: AnyPublisher<TaskRepositoryChange, Never> { get }
     func fetchAll() throws -> [TaskEntity]
+    func fetchScheduled() throws -> [TaskEntity]
+    func fetchUnscheduled() throws -> [TaskEntity]
     func fetchRecurring() throws -> [TaskEntity]
     func fetch(by id: PersistentIdentifier) throws -> TaskEntity?
     func add(_ task: TaskEntity) throws
@@ -40,7 +42,19 @@ extension TaskRepository {
     }
 
     func fetchRecurring() throws -> [TaskEntity] {
-        try fetchAll().filter { $0.repeatRule != .none }
+        try fetchScheduled().filter { $0.repeatRule != .none }
+    }
+
+    func fetchScheduled() throws -> [TaskEntity] {
+        try fetchAll().filter(\.isScheduled)
+    }
+
+    func fetchUnscheduled() throws -> [TaskEntity] {
+        try fetchAll()
+            .filter { $0.schedule == nil }
+            .sorted {
+                $0.title.localizedStandardCompare($1.title) == .orderedAscending
+            }
     }
 
     func save(_ task: TaskEntity) throws {

@@ -140,13 +140,14 @@ final class CalendarSyncService {
     func exportTasks(_ tasks: [TaskEntity], canPrompt: Bool = false) async throws {
         let prefs = try preferencesRepository.getOrCreate()
         guard prefs.showTasksInAppleCalendar else { return }
-        guard !tasks.isEmpty else { return }
+        let scheduledTasks = tasks.filter(\.isScheduled)
+        guard !scheduledTasks.isEmpty else { return }
 
         let taskPlannerCalendar = try await ensureTaskPlannerCalendarExists(canPrompt: canPrompt)
 
         var didChangeAnyIdentifier = false
 
-        for task in tasks {
+        for task in scheduledTasks {
             let updatedId = try upsertEvent(for: task, in: taskPlannerCalendar)
             if task.appleEventIdentifier != updatedId {
                 task.appleEventIdentifier = updatedId
@@ -266,6 +267,7 @@ final class CalendarSyncService {
     // MARK: - Internals
 
     private func upsertEvent(for task: TaskEntity, in calendar: EKCalendar) throws -> String {
+        guard let schedule = task.schedule else { throw SyncError.eventSaveFailed }
         let event: EKEvent
         if let id = task.appleEventIdentifier,
            let existing = eventStore.event(withIdentifier: id) {
@@ -275,7 +277,7 @@ final class CalendarSyncService {
             event.calendar = calendar
         }
 
-        apply(task: task, to: event, calendar: calendar)
+        apply(task: task, schedule: schedule, to: event, calendar: calendar)
 
         do {
             try eventStore.save(event, span: .futureEvents, commit: true)
@@ -286,7 +288,12 @@ final class CalendarSyncService {
         }
     }
 
-    private func apply(task: TaskEntity, to event: EKEvent, calendar: EKCalendar) {
+    private func apply(
+        task: TaskEntity,
+        schedule: TaskSchedule,
+        to event: EKEvent,
+        calendar: EKCalendar
+    ) {
         event.calendar = calendar
         event.title = task.title
 
@@ -298,15 +305,15 @@ final class CalendarSyncService {
         }
 
         if task.isAllDay {
-            let dayStart = Calendar.current.startOfDay(for: task.dayDate)
+            let dayStart = Calendar.current.startOfDay(for: schedule.dayDate)
             event.isAllDay = true
             event.startDate = dayStart
             event.endDate = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart.addingTimeInterval(86400)
         } else {
             event.isAllDay = false
             // In your app startTime/endTime are real Dates already — use them directly.
-            event.startDate = task.startTime
-            event.endDate = task.endTime
+            event.startDate = schedule.startTime
+            event.endDate = schedule.endTime
         }
 
         let prefs = try? preferencesRepository.getOrCreate()

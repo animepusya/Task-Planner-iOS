@@ -14,15 +14,18 @@ enum TaskCreationSourceResolver {
         from task: TaskEntity,
         referenceDay: Date,
         calendar: Calendar = .current
-    ) -> TaskCreationSourceCandidate {
+    ) -> TaskCreationSourceCandidate? {
+        guard let schedule = task.schedule else { return nil }
         let normalizedReferenceDay = calendar.startOfDay(for: referenceDay)
-        let snapshot = snapshot(
+        guard let snapshot = snapshot(
             from: task,
             referenceDay: normalizedReferenceDay,
             calendar: calendar
-        )
+        ) else {
+            return nil
+        }
 
-        let normalizedSourceDay = calendar.startOfDay(for: task.dayDate)
+        let normalizedSourceDay = calendar.startOfDay(for: schedule.dayDate)
         let endDay = task.seriesEndDay.map { calendar.startOfDay(for: $0) }
         let isEnded = endDay.map { $0 < normalizedReferenceDay }
             ?? (snapshot.repeatRule == .none && normalizedSourceDay < normalizedReferenceDay)
@@ -40,12 +43,14 @@ enum TaskCreationSourceResolver {
         from task: TaskEntity,
         referenceDay: Date,
         calendar: Calendar = .current
-    ) -> TaskCreationSourceSnapshot {
-        let template = effectiveTemplate(
+    ) -> TaskCreationSourceSnapshot? {
+        guard let template = effectiveTemplate(
             from: task,
             referenceDay: referenceDay,
             calendar: calendar
-        )
+        ) else {
+            return nil
+        }
         let statisticsIdentity = TaskStatisticsIdentity(task: task)
 
         return TaskCreationSourceSnapshot(
@@ -74,7 +79,8 @@ enum TaskCreationSourceResolver {
         from task: TaskEntity,
         referenceDay: Date,
         calendar: Calendar
-    ) -> TaskSeriesTemplate {
+    ) -> TaskSeriesTemplate? {
+        guard let schedule = task.schedule else { return nil }
         let normalizedReferenceDay = calendar.startOfDay(for: referenceDay)
         let segments = task.seriesSegments.sorted { $0.startDay < $1.startDay }
 
@@ -99,7 +105,7 @@ enum TaskCreationSourceResolver {
 
         return TaskSeriesEngine.templateFromTask(
             task,
-            dayStart: calendar.startOfDay(for: task.dayDate),
+            dayStart: calendar.startOfDay(for: schedule.dayDate),
             calendar: calendar
         )
     }

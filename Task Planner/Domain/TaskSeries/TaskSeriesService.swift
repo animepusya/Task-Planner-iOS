@@ -251,8 +251,9 @@ final class TaskSeriesService {
     // MARK: - Ownership transfer / sync
 
     private func isOwnerDay(task: TaskEntity, day: Date, calendar: Calendar) -> Bool {
-        calendar.isDate(
-            calendar.startOfDay(for: task.dayDate),
+        guard let schedule = task.schedule else { return false }
+        return calendar.isDate(
+            calendar.startOfDay(for: schedule.dayDate),
             inSameDayAs: calendar.startOfDay(for: day)
         )
     }
@@ -281,13 +282,14 @@ final class TaskSeriesService {
     }
 
     private func resolvedOwnerDay(for task: TaskEntity, calendar: Calendar) -> Date? {
+        guard let schedule = task.schedule else { return nil }
         let explicitDays = task.seriesOverrides.compactMap { override -> Date? in
             guard override.isDeleted == false, override.template != nil else { return nil }
             return DayKey.parse(override.dayKey, calendar: calendar)
         }
 
         let segmentDays = task.seriesSegments.map { calendar.startOfDay(for: $0.startDay) }
-        let mirroredOwnerDay = calendar.startOfDay(for: task.dayDate)
+        let mirroredOwnerDay = calendar.startOfDay(for: schedule.dayDate)
 
         let earliestCandidate = ([mirroredOwnerDay] + explicitDays + segmentDays).min() ?? mirroredOwnerDay
         let probeDay = calendar.date(byAdding: .day, value: -1, to: earliestCandidate) ?? earliestCandidate
@@ -307,10 +309,11 @@ final class TaskSeriesService {
         guard let tpl = TaskSeriesEngine.template(for: task, startDay: ownerDay, calendar: calendar) else { return }
 
         let endDay = calendar.date(byAdding: .day, value: max(0, tpl.endDayOffset), to: ownerDay) ?? ownerDay
-
-        task.dayDate = ownerDay
-        task.startTime = TimeMinutes.date(on: ownerDay, minutes: tpl.startMinutes, calendar: calendar)
-        task.endTime = TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: calendar)
+        task.setSchedule(
+            dayDate: ownerDay,
+            startTime: TimeMinutes.date(on: ownerDay, minutes: tpl.startMinutes, calendar: calendar),
+            endTime: TimeMinutes.date(on: endDay, minutes: tpl.endMinutes, calendar: calendar)
+        )
 
         task.title = tpl.title
         task.notes = tpl.notes
@@ -345,11 +348,15 @@ final class TaskSeriesService {
         changes: BaseRecurringIdentityChanges,
         calendar: Calendar
     ) {
+        guard let schedule = task.schedule else { return }
         let ownerDay = resolvedOwnerDay(for: task, calendar: calendar)
-            ?? calendar.startOfDay(for: task.dayDate)
+            ?? calendar.startOfDay(for: schedule.dayDate)
 
-        let currentTemplate = TaskSeriesEngine.template(for: task, startDay: ownerDay, calendar: calendar)
+        guard let currentTemplate = TaskSeriesEngine.template(for: task, startDay: ownerDay, calendar: calendar)
             ?? TaskSeriesEngine.templateFromTask(task, dayStart: ownerDay, calendar: calendar)
+        else {
+            return
+        }
 
         let mergedTemplate = mergeBaseRecurringIdentity(into: currentTemplate, changes: changes)
 

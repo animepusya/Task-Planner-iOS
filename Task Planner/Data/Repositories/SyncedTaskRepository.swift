@@ -32,6 +32,14 @@ final class SyncedTaskRepository: TaskRepository {
         try base.fetchAll()
     }
 
+    func fetchScheduled() throws -> [TaskEntity] {
+        try base.fetchScheduled()
+    }
+
+    func fetchUnscheduled() throws -> [TaskEntity] {
+        try base.fetchUnscheduled()
+    }
+
     func fetchRecurring() throws -> [TaskEntity] {
         try base.fetchRecurring()
     }
@@ -76,8 +84,8 @@ final class SyncedTaskRepository: TaskRepository {
         isResyncing = true
         defer { isResyncing = false }
 
-        // simplest reliable approach: export all
-        let tasks = try base.fetchAll()
+        // simplest reliable approach: export every scheduled task
+        let tasks = try base.fetchScheduled()
         Task { [calendarSync] in
             try? await calendarSync.exportAllTasks(tasks)
         }
