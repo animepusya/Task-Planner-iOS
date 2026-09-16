@@ -155,6 +155,13 @@ final class NotifyingTaskRepository: TaskRepository {
     }
 
     private func performFullRescheduleIfAllowed() async {
+        do {
+            let unscheduledTasks = try base.fetchUnscheduled()
+            await notificationSync.cancelPendingReminders(for: unscheduledTasks)
+        } catch {
+            // Continue with the existing scheduled-task reconciliation when possible.
+        }
+
         let prefs: AppPreferencesEntity
         do {
             prefs = try preferencesRepository.getOrCreate()
@@ -178,6 +185,15 @@ final class NotifyingTaskRepository: TaskRepository {
     private func performReplaceRemindersIfAllowed(for taskIDs: Set<PersistentIdentifier>) async {
         guard !taskIDs.isEmpty else { return }
 
+        let tasks = fetchExistingTasks(for: taskIDs)
+        guard !tasks.isEmpty else { return }
+
+        let unscheduledTasks = tasks.filter { $0.isScheduled == false }
+        await notificationSync.cancelPendingReminders(for: unscheduledTasks)
+
+        let scheduledTasks = tasks.filter(\.isScheduled)
+        guard !scheduledTasks.isEmpty else { return }
+
         let prefs: AppPreferencesEntity
         do {
             prefs = try preferencesRepository.getOrCreate()
@@ -190,10 +206,7 @@ final class NotifyingTaskRepository: TaskRepository {
             return
         }
 
-        let tasks = fetchExistingTasks(for: taskIDs)
-        guard !tasks.isEmpty else { return }
-
-        await notificationSync.replacePendingReminders(for: tasks)
+        await notificationSync.replacePendingReminders(for: scheduledTasks)
     }
 
     private func fetchExistingTasks(for taskIDs: Set<PersistentIdentifier>) -> [TaskEntity] {

@@ -72,7 +72,8 @@ final class NotificationSyncService {
     func replacePendingReminders(for tasks: [TaskEntity]) async {
         guard !tasks.isEmpty else { return }
 
-        let uniqueTasks = uniqueTasksPreservingOrder(tasks)
+        let uniqueTasks = uniqueTasksPreservingOrder(tasks).filter(\.isScheduled)
+        guard !uniqueTasks.isEmpty else { return }
 
         let prefs: AppPreferencesEntity
         do {
@@ -107,6 +108,14 @@ final class NotificationSyncService {
         #if DEBUG
         await notificationService.debugLogPendingRequests(label: "after targeted schedule taskIDs=\(taskIDsToCancel)")
         #endif
+    }
+
+    func cancelPendingReminders(for tasks: [TaskEntity]) async {
+        let uniqueTasks = uniqueTasksPreservingOrder(tasks)
+        guard !uniqueTasks.isEmpty else { return }
+
+        let taskIDs = uniqueTasks.flatMap { taskCancellationKeys(for: $0) }
+        await notificationService.cancel(taskIDs: taskIDs)
     }
 
     func cancelAllImmediately() async {

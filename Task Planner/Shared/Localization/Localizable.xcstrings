@@ -1075,64 +1075,6 @@
         }
       }
     },
-    "A task with this name already exists." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Eine Aufgabe mit diesem Namen ist bereits vorhanden."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ya existe una tarea con este nombre."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Une tâche portant ce nom existe déjà."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esiste già un'attività con questo nome."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "同じ名前のタスクがすでにあります。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "같은 이름의 할 일이 이미 있어요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Já existe uma tarefa com este nome."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Задача с таким названием уже существует."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Завдання з такою назвою вже існує."
-          }
-        }
-      }
-    },
     "A little more, when you need it" : {
       "localizations" : {
         "de" : {
@@ -1247,6 +1189,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Планер на 7 днів із вибором дня."
+          }
+        }
+      }
+    },
+    "A task with this name already exists." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eine Aufgabe mit diesem Namen ist bereits vorhanden."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya existe una tarea con este nombre."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Une tâche portant ce nom existe déjà."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esiste già un'attività con questo nome."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同じ名前のタスクがすでにあります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "같은 이름의 할 일이 이미 있어요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Já existe uma tarefa com este nome."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Задача с таким названием уже существует."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Завдання з такою назвою вже існує."
           }
         }
       }
@@ -4069,64 +4069,6 @@
         }
       }
     },
-    "Choose which task to count together with." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Wähle die Aufgabe, mit der sie zusammengezählt werden soll."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Elige con qué tarea quieres contabilizarla."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choisissez la tâche avec laquelle la comptabiliser."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Scegli con quale attività conteggiarla."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "どのタスクとまとめて集計するか選択してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "함께 집계할 할 일을 선택하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Escolha com qual tarefa deseja contabilizá-la."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Выберите, с какой задачей учитывать её вместе."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Виберіть, з яким завданням враховувати її разом."
-          }
-        }
-      }
-    },
     "Choose day" : {
       "comment" : "A label above the calendar view in the `StatisticsDayCalendarPicker`.",
       "isCommentAutoGenerated" : true,
@@ -4303,6 +4245,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Виберіть тиждень"
+          }
+        }
+      }
+    },
+    "Choose which task to count together with." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle die Aufgabe, mit der sie zusammengezählt werden soll."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige con qué tarea quieres contabilizarla."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choisissez la tâche avec laquelle la comptabiliser."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scegli con quale attività conteggiarla."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "どのタスクとまとめて集計するか選択してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "함께 집계할 할 일을 선택하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Escolha com qual tarefa deseja contabilizá-la."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выберите, с какой задачей учитывать её вместе."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Виберіть, з яким завданням враховувати її разом."
           }
         }
       }
@@ -4667,238 +4667,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Колір"
-          }
-        }
-      }
-    },
-    "Count together" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Zusammen zählen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contar juntas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Comptabiliser ensemble"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conteggia insieme"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "まとめて集計"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "함께 집계"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contabilizar juntas"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Учитывать вместе"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Враховувати разом"
-          }
-        }
-      }
-    },
-    "Count together in statistics?" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In der Statistik zusammenzählen?"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Contarlas juntas en las estadísticas?"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Les comptabiliser ensemble dans les statistiques ?"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Conteggiarle insieme nelle statistiche?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "統計でまとめて集計しますか？"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "통계에서 함께 집계할까요?"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contabilizar juntas nas estatísticas?"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Учитывать их вместе в статистике?"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Враховувати їх разом у статистиці?"
-          }
-        }
-      }
-    },
-    "Separate in statistics" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In der Statistik getrennt"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Por separado en las estadísticas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Séparée dans les statistiques"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Separata nelle statistiche"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "統計では別々"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "통계에서 별도"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Separada nas estatísticas"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В статистике отдельно"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "У статистиці окремо"
-          }
-        }
-      }
-    },
-    "Together with “%@” in statistics" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "In der Statistik zusammen mit „%@“"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Junto con “%@” en las estadísticas"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Avec « %@ » dans les statistiques"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Insieme a “%@” nelle statistiche"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "統計では「%@」と一緒"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "통계에서 “%@”와 함께"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Junto com “%@” nas estatísticas"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "В статистике вместе с «%@»"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "У статистиці разом із «%@»"
           }
         }
       }
@@ -5947,6 +5715,122 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Не вдалося обробити фото"
+          }
+        }
+      }
+    },
+    "Count together" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusammen zählen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contar juntas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comptabiliser ensemble"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conteggia insieme"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まとめて集計"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "함께 집계"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contabilizar juntas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Учитывать вместе"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Враховувати разом"
+          }
+        }
+      }
+    },
+    "Count together in statistics?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In der Statistik zusammenzählen?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Contarlas juntas en las estadísticas?"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Les comptabiliser ensemble dans les statistiques ?"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conteggiarle insieme nelle statistiche?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "統計でまとめて集計しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "통계에서 함께 집계할까요?"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contabilizar juntas nas estatísticas?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Учитывать их вместе в статистике?"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Враховувати їх разом у статистиці?"
           }
         }
       }
@@ -8533,6 +8417,64 @@
         }
       }
     },
+    "Fill task" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufgabe ausfüllen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Completar tarea"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remplir la tâche"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Compila attività"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスクを入力"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업 채우기"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preencher tarefa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заполнить задачу"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заповнити завдання"
+          }
+        }
+      }
+    },
     "Filters" : {
       "comment" : "The title of the sheet that allows users to filter statistics.",
       "isCommentAutoGenerated" : true,
@@ -8891,64 +8833,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Безкоштовний та Pro"
-          }
-        }
-      }
-    },
-    "Fill task" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aufgabe ausfüllen"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Completar tarea"
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remplir la tâche"
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Compila attività"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスクを入力"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "작업 채우기"
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preencher tarefa"
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Заполнить задачу"
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Заповнити завдання"
           }
         }
       }
@@ -14595,6 +14479,64 @@
         }
       }
     },
+    "Separate in statistics" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In der Statistik getrennt"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Por separado en las estadísticas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Séparée dans les statistiques"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separata nelle statistiche"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "統計では別々"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "통계에서 별도"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Separada nas estatísticas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В статистике отдельно"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У статистиці окремо"
+          }
+        }
+      }
+    },
     "Settings" : {
       "comment" : "The title of the settings screen.",
       "isCommentAutoGenerated" : true,
@@ -16631,6 +16573,64 @@
         }
       }
     },
+    "The source task no longer exists. Choose another task or count this task separately." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die ursprüngliche Aufgabe ist nicht mehr vorhanden. Wähle eine andere Aufgabe oder zähle diese Aufgabe separat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La tarea de origen ya no existe. Elige otra tarea o contabiliza esta por separado."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La tâche source n’existe plus. Choisissez-en une autre ou comptabilisez cette tâche séparément."
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "L'attività di origine non esiste più. Scegli un'altra attività o conteggia questa separatamente."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "元のタスクは存在しません。別のタスクを選ぶか、このタスクを別々に集計してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "원본 할 일이 더 이상 존재하지 않아요. 다른 할 일을 선택하거나 이 할 일을 별도로 집계하세요."
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A tarefa de origem não existe mais. Escolha outra tarefa ou contabilize esta separadamente."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Исходной задачи больше нет. Выберите другую задачу или учитывайте эту отдельно."
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Початкового завдання більше немає. Виберіть інше завдання або враховуйте це окремо."
+          }
+        }
+      }
+    },
     "The task couldn't be found. It may have been deleted." : {
       "localizations" : {
         "de" : {
@@ -16691,64 +16691,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Не вдалося знайти завдання. Можливо, його видалено."
-          }
-        }
-      }
-    },
-    "The source task no longer exists. Choose another task or count this task separately." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Die ursprüngliche Aufgabe ist nicht mehr vorhanden. Wähle eine andere Aufgabe oder zähle diese Aufgabe separat."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La tarea de origen ya no existe. Elige otra tarea o contabiliza esta por separado."
-          }
-        },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "La tâche source n’existe plus. Choisissez-en une autre ou comptabilisez cette tâche séparément."
-          }
-        },
-        "it" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "L'attività di origine non esiste più. Scegli un'altra attività o conteggia questa separatamente."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元のタスクは存在しません。別のタスクを選ぶか、このタスクを別々に集計してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "원본 할 일이 더 이상 존재하지 않아요. 다른 할 일을 선택하거나 이 할 일을 별도로 집계하세요."
-          }
-        },
-        "pt-BR" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "A tarefa de origem não existe mais. Escolha outra tarefa ou contabilize esta separadamente."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Исходной задачи больше нет. Выберите другую задачу или учитывайте эту отдельно."
-          }
-        },
-        "uk" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Початкового завдання більше немає. Виберіть інше завдання або враховуйте це окремо."
           }
         }
       }
@@ -17064,6 +17006,12 @@
           }
         }
       }
+    },
+    "This task does not have a schedule yet." : {
+
+    },
+    "This task does not have a valid schedule." : {
+
     },
     "This task no longer exists." : {
       "localizations" : {
@@ -17435,6 +17383,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Сьогодні"
+          }
+        }
+      }
+    },
+    "Together with “%@” in statistics" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In der Statistik zusammen mit „%@“"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Junto con “%@” en las estadísticas"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Avec « %@ » dans les statistiques"
+          }
+        },
+        "it" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insieme a “%@” nelle statistiche"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "統計では「%@」と一緒"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "통계에서 “%@”와 함께"
+          }
+        },
+        "pt-BR" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Junto com “%@” nas estatísticas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В статистике вместе с «%@»"
+          }
+        },
+        "uk" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "У статистиці разом із «%@»"
           }
         }
       }

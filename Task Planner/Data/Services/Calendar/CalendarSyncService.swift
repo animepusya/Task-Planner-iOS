@@ -133,7 +133,10 @@ final class CalendarSyncService {
 
     /// Export all tasks (simple & robust). Updates task.appleEventIdentifier if needed.
     func exportAllTasks(_ tasks: [TaskEntity], canPrompt: Bool = false) async throws {
-        try await exportTasks(tasks, canPrompt: canPrompt)
+        for task in tasks where task.isScheduled == false && task.appleEventIdentifier != nil {
+            _ = try await cleanupExportedEventIfNeeded(for: task, canPrompt: canPrompt)
+        }
+        try await exportTasks(tasks.filter(\.isScheduled), canPrompt: canPrompt)
     }
 
     /// Export only the provided tasks. Updates task.appleEventIdentifier if needed.
@@ -161,14 +164,50 @@ final class CalendarSyncService {
         }
     }
 
-    func deleteExportedEventIfNeeded(for task: TaskEntity, canPrompt: Bool = false) async throws {
-        let prefs = try preferencesRepository.getOrCreate()
-        guard prefs.showTasksInAppleCalendar else { return }
-        guard let id = task.appleEventIdentifier else { return }
+    func deleteExportedEventIfNeeded(identifier: String?, canPrompt: Bool = false) async throws {
+        guard let identifier else { return }
+        try await requestAccessIfNeeded(canPrompt: canPrompt)
+        try removeExportedEventIfPresent(identifier: identifier)
+    }
+
+    /// Removes the old Calendar event for a persisted unscheduled task.
+    /// The identifier is intentionally retained while Calendar access is unavailable,
+    /// so a later launch or sync can retry the cleanup without prompting.
+    @discardableResult
+    func cleanupExportedEventIfNeeded(
+        for task: TaskEntity,
+        canPrompt: Bool = false
+    ) async throws -> Bool {
+        guard task.isScheduled == false,
+              let identifier = task.appleEventIdentifier else {
+            return false
+        }
 
         try await requestAccessIfNeeded(canPrompt: canPrompt)
 
-        guard let event = eventStore.event(withIdentifier: id) else { return }
+        // The task may have been scheduled again while access was being resolved.
+        guard task.isScheduled == false,
+              task.appleEventIdentifier == identifier else {
+            return false
+        }
+
+        try removeExportedEventIfPresent(identifier: identifier)
+
+        // A missing event is also a confirmed cleanup; the stale identifier can be cleared.
+        guard task.isScheduled == false,
+              task.appleEventIdentifier == identifier else {
+            return false
+        }
+
+        task.appleEventIdentifier = nil
+        if modelContext.hasChanges {
+            try modelContext.save()
+        }
+        return true
+    }
+
+    private func removeExportedEventIfPresent(identifier: String) throws {
+        guard let event = eventStore.event(withIdentifier: identifier) else { return }
         do {
             try eventStore.remove(event, span: .futureEvents, commit: true)
         } catch {

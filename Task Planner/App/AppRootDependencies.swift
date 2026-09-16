@@ -22,6 +22,7 @@ final class AppRootDependencies: ObservableObject {
     let subscriptionStore: SubscriptionStore
 
     private var isReconcilingNotifications = false
+    private var isCleaningUpUnscheduledCalendarEvents = false
 
     init(container: DependencyContainer, context: ModelContext) {
         let preferencesRepository = container.makePreferencesRepository(context: context)
@@ -79,6 +80,7 @@ final class AppRootDependencies: ObservableObject {
 
         Task { [weak self] in
             await self?.reconcileNotificationsIfAllowed()
+            await self?.cleanupUnscheduledCalendarEventsIfPossible()
         }
     }
 
@@ -88,10 +90,28 @@ final class AppRootDependencies: ObservableObject {
         defer { isReconcilingNotifications = false }
 
         do {
+            let unscheduledTasks = try taskRepository.fetchUnscheduled()
+            await notificationSyncService.cancelPendingReminders(for: unscheduledTasks)
+
             let tasks = try taskRepository.fetchScheduled()
             await notificationSyncService.reconcileAll(tasks: tasks)
         } catch {
             // Best-effort only. Task CRUD flows still do targeted notification sync.
+        }
+    }
+
+    func cleanupUnscheduledCalendarEventsIfPossible() async {
+        guard isCleaningUpUnscheduledCalendarEvents == false else { return }
+        isCleaningUpUnscheduledCalendarEvents = true
+        defer { isCleaningUpUnscheduledCalendarEvents = false }
+
+        do {
+            let tasks = try taskRepository.fetchUnscheduled()
+            for task in tasks where task.appleEventIdentifier != nil {
+                _ = try? await calendarSyncService.cleanupExportedEventIfNeeded(for: task)
+            }
+        } catch {
+            // Best-effort only. The identifier remains a cleanup token for a later retry.
         }
     }
 }

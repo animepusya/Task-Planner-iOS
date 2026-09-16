@@ -50,13 +50,14 @@ final class SyncedTaskRepository: TaskRepository {
 
     func add(_ task: TaskEntity) throws {
         try base.add(task)
-        try exportTasksIfEnabled([task])
+        try syncTasksAfterSave([task])
     }
 
     func delete(_ task: TaskEntity) throws {
         // delete exported event best-effort; no full re-export needed for unrelated tasks.
+        let eventIdentifier = task.appleEventIdentifier
         Task { [calendarSync] in
-            try? await calendarSync.deleteExportedEventIfNeeded(for: task)
+            try? await calendarSync.deleteExportedEventIfNeeded(identifier: eventIdentifier)
         }
         try base.delete(task)
     }
@@ -67,42 +68,45 @@ final class SyncedTaskRepository: TaskRepository {
 
     func save() throws {
         try base.save()
-        try resyncAllIfEnabled()
+        try syncTasksAfterSave(base.fetchAll())
     }
 
     func save(_ tasks: [TaskEntity]) throws {
         try base.save(tasks)
-        try exportTasksIfEnabled(tasks)
+        try syncTasksAfterSave(tasks)
     }
 
-    private func resyncAllIfEnabled() throws {
-        guard !isResyncing else { return }
-
-        let prefs = try preferencesRepository.getOrCreate()
-        guard prefs.showTasksInAppleCalendar else { return }
-
-        isResyncing = true
-        defer { isResyncing = false }
-
-        // simplest reliable approach: export every scheduled task
-        let tasks = try base.fetchScheduled()
-        Task { [calendarSync] in
-            try? await calendarSync.exportAllTasks(tasks)
-        }
-    }
-
-    private func exportTasksIfEnabled(_ tasks: [TaskEntity]) throws {
+    private func syncTasksAfterSave(_ tasks: [TaskEntity]) throws {
         guard !tasks.isEmpty else { return }
         guard !isResyncing else { return }
 
-        let prefs = try preferencesRepository.getOrCreate()
-        guard prefs.showTasksInAppleCalendar else { return }
+        let tasksNeedingCleanup = tasks.filter {
+            $0.isScheduled == false && $0.appleEventIdentifier != nil
+        }
+
+        let scheduledTasks: [TaskEntity]
+        if tasks.contains(where: \.isScheduled) {
+            let prefs = try preferencesRepository.getOrCreate()
+            scheduledTasks = prefs.showTasksInAppleCalendar ? tasks.filter(\.isScheduled) : []
+        } else {
+            scheduledTasks = []
+        }
+
+        guard tasksNeedingCleanup.isEmpty == false || scheduledTasks.isEmpty == false else {
+            return
+        }
 
         isResyncing = true
         defer { isResyncing = false }
 
         Task { [calendarSync] in
-            try? await calendarSync.exportTasks(tasks)
+            for task in tasksNeedingCleanup {
+                _ = try? await calendarSync.cleanupExportedEventIfNeeded(for: task)
+            }
+
+            if scheduledTasks.isEmpty == false {
+                try? await calendarSync.exportTasks(scheduledTasks)
+            }
         }
     }
 }
