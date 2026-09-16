@@ -114,7 +114,7 @@ final class TaskEditorViewModel {
         self.titleSection = TitleSectionState()
         self.descriptionSection = DescriptionSectionState()
         self.dateTimeSection = DateTimeSectionState(
-            isScheduleToggleEnabled: taskId == nil && editMode != .baseRecurringIdentity
+            showsScheduleToggle: taskId == nil && editMode != .baseRecurringIdentity
         )
         self.reminderSection = ReminderSectionState()
         self.repeatSection = RepeatSectionState()
@@ -1218,7 +1218,7 @@ final class TaskEditorViewModel {
     private func publishDateTimeState() {
         dateTimeSection.render(
             isScheduled: form.isScheduled,
-            isScheduleToggleEnabled: canChangeScheduling,
+            showsScheduleToggle: canChangeScheduling,
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
@@ -1753,7 +1753,7 @@ extension TaskEditorViewModel {
     @MainActor
     final class DateTimeSectionState: ObservableObject {
         @Published private(set) var isScheduled = true
-        @Published private(set) var isScheduleToggleEnabled: Bool
+        @Published private(set) var showsScheduleToggle: Bool
         @Published private(set) var dayDate: Date = .now
         @Published private(set) var endDayDate: Date = .now
         @Published private(set) var startTime: Date = .now
@@ -1769,8 +1769,8 @@ extension TaskEditorViewModel {
         var onIsAllDayChange: ((Bool) -> Void)?
         var onIsScheduledChange: ((Bool) -> Void)?
 
-        init(isScheduleToggleEnabled: Bool) {
-            self.isScheduleToggleEnabled = isScheduleToggleEnabled
+        init(showsScheduleToggle: Bool) {
+            self.showsScheduleToggle = showsScheduleToggle
         }
 
         var isScheduledBinding: Binding<Bool> {
@@ -1817,7 +1817,7 @@ extension TaskEditorViewModel {
 
         func render(
             isScheduled: Bool,
-            isScheduleToggleEnabled: Bool,
+            showsScheduleToggle: Bool,
             dayDate: Date,
             endDayDate: Date,
             startTime: Date,
@@ -1829,8 +1829,8 @@ extension TaskEditorViewModel {
             if self.isScheduled != isScheduled {
                 self.isScheduled = isScheduled
             }
-            if self.isScheduleToggleEnabled != isScheduleToggleEnabled {
-                self.isScheduleToggleEnabled = isScheduleToggleEnabled
+            if self.showsScheduleToggle != showsScheduleToggle {
+                self.showsScheduleToggle = showsScheduleToggle
             }
             if self.dayDate != dayDate {
                 self.dayDate = dayDate

@@ -65,6 +65,7 @@ struct UnscheduledTasksView: View {
                 viewModel.onViewDisappear()
             }
         }
+        .interactiveDismissDisabled()
     }
 
     private var emptyState: some View {

@@ -51,25 +51,26 @@ struct TaskEditorDateTimeSection: View {
                 )
                 .foregroundStyle(state.isInvalid ? .red : DS.ColorToken.textPrimary)
 
-            Toggle(isOn: state.isScheduledBinding) {
-                Text(
-                    String(
-                        localized: "taskEditor.scheduleToggle",
-                        defaultValue: "Scheduled",
-                        comment: "Toggle indicating whether a task has a date and time."
-                    )
-                )
-                    .font(
-                        dsMetrics.font(
-                            15,
-                            weight: .regular,
-                            category: .body
+            if state.showsScheduleToggle {
+                Toggle(isOn: state.isScheduledBinding) {
+                    Text(
+                        String(
+                            localized: "taskEditor.scheduleToggle",
+                            defaultValue: "Scheduled",
+                            comment: "Toggle indicating whether a task has a date and time."
                         )
                     )
-                    .foregroundStyle(DS.ColorToken.textPrimary)
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .regular,
+                                category: .body
+                            )
+                        )
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                }
+                .tint(DS.ColorToken.lavender)
             }
-            .tint(DS.ColorToken.lavender)
-            .disabled(state.isScheduleToggleEnabled == false)
 
             if state.isScheduled {
                 Toggle(isOn: state.isAllDayBinding) {

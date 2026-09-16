@@ -20,8 +20,10 @@ final class PlannerViewModel: ObservableObject {
     private let calendarSync: CalendarSyncService
     private let onOpenTaskEditor: (_ taskId: PersistentIdentifier?, _ day: Date) -> Void
     private let onOpenNotifications: () -> Void
+    private let onOpenUnscheduledTasks: () -> Void
     private let onOpenRecurringBaseTasks: () -> Void
     private let seriesService: TaskSeriesService
+    private let unscheduledTasksUsageStore: UnscheduledTasksUsageStore
 
     private let snapshotBuilder = PlannerScreenSnapshotBuilder()
     private let monthCache = PlannerMonthCache()
@@ -41,15 +43,18 @@ final class PlannerViewModel: ObservableObject {
     private var isViewActive = false
     private var needsStoreReloadOnActivate = false
     private var needsPreferenceReloadOnActivate = false
+    private var unscheduledTaskCount = 0
 
     @Published private(set) var visualDoneOverride: [String: Bool] = [:]
     @Published private(set) var snapshot: PlannerScreenSnapshot = .empty
     @Published private(set) var isMonthTransitionLocked = false
+    @Published private(set) var isUnscheduledTasksButtonVisible = false
 
     private var pendingToggleTasks: [String: Task<Void, Never>] = [:]
     private var monthBuildTasks: [PlannerMonthBuildKey: Task<PlannerMonthBuildOutput, Never>] = [:]
     private var externalMonthTask: Task<Void, Never>?
     private var monthTransitionUnlockTask: Task<Void, Never>?
+    private var unscheduledButtonRevealTask: Task<Void, Never>?
     private var cancellables: Set<AnyCancellable> = []
 
     private let donePhaseDelay: UInt64 = 800_000_000
@@ -60,16 +65,20 @@ final class PlannerViewModel: ObservableObject {
         preferencesRepository: PreferencesRepository,
         calendarSync: CalendarSyncService,
         seriesService: TaskSeriesService,
+        unscheduledTasksUsageStore: UnscheduledTasksUsageStore,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void,
+        onOpenUnscheduledTasks: @escaping () -> Void,
         onOpenRecurringBaseTasks: @escaping () -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
         self.calendarSync = calendarSync
         self.seriesService = seriesService
+        self.unscheduledTasksUsageStore = unscheduledTasksUsageStore
         self.onOpenTaskEditor = onOpenTaskEditor
         self.onOpenNotifications = onOpenNotifications
+        self.onOpenUnscheduledTasks = onOpenUnscheduledTasks
         self.onOpenRecurringBaseTasks = onOpenRecurringBaseTasks
 
         let calendar = Calendar.current
@@ -80,6 +89,7 @@ final class PlannerViewModel: ObservableObject {
 
         bindTaskRepositoryChanges()
         _ = loadPreferences()
+        loadInitialUnscheduledTasksAvailability()
         reloadStoreInputsAndRefresh(force: true, prefetchAdjacent: true)
 
         if isOverlayEnabled {
@@ -107,7 +117,15 @@ final class PlannerViewModel: ObservableObject {
         }
 
         if needsStoreReload {
+            reloadUnscheduledTasksAvailability(allowFirstUseReveal: true)
             reloadStoreInputsAndRefresh(force: false, prefetchAdjacent: false)
+        }
+
+        if unscheduledTasksUsageStore.hasUsedUnscheduledTasks == false,
+           unscheduledTaskCount > 0,
+           isUnscheduledTasksButtonVisible == false,
+           unscheduledButtonRevealTask == nil {
+            scheduleFirstUseUnscheduledButtonReveal()
         }
     }
 
@@ -116,6 +134,11 @@ final class PlannerViewModel: ObservableObject {
         cancelMonthBuilds()
         externalMonthTask?.cancel()
         externalMonthTask = nil
+
+        if unscheduledTasksUsageStore.hasUsedUnscheduledTasks == false {
+            unscheduledButtonRevealTask?.cancel()
+            unscheduledButtonRevealTask = nil
+        }
     }
 
     func handleModelContextDidSave() {
@@ -165,6 +188,7 @@ final class PlannerViewModel: ObservableObject {
     }
 
     func openNotifications() { onOpenNotifications() }
+    func openUnscheduledTasks() { onOpenUnscheduledTasks() }
     func openRecurringBaseTasks() { onOpenRecurringBaseTasks() }
 
     @discardableResult
@@ -328,10 +352,80 @@ final class PlannerViewModel: ObservableObject {
                         return
                     }
 
+                    self.reloadUnscheduledTasksAvailability(allowFirstUseReveal: true)
                     self.reloadStoreInputsAndRefresh(force: false, prefetchAdjacent: false)
                 }
             }
             .store(in: &cancellables)
+    }
+
+    private func loadInitialUnscheduledTasksAvailability() {
+        unscheduledTaskCount = fetchUnscheduledTaskCount()
+
+        guard unscheduledTasksUsageStore.hasUsedUnscheduledTasks || unscheduledTaskCount > 0 else {
+            return
+        }
+
+        isUnscheduledTasksButtonVisible = true
+        unscheduledTasksUsageStore.hasUsedUnscheduledTasks = true
+    }
+
+    private func reloadUnscheduledTasksAvailability(allowFirstUseReveal: Bool) {
+        let previousCount = unscheduledTaskCount
+        let nextCount = fetchUnscheduledTaskCount()
+        unscheduledTaskCount = nextCount
+
+        if unscheduledTasksUsageStore.hasUsedUnscheduledTasks {
+            unscheduledButtonRevealTask?.cancel()
+            unscheduledButtonRevealTask = nil
+            isUnscheduledTasksButtonVisible = true
+            return
+        }
+
+        guard nextCount > 0 else {
+            unscheduledButtonRevealTask?.cancel()
+            unscheduledButtonRevealTask = nil
+            isUnscheduledTasksButtonVisible = false
+            return
+        }
+
+        guard allowFirstUseReveal, previousCount == 0 else {
+            return
+        }
+
+        scheduleFirstUseUnscheduledButtonReveal()
+    }
+
+    private func fetchUnscheduledTaskCount() -> Int {
+        do {
+            return try taskRepository.fetchUnscheduled().count
+        } catch {
+            assertionFailure("Unscheduled task availability fetch failed: \(error)")
+            return unscheduledTaskCount
+        }
+    }
+
+    private func scheduleFirstUseUnscheduledButtonReveal() {
+        unscheduledButtonRevealTask?.cancel()
+
+        unscheduledButtonRevealTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch {
+                return
+            }
+
+            guard let self,
+                  Task.isCancelled == false,
+                  self.unscheduledTaskCount > 0,
+                  self.unscheduledTasksUsageStore.hasUsedUnscheduledTasks == false else {
+                return
+            }
+
+            self.unscheduledTasksUsageStore.hasUsedUnscheduledTasks = true
+            self.isUnscheduledTasksButtonVisible = true
+            self.unscheduledButtonRevealTask = nil
+        }
     }
 
     private func reloadStoreInputsAndRefresh(force: Bool, prefetchAdjacent: Bool) {

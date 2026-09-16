@@ -134,12 +134,16 @@ private struct AppRootTabShellView: View {
             preferencesRepository: dependencies.preferencesRepository,
             calendarSync: dependencies.calendarSyncService,
             seriesService: dependencies.seriesService,
+            unscheduledTasksUsageStore: dependencies.unscheduledTasksUsageStore,
             isActive: selectedTab == .planner,
             onOpenTaskEditor: { taskId, day in
                 sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .standard)
             },
             onOpenNotifications: {
                 sheet = .notifications
+            },
+            onOpenUnscheduledTasks: {
+                sheet = .unscheduledTasks
             },
             onOpenRecurringBaseTasks: {
                 sheet = .recurringBaseTasks

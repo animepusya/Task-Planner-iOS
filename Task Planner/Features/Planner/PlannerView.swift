@@ -45,9 +45,11 @@ struct PlannerView: View {
         preferencesRepository: PreferencesRepository,
         calendarSync: CalendarSyncService,
         seriesService: TaskSeriesService,
+        unscheduledTasksUsageStore: UnscheduledTasksUsageStore,
         isActive: Bool = true,
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void,
+        onOpenUnscheduledTasks: @escaping () -> Void,
         onOpenRecurringBaseTasks: @escaping () -> Void
     ) {
         _viewModel = StateObject(
@@ -56,8 +58,10 @@ struct PlannerView: View {
                 preferencesRepository: preferencesRepository,
                 calendarSync: calendarSync,
                 seriesService: seriesService,
+                unscheduledTasksUsageStore: unscheduledTasksUsageStore,
                 onOpenTaskEditor: onOpenTaskEditor,
                 onOpenNotifications: onOpenNotifications,
+                onOpenUnscheduledTasks: onOpenUnscheduledTasks,
                 onOpenRecurringBaseTasks: onOpenRecurringBaseTasks
             )
         )
@@ -182,6 +186,19 @@ struct PlannerView: View {
             style: .planner
         ) {
             HStack(spacing: dsMetrics.spacing(10)) {
+                IconCircleButton(systemName: "tray.full") {
+                    viewModel.openUnscheduledTasks()
+                }
+                .accessibilityLabel("Unscheduled Tasks")
+                .opacity(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0)
+                .scaleEffect(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0.72)
+                .allowsHitTesting(viewModel.isUnscheduledTasksButtonVisible)
+                .accessibilityHidden(!viewModel.isUnscheduledTasksButtonVisible)
+                .animation(
+                    .spring(response: 0.42, dampingFraction: 0.76),
+                    value: viewModel.isUnscheduledTasksButtonVisible
+                )
+
                 IconCircleButton(systemName: "square.stack.3d.up") {
                     viewModel.openRecurringBaseTasks()
                 }
