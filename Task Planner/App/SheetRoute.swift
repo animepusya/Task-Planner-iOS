@@ -12,6 +12,7 @@ enum SheetRoute: Identifiable {
     case taskEditor(taskId: PersistentIdentifier?, preselectedDay: Date, mode: TaskEditorMode)
     case notifications
     case recurringBaseTasks
+    case unscheduledTasks
 
     var id: String {
         switch self {
@@ -22,6 +23,8 @@ enum SheetRoute: Identifiable {
             return "notifications"
         case .recurringBaseTasks:
             return "recurringBaseTasks"
+        case .unscheduledTasks:
+            return "unscheduledTasks"
         }
     }
 }

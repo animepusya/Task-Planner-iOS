@@ -258,6 +258,14 @@ private struct AppRootTabShellView: View {
                     sheet = .taskEditor(taskId: taskId, preselectedDay: day, mode: .baseRecurringIdentity)
                 }
             )
+
+        case .unscheduledTasks:
+            UnscheduledTasksView(
+                taskRepository: dependencies.taskRepository,
+                onOpenTaskEditor: { taskId in
+                    sheet = .taskEditor(taskId: taskId, preselectedDay: .now, mode: .standard)
+                }
+            )
         }
     }
 }
