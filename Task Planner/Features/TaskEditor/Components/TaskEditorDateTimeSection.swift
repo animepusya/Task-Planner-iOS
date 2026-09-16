@@ -51,8 +51,14 @@ struct TaskEditorDateTimeSection: View {
                 )
                 .foregroundStyle(state.isInvalid ? .red : DS.ColorToken.textPrimary)
 
-            Toggle(isOn: state.isAllDayBinding) {
-                Text("All day")
+            Toggle(isOn: state.isScheduledBinding) {
+                Text(
+                    String(
+                        localized: "taskEditor.scheduleToggle",
+                        defaultValue: "Scheduled",
+                        comment: "Toggle indicating whether a task has a date and time."
+                    )
+                )
                     .font(
                         dsMetrics.font(
                             15,
@@ -63,32 +69,48 @@ struct TaskEditorDateTimeSection: View {
                     .foregroundStyle(DS.ColorToken.textPrimary)
             }
             .tint(DS.ColorToken.lavender)
+            .disabled(state.isScheduleToggleEnabled == false)
 
-            pickerRows
-
-            if !state.isAllDay {
-                TaskEditorChipGroup(
-                    title: String(localized: "Duration"),
-                    chips: Self.durationOptions.map { option in
-                        .init(id: option.title, title: option.title) {
-                            onApplyDuration(option.minutes)
-                        }
-                    }
-                )
-            }
-
-            if let message = state.timeValidationMessage {
-                Text(message)
-                    .font(
-                        dsMetrics.font(
-                            12,
-                            weight: .medium,
-                            category: .caption
+            if state.isScheduled {
+                Toggle(isOn: state.isAllDayBinding) {
+                    Text("All day")
+                        .font(
+                            dsMetrics.font(
+                                15,
+                                weight: .regular,
+                                category: .body
+                            )
                         )
+                        .foregroundStyle(DS.ColorToken.textPrimary)
+                }
+                .tint(DS.ColorToken.lavender)
+
+                pickerRows
+
+                if !state.isAllDay {
+                    TaskEditorChipGroup(
+                        title: String(localized: "Duration"),
+                        chips: Self.durationOptions.map { option in
+                            .init(id: option.title, title: option.title) {
+                                onApplyDuration(option.minutes)
+                            }
+                        }
                     )
-                    .foregroundStyle(.red)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let message = state.timeValidationMessage {
+                    Text(message)
+                        .font(
+                            dsMetrics.font(
+                                12,
+                                weight: .medium,
+                                category: .caption
+                            )
+                        )
+                        .foregroundStyle(.red)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .dsCard(style: .outlined)

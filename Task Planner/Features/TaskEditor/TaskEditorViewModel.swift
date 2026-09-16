@@ -31,6 +31,7 @@ final class TaskEditorViewModel {
     private var weekStartsOnMonday = true
     private var defaultAllDayTimeMinutes: Int = 9 * 60
     private var availableCategories: [String] = [CategorySystem.workTitle]
+    private var canChangeScheduling: Bool
     private var form: FormState
 
     let chrome: ChromeState
@@ -81,9 +82,11 @@ final class TaskEditorViewModel {
         let startTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: startDay) ?? startDay
         let endTime = Calendar.current.date(bySettingHour: 9, minute: 30, second: 0, of: startDay) ?? startDay
 
+        self.canChangeScheduling = taskId == nil && editMode != .baseRecurringIdentity
         self.form = FormState(
             title: "",
             notes: "",
+            isScheduled: true,
             dayDate: startDay,
             endDayDate: startDay,
             startTime: startTime,
@@ -104,13 +107,15 @@ final class TaskEditorViewModel {
         )
 
         self.chrome = ChromeState(editMode: editMode, isEditing: taskId != nil)
-        self.visibility = VisibilityState(editMode: editMode)
+        self.visibility = VisibilityState(editMode: editMode, isScheduled: true)
         self.alertState = AlertState()
         self.creationSourceState = CreationSourceState()
 
         self.titleSection = TitleSectionState()
         self.descriptionSection = DescriptionSectionState()
-        self.dateTimeSection = DateTimeSectionState()
+        self.dateTimeSection = DateTimeSectionState(
+            isScheduleToggleEnabled: taskId == nil && editMode != .baseRecurringIdentity
+        )
         self.reminderSection = ReminderSectionState()
         self.repeatSection = RepeatSectionState()
         self.colorSection = ColorSectionState()
@@ -362,6 +367,19 @@ final class TaskEditorViewModel {
         publishDateTimeState()
     }
 
+    func setIsScheduled(_ newValue: Bool) {
+        guard canChangeScheduling else {
+            publishDateTimeState()
+            return
+        }
+        guard newValue != form.isScheduled else { return }
+
+        form.isScheduled = newValue
+        visibility.setScheduled(newValue)
+        publishDateTimeState()
+        updateChromeValidation()
+    }
+
     func setRepeatRule(_ newValue: RepeatRule) {
         guard newValue != form.repeatRule else { return }
         form.repeatRule = newValue
@@ -467,21 +485,51 @@ final class TaskEditorViewModel {
                 )
                 return
             }
-            guard let existingSchedule = existing.schedule else {
-                alertState.alert = .init(
-                    title: String(localized: "Couldn't load"),
-                    message: String(localized: "This task does not have a schedule yet.")
-                )
-                return
-            }
 
             creationSourceState.configureExistingTask(
                 id: existing.persistentModelID,
                 statisticsIdentity: TaskStatisticsIdentity(task: existing)
             )
 
+            canChangeScheduling = existing.hasSeriesState == false && !isBaseRecurringIdentityMode
+
             let isEditingRepeatingTask = existing.repeatRule != .none
             chrome.setRepeatingTaskEditing(isEditingRepeatingTask)
+
+            form.title = existing.title
+            form.notes = existing.notes ?? ""
+            form.color = existing.color
+            form.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
+            form.photoThumbData = existing.photoThumbData
+
+            guard let existingSchedule = existing.schedule else {
+                occurrenceStartDay = nil
+                visibility.setEditingRepeatingOccurrence(false)
+
+                form.isScheduled = false
+                form.isAllDay = false
+                form.repeatRule = .none
+                form.repeatIntervalDays = 2
+                form.reminderEnabled = false
+                form.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(
+                    existing.reminderOffsetMinutes
+                )
+                form.reminderAllDayTimeMinutes = nil
+
+                reminderGate = nil
+                publishAllState()
+
+                let validated = time.normalizeAndValidate(
+                    dayDate: form.dayDate,
+                    endDayDate: form.endDayDate,
+                    startTime: form.startTime,
+                    endTime: form.endTime
+                )
+                apply(validated)
+                return
+            }
+
+            form.isScheduled = true
 
             if existing.repeatRule != .none {
                 TaskSeriesEngine.ensureBaseSegmentIfNeeded(for: existing, calendar: .current)
@@ -552,8 +600,6 @@ final class TaskEditorViewModel {
             occurrenceStartDay = nil
             visibility.setEditingRepeatingOccurrence(false)
 
-            form.title = existing.title
-            form.notes = existing.notes ?? ""
             form.dayDate = time.startOfDay(existingSchedule.dayDate)
             form.startTime = existingSchedule.startTime
             form.endTime = existingSchedule.endTime
@@ -561,9 +607,6 @@ final class TaskEditorViewModel {
             form.isAllDay = existing.isAllDay
             form.repeatRule = existing.repeatRule
             form.repeatIntervalDays = existing.repeatIntervalDays ?? 2
-            form.color = existing.color
-            form.categoryTitle = existing.categoryTitle ?? CategorySystem.uncategorizedTitle
-            form.photoThumbData = existing.photoThumbData
             form.reminderEnabled = existing.reminderEnabled
             form.reminderOffsetMinutes = ReminderPreset.normalizeOffsetMinutes(existing.reminderOffsetMinutes)
             form.reminderAllDayTimeMinutes = existing.reminderAllDayTimeMinutes
@@ -731,20 +774,22 @@ final class TaskEditorViewModel {
     }
 
     private func saveInternalDirect() throws {
-        let validated = time.normalizeAndValidate(
-            dayDate: form.dayDate,
-            endDayDate: form.endDayDate,
-            startTime: form.startTime,
-            endTime: form.endTime
-        )
-        apply(validated)
+        if form.isScheduled {
+            let validated = time.normalizeAndValidate(
+                dayDate: form.dayDate,
+                endDayDate: form.endDayDate,
+                startTime: form.startTime,
+                endTime: form.endTime
+            )
+            apply(validated)
 
-        if form.isTimeRangeInvalid {
-            throw EditorError.invalidTimeRange
-        }
+            if form.isTimeRangeInvalid {
+                throw EditorError.invalidTimeRange
+            }
 
-        if form.isRepeatInvalid && form.repeatRule != .none {
-            throw EditorError.repeatConflict
+            if form.isRepeatInvalid && form.repeatRule != .none {
+                throw EditorError.repeatConflict
+            }
         }
 
         let normalizedTitle = form.title.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -763,11 +808,12 @@ final class TaskEditorViewModel {
             endTime: form.endTime
         )
 
-        let intervalOrNil: Int? = (form.repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
+        let repeatRule: RepeatRule = form.isScheduled ? form.repeatRule : .none
+        let intervalOrNil: Int? = (repeatRule == .everyNDays) ? max(1, form.repeatIntervalDays) : nil
 
-        let reminderEnabled = form.reminderEnabled
+        let reminderEnabled = form.isScheduled && form.reminderEnabled
         let reminderOffset = ReminderPreset.normalizeOffsetMinutes(form.reminderOffsetMinutes)
-        let reminderAllDayTime = form.reminderAllDayTimeMinutes
+        let reminderAllDayTime = form.isScheduled ? form.reminderAllDayTimeMinutes : nil
 
         if let taskId {
             guard let existing = try taskRepository.fetch(by: taskId) else {
@@ -778,16 +824,20 @@ final class TaskEditorViewModel {
                 throw EditorError.repeatingTasksMustUseSeriesSave
             }
 
+            if form.isScheduled {
+                existing.setSchedule(
+                    dayDate: time.startOfDay(form.dayDate),
+                    startTime: normalizedTimes.start,
+                    endTime: normalizedTimes.end
+                )
+            } else {
+                try existing.removeSchedule()
+            }
+
             existing.title = safeTitle
             existing.notes = normalizedNotes
-            existing.setSchedule(
-                dayDate: time.startOfDay(form.dayDate),
-                startTime: normalizedTimes.start,
-                endTime: normalizedTimes.end
-            )
-
-            existing.isAllDay = form.isAllDay
-            existing.repeatRule = form.repeatRule
+            existing.isAllDay = form.isScheduled && form.isAllDay
+            existing.repeatRule = repeatRule
             existing.repeatIntervalDays = intervalOrNil
             existing.normalizeRepeatFields()
 
@@ -802,22 +852,34 @@ final class TaskEditorViewModel {
             try applyPendingStatisticsIdentity(to: existing)
             try taskRepository.save(existing)
         } else {
-            let new = TaskEntity(
-                title: safeTitle,
-                notes: normalizedNotes,
-                dayDate: time.startOfDay(form.dayDate),
-                startTime: normalizedTimes.start,
-                endTime: normalizedTimes.end,
-                isAllDay: form.isAllDay,
-                repeatRule: form.repeatRule,
-                repeatIntervalDays: intervalOrNil,
-                status: .todo,
-                color: form.color,
-                categoryTitle: normalizedCategory,
-                reminderEnabled: reminderEnabled,
-                reminderOffsetMinutes: reminderOffset,
-                reminderAllDayTimeMinutes: reminderAllDayTime
-            )
+            let new: TaskEntity
+            if form.isScheduled {
+                new = TaskEntity(
+                    title: safeTitle,
+                    notes: normalizedNotes,
+                    dayDate: time.startOfDay(form.dayDate),
+                    startTime: normalizedTimes.start,
+                    endTime: normalizedTimes.end,
+                    isAllDay: form.isAllDay,
+                    repeatRule: repeatRule,
+                    repeatIntervalDays: intervalOrNil,
+                    status: .todo,
+                    color: form.color,
+                    categoryTitle: normalizedCategory,
+                    reminderEnabled: reminderEnabled,
+                    reminderOffsetMinutes: reminderOffset,
+                    reminderAllDayTimeMinutes: reminderAllDayTime
+                )
+            } else {
+                new = TaskEntity(
+                    unscheduledTitle: safeTitle,
+                    notes: normalizedNotes,
+                    status: .todo,
+                    color: form.color,
+                    categoryTitle: normalizedCategory
+                )
+                new.reminderOffsetMinutes = reminderOffset
+            }
             new.photoThumbData = form.photoThumbData
             new.normalizeRepeatFields()
             try applyPendingStatisticsIdentity(to: new)
@@ -918,6 +980,9 @@ final class TaskEditorViewModel {
         }
         dateTimeSection.onIsAllDayChange = { [weak self] in
             self?.setIsAllDay($0)
+        }
+        dateTimeSection.onIsScheduledChange = { [weak self] in
+            self?.setIsScheduled($0)
         }
 
         reminderSection.onReminderEnabledChange = { [weak self] newValue in
@@ -1073,10 +1138,7 @@ final class TaskEditorViewModel {
 
         publishDateTimeState()
         publishRepeatState()
-        chrome.updateValidation(
-            timeRangeInvalid: form.isTimeRangeInvalid,
-            repeatInvalid: form.isRepeatInvalid
-        )
+        updateChromeValidation()
     }
 
     private func recalcRepeatConflictAndPublishIfNeeded() {
@@ -1098,10 +1160,7 @@ final class TaskEditorViewModel {
         form.repeatValidationMessage = message
 
         publishRepeatState()
-        chrome.updateValidation(
-            timeRangeInvalid: form.isTimeRangeInvalid,
-            repeatInvalid: form.isRepeatInvalid
-        )
+        updateChromeValidation()
     }
 
     private func computeRepeatConflict(
@@ -1132,6 +1191,7 @@ final class TaskEditorViewModel {
     }
 
     private func publishAllState() {
+        visibility.setScheduled(form.isScheduled)
         publishTitleState()
         publishDescriptionState()
         publishDateTimeState()
@@ -1140,10 +1200,7 @@ final class TaskEditorViewModel {
         colorSection.render(color: form.color)
         photoSection.render(thumbData: form.photoThumbData)
         creationSourceState.updateTitleQuery(form.title)
-        chrome.updateValidation(
-            timeRangeInvalid: form.isTimeRangeInvalid,
-            repeatInvalid: form.isRepeatInvalid
-        )
+        updateChromeValidation()
     }
 
     private func publishTitleState() {
@@ -1160,13 +1217,22 @@ final class TaskEditorViewModel {
 
     private func publishDateTimeState() {
         dateTimeSection.render(
+            isScheduled: form.isScheduled,
+            isScheduleToggleEnabled: canChangeScheduling,
             dayDate: form.dayDate,
             endDayDate: form.endDayDate,
             startTime: form.startTime,
             endTime: form.endTime,
             isAllDay: form.isAllDay,
-            isInvalid: form.isTimeRangeInvalid,
-            timeValidationMessage: form.timeValidationMessage
+            isInvalid: form.isScheduled && form.isTimeRangeInvalid,
+            timeValidationMessage: form.isScheduled ? form.timeValidationMessage : nil
+        )
+    }
+
+    private func updateChromeValidation() {
+        chrome.updateValidation(
+            timeRangeInvalid: form.isScheduled && form.isTimeRangeInvalid,
+            repeatInvalid: form.isScheduled && form.isRepeatInvalid
         )
     }
 
@@ -1213,6 +1279,7 @@ final class TaskEditorViewModel {
         var title: String
         var notes: String
 
+        var isScheduled: Bool
         var dayDate: Date
         var endDayDate: Date
         var startTime: Date
@@ -1339,12 +1406,15 @@ extension TaskEditorViewModel {
 
         private let editMode: TaskEditorMode
         private var isEditingRepeatingOccurrence = false
+        private var isScheduled: Bool
 
-        init(editMode: TaskEditorMode) {
+        init(editMode: TaskEditorMode, isScheduled: Bool) {
             self.editMode = editMode
+            self.isScheduled = isScheduled
             self.content = Self.makeContent(
                 editMode: editMode,
-                isEditingRepeatingOccurrence: false
+                isEditingRepeatingOccurrence: false,
+                isScheduled: isScheduled
             )
         }
 
@@ -1353,13 +1423,25 @@ extension TaskEditorViewModel {
             isEditingRepeatingOccurrence = value
             content = Self.makeContent(
                 editMode: editMode,
-                isEditingRepeatingOccurrence: value
+                isEditingRepeatingOccurrence: value,
+                isScheduled: isScheduled
+            )
+        }
+
+        func setScheduled(_ value: Bool) {
+            guard value != isScheduled else { return }
+            isScheduled = value
+            content = Self.makeContent(
+                editMode: editMode,
+                isEditingRepeatingOccurrence: isEditingRepeatingOccurrence,
+                isScheduled: value
             )
         }
 
         private static func makeContent(
             editMode: TaskEditorMode,
-            isEditingRepeatingOccurrence: Bool
+            isEditingRepeatingOccurrence: Bool,
+            isScheduled: Bool
         ) -> Content {
             let isBaseRecurringIdentityMode = editMode == .baseRecurringIdentity
 
@@ -1368,9 +1450,9 @@ extension TaskEditorViewModel {
                 showsTitleAndCategory: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
                 showsNotesEditor: !isBaseRecurringIdentityMode,
                 showsDateTimeSection: !isBaseRecurringIdentityMode,
-                showsReminderSection: !isBaseRecurringIdentityMode,
+                showsReminderSection: !isBaseRecurringIdentityMode && isScheduled,
                 showsColorSection: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
-                showsRepeatSection: !isEditingRepeatingOccurrence || isBaseRecurringIdentityMode,
+                showsRepeatSection: isScheduled && (!isEditingRepeatingOccurrence || isBaseRecurringIdentityMode),
                 showsPhotoSection: !isBaseRecurringIdentityMode
             )
         }
@@ -1670,6 +1752,8 @@ extension TaskEditorViewModel {
 
     @MainActor
     final class DateTimeSectionState: ObservableObject {
+        @Published private(set) var isScheduled = true
+        @Published private(set) var isScheduleToggleEnabled: Bool
         @Published private(set) var dayDate: Date = .now
         @Published private(set) var endDayDate: Date = .now
         @Published private(set) var startTime: Date = .now
@@ -1683,6 +1767,18 @@ extension TaskEditorViewModel {
         var onStartTimeChange: ((Date) -> Void)?
         var onEndTimeChange: ((Date) -> Void)?
         var onIsAllDayChange: ((Bool) -> Void)?
+        var onIsScheduledChange: ((Bool) -> Void)?
+
+        init(isScheduleToggleEnabled: Bool) {
+            self.isScheduleToggleEnabled = isScheduleToggleEnabled
+        }
+
+        var isScheduledBinding: Binding<Bool> {
+            Binding(
+                get: { self.isScheduled },
+                set: { [weak self] in self?.onIsScheduledChange?($0) }
+            )
+        }
 
         var dayDateBinding: Binding<Date> {
             Binding(
@@ -1720,6 +1816,8 @@ extension TaskEditorViewModel {
         }
 
         func render(
+            isScheduled: Bool,
+            isScheduleToggleEnabled: Bool,
             dayDate: Date,
             endDayDate: Date,
             startTime: Date,
@@ -1728,6 +1826,12 @@ extension TaskEditorViewModel {
             isInvalid: Bool,
             timeValidationMessage: String?
         ) {
+            if self.isScheduled != isScheduled {
+                self.isScheduled = isScheduled
+            }
+            if self.isScheduleToggleEnabled != isScheduleToggleEnabled {
+                self.isScheduleToggleEnabled = isScheduleToggleEnabled
+            }
             if self.dayDate != dayDate {
                 self.dayDate = dayDate
             }
