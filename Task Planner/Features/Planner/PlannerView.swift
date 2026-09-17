@@ -50,7 +50,8 @@ struct PlannerView: View {
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void,
         onOpenUnscheduledTasks: @escaping () -> Void,
-        onOpenRecurringBaseTasks: @escaping () -> Void
+        onOpenRecurringBaseTasks: @escaping () -> Void,
+        onSuccessfulTaskCompletion: @escaping () -> Void
     ) {
         _viewModel = StateObject(
             wrappedValue: PlannerViewModel(
@@ -62,7 +63,8 @@ struct PlannerView: View {
                 onOpenTaskEditor: onOpenTaskEditor,
                 onOpenNotifications: onOpenNotifications,
                 onOpenUnscheduledTasks: onOpenUnscheduledTasks,
-                onOpenRecurringBaseTasks: onOpenRecurringBaseTasks
+                onOpenRecurringBaseTasks: onOpenRecurringBaseTasks,
+                onSuccessfulTaskCompletion: onSuccessfulTaskCompletion
             )
         )
         self.isActive = isActive

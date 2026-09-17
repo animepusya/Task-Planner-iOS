@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+import StoreKit
 
 struct AppRootView: View {
     let container: DependencyContainer
@@ -75,6 +76,9 @@ private struct AppRootContentView: View {
 }
 
 private struct AppRootTabShellView: View {
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.requestReview) private var requestReview
+
     let dependencies: AppRootDependencies
     @Binding var selectedTab: AppTab
     @Binding var statisticsNavigationPath: [AppRoute]
@@ -82,6 +86,8 @@ private struct AppRootTabShellView: View {
 
     @State private var statisticsComparisonViewModel: StatisticsViewModel?
     @State private var loadedTabs: Set<AppTab> = [.planner]
+    @State private var appReviewRequestTask: Task<Void, Never>?
+    @State private var didPresentMonetizationInForegroundSession = false
 
     private var showsTabBar: Bool {
         guard selectedTab == .statistics else { return true }
@@ -124,6 +130,44 @@ private struct AppRootTabShellView: View {
             }
             .onChange(of: selectedTab) { _, newValue in
                 ensureLoaded(newValue)
+
+                if isSafeAppReviewPresentationContext == false {
+                    cancelPendingAppReviewRequest()
+                }
+            }
+            .onChange(of: sheet?.id) { _, _ in
+                if isSafeAppReviewPresentationContext == false {
+                    cancelPendingAppReviewRequest()
+                }
+            }
+            .onChange(of: scenePhase) { _, newValue in
+                if newValue == .background {
+                    didPresentMonetizationInForegroundSession = false
+                }
+
+                if newValue != .active {
+                    cancelPendingAppReviewRequest()
+                }
+            }
+            .onReceive(
+                NotificationCenter.default.publisher(
+                    for: AppReviewRequestPolicy.paywallDidAppearNotification
+                )
+            ) { _ in
+                markMonetizationPresentedInForegroundSession()
+            }
+            .onReceive(dependencies.subscriptionStore.$isPurchaseInFlight) { isInFlight in
+                if isInFlight {
+                    markMonetizationPresentedInForegroundSession()
+                }
+            }
+            .onReceive(dependencies.subscriptionStore.$isRestoreInFlight) { isInFlight in
+                if isInFlight {
+                    markMonetizationPresentedInForegroundSession()
+                }
+            }
+            .onDisappear {
+                cancelPendingAppReviewRequest()
             }
         }
     }
@@ -147,6 +191,9 @@ private struct AppRootTabShellView: View {
             },
             onOpenRecurringBaseTasks: {
                 sheet = .recurringBaseTasks
+            },
+            onSuccessfulTaskCompletion: {
+                handleSuccessfulTaskCompletion()
             }
         )
     }
@@ -188,6 +235,72 @@ private struct AppRootTabShellView: View {
 
     private func ensureLoaded(_ tab: AppTab) {
         loadedTabs.insert(tab)
+    }
+
+    private var isSafeAppReviewPresentationContext: Bool {
+        scenePhase == .active
+        && selectedTab == .planner
+        && sheet == nil
+        && dependencies.subscriptionStore.isPurchaseInFlight == false
+        && dependencies.subscriptionStore.isRestoreInFlight == false
+        && didPresentMonetizationInForegroundSession == false
+    }
+
+    private func handleSuccessfulTaskCompletion() {
+        let policy = dependencies.appReviewRequestPolicy
+        policy.recordSuccessfulCompletion()
+
+        guard let completedOccurrenceCount = completedScheduledOccurrenceCount(),
+              policy.isEligible(
+                completedScheduledOccurrenceCount: completedOccurrenceCount
+              ),
+              isSafeAppReviewPresentationContext else {
+            return
+        }
+
+        appReviewRequestTask?.cancel()
+        appReviewRequestTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(2))
+            } catch {
+                return
+            }
+
+            guard Task.isCancelled == false,
+                  isSafeAppReviewPresentationContext,
+                  let refreshedCompletedOccurrenceCount = completedScheduledOccurrenceCount(),
+                  policy.isEligible(
+                    completedScheduledOccurrenceCount: refreshedCompletedOccurrenceCount
+                  ),
+                  policy.markRequestAttemptedIfNeeded() else {
+                appReviewRequestTask = nil
+                return
+            }
+
+            appReviewRequestTask = nil
+            requestReview()
+        }
+    }
+
+    private func completedScheduledOccurrenceCount() -> Int? {
+        do {
+            return try dependencies.taskRepository.fetchScheduled().reduce(into: 0) {
+                $0 += $1.completedDayKeysSet.count
+            }
+        } catch {
+            assertionFailure("App review completion count failed: \(error)")
+            return nil
+        }
+    }
+
+    private func markMonetizationPresentedInForegroundSession() {
+        didPresentMonetizationInForegroundSession = true
+        cancelPendingAppReviewRequest()
+    }
+
+    private func cancelPendingAppReviewRequest() {
+        appReviewRequestTask?.cancel()
+        appReviewRequestTask = nil
     }
 
     @ViewBuilder

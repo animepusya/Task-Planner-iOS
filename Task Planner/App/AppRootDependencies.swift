@@ -21,6 +21,7 @@ final class AppRootDependencies: ObservableObject {
     let widgetSnapshotSyncService: WidgetSnapshotSyncService
     let subscriptionStore: SubscriptionStore
     let unscheduledTasksUsageStore: UnscheduledTasksUsageStore
+    let appReviewRequestPolicy: AppReviewRequestPolicy
 
     private var isReconcilingNotifications = false
     private var isCleaningUpUnscheduledCalendarEvents = false
@@ -72,6 +73,7 @@ final class AppRootDependencies: ObservableObject {
         self.seriesService = TaskSeriesService(taskRepository: taskRepository)
         self.subscriptionStore = subscriptionStore
         self.unscheduledTasksUsageStore = UnscheduledTasksUsageStore()
+        self.appReviewRequestPolicy = AppReviewRequestPolicy()
     }
 
     func bootstrap() {

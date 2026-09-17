@@ -22,6 +22,7 @@ final class PlannerViewModel: ObservableObject {
     private let onOpenNotifications: () -> Void
     private let onOpenUnscheduledTasks: () -> Void
     private let onOpenRecurringBaseTasks: () -> Void
+    private let onSuccessfulTaskCompletion: () -> Void
     private let seriesService: TaskSeriesService
     private let unscheduledTasksUsageStore: UnscheduledTasksUsageStore
 
@@ -69,7 +70,8 @@ final class PlannerViewModel: ObservableObject {
         onOpenTaskEditor: @escaping (_ taskId: PersistentIdentifier?, _ day: Date) -> Void,
         onOpenNotifications: @escaping () -> Void,
         onOpenUnscheduledTasks: @escaping () -> Void,
-        onOpenRecurringBaseTasks: @escaping () -> Void
+        onOpenRecurringBaseTasks: @escaping () -> Void,
+        onSuccessfulTaskCompletion: @escaping () -> Void
     ) {
         self.taskRepository = taskRepository
         self.preferencesRepository = preferencesRepository
@@ -80,6 +82,7 @@ final class PlannerViewModel: ObservableObject {
         self.onOpenNotifications = onOpenNotifications
         self.onOpenUnscheduledTasks = onOpenUnscheduledTasks
         self.onOpenRecurringBaseTasks = onOpenRecurringBaseTasks
+        self.onSuccessfulTaskCompletion = onSuccessfulTaskCompletion
 
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
@@ -277,6 +280,10 @@ final class PlannerViewModel: ObservableObject {
 
                 taskEntity.toggleCompleted(on: dayKey)
                 try self.taskRepository.save(taskEntity)
+
+                if targetCompleted {
+                    self.onSuccessfulTaskCompletion()
+                }
 
                 self.applyLocalCompletion(taskKey: taskKey, on: dayKey, completed: targetCompleted)
                 self.visualDoneOverride[taskKey] = nil

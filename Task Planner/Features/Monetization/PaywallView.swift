@@ -10,6 +10,7 @@ import SwiftUI
 struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.openURL) private var openURL
+    @Environment(\.scenePhase) private var scenePhase
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
 
     @ScaledMetric(relativeTo: .caption) private var comparisonPlanColumnWidth: CGFloat = 60
@@ -51,8 +52,15 @@ struct PaywallView: View {
             )
         }
         .onAppear {
+            notifyPaywallDidAppear()
+
             if subscriptionStore.isPro, let activePlan = subscriptionStore.catalog.plan(for: subscriptionStore.entitlement.activeProductID) {
                 selectedPlan = activePlan
+            }
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            if newValue == .active {
+                notifyPaywallDidAppear()
             }
         }
     }
@@ -331,6 +339,13 @@ struct PaywallView: View {
         }
 
         notice = await subscriptionStore.purchase(plan: selectedPlan)
+    }
+
+    private func notifyPaywallDidAppear() {
+        NotificationCenter.default.post(
+            name: AppReviewRequestPolicy.paywallDidAppearNotification,
+            object: nil
+        )
     }
 
     private func openLegal(_ link: SubscriptionLegalLink) {
