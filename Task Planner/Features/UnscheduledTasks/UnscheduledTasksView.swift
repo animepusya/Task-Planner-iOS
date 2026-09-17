@@ -49,8 +49,10 @@ struct UnscheduledTasksView: View {
                             .listRowBackground(Color.clear)
                             .listRowSeparator(.hidden)
                     } else {
-                        ForEach(viewModel.tasks) { task in
-                            unscheduledTaskRow(task, metrics: metrics)
+                        Section {
+                            ForEach(viewModel.tasks) { task in
+                                unscheduledTaskRow(task, metrics: metrics)
+                            }
                         }
                     }
                 }
