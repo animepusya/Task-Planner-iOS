@@ -12,11 +12,13 @@ struct PlannerView: View {
     @StateObject private var viewModel: PlannerViewModel
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dsAdaptiveMetrics) private var dsMetrics
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var didTriggerSwipe = false
     @State private var isViewVisible = false
     @State private var headerCollapseProgress: CGFloat = 0
     @State private var headerReservedHeight: CGFloat = 0
+    @State private var currentDay = Calendar.current.startOfDay(for: .now)
     private let swipeThreshold: CGFloat = 72
     private let monthAnim = PlannerViewModel.monthTransitionAnimation
     private let plannerHeaderFallbackHeight: CGFloat = 84
@@ -98,6 +100,7 @@ struct PlannerView: View {
         }
         .background(DS.ColorToken.appBackground.ignoresSafeArea())
         .onAppear {
+            refreshCurrentDay()
             handleVisibilityChange(isActive)
         }
         .onChange(of: isActive) { _, newValue in
@@ -105,6 +108,13 @@ struct PlannerView: View {
         }
         .onDisappear {
             handleVisibilityChange(false)
+        }
+        .onChange(of: scenePhase) { _, newValue in
+            guard newValue == .active else { return }
+            refreshCurrentDay()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            refreshCurrentDay()
         }
         .onReceive(NotificationCenter.default.publisher(for: ModelContext.didSave)) { note in
             guard let context = note.object as? ModelContext, context == modelContext else { return }
@@ -178,6 +188,12 @@ struct PlannerView: View {
         } else {
             viewModel.onViewDisappear()
         }
+    }
+
+    private func refreshCurrentDay() {
+        let nextCurrentDay = Calendar.current.startOfDay(for: .now)
+        guard nextCurrentDay != currentDay else { return }
+        currentDay = nextCurrentDay
     }
 
     private func plannerHeader(collapseProgress: CGFloat) -> some View {
@@ -291,7 +307,10 @@ struct PlannerView: View {
             WeekdaysRowView(symbols: snapshot.weekdaySymbols)
 
             CalendarGridView(
-                days: snapshot.viewDays(selectedDay: viewModel.selectedDay),
+                days: snapshot.viewDays(
+                    selectedDay: viewModel.selectedDay,
+                    currentDay: currentDay
+                ),
                 onSelectDay: { day in
                     viewModel.selectDay(day)
                 }

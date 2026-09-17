@@ -31,6 +31,8 @@ struct CalendarGridView: View {
                     date: day.date,
                     isSelected: day.isSelected,
                     indicatorColors: day.indicatorColors,
+                    showsCompletedTasksIndicator: day.showsCompletedTasksIndicator,
+                    isToday: day.isToday,
                     onTap: { onSelectDay(day.date) }
                 )
                 .opacity(day.isInDisplayedMonth ? 1.0 : 0.0)

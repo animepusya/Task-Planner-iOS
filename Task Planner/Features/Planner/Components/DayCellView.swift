@@ -15,6 +15,8 @@ struct DayCellView: View {
     let isSelected: Bool
 
     let indicatorColors: [TaskColor]
+    let showsCompletedTasksIndicator: Bool
+    let isToday: Bool
     let onTap: () -> Void
 
     private let indAnim: Animation = .easeInOut(duration: 0.18)
@@ -42,18 +44,42 @@ struct DayCellView: View {
                             style: .continuous
                         )
                     )
+                    .overlay {
+                        RoundedRectangle(
+                            cornerRadius: dsMetrics.cornerRadius(12),
+                            style: .continuous
+                        )
+                        .stroke(
+                            isToday && !isSelected ? DS.ColorToken.purple : Color.clear,
+                            lineWidth: dsMetrics.strokeWidth(1.5)
+                        )
+                    }
 
                 indicators
             }
             .frame(maxWidth: .infinity, minHeight: dsMetrics.controlSize(44))
         }
         .buttonStyle(.plain)
+        .accessibilityLabel(date.formatted(date: .complete, time: .omitted))
+        .accessibilityValue(isToday ? String(localized: "Today") : "")
     }
 
     private var indicators: some View {
-        let colors = Array(indicatorColors.prefix(3))
+        let colorLimit = showsCompletedTasksIndicator ? 2 : 3
+        let colors = Array(indicatorColors.prefix(colorLimit).enumerated())
+
         return HStack(spacing: dsMetrics.detailSize(3)) {
-            if colors.isEmpty {
+            if showsCompletedTasksIndicator {
+                Capsule(style: .continuous)
+                    .fill(DS.ColorToken.textSecondary.opacity(0.62))
+                    .frame(
+                        width: dsMetrics.detailSize(7),
+                        height: dsMetrics.detailSize(3)
+                    )
+                    .transition(.opacity.combined(with: .scale(scale: 0.85)))
+            }
+
+            if colors.isEmpty && !showsCompletedTasksIndicator {
                 // placeholder keeps layout stable
                 Color.clear
                     .frame(
@@ -62,7 +88,7 @@ struct DayCellView: View {
                     )
                     .transition(.opacity)
             } else {
-                ForEach(colors, id: \.rawValue) { color in
+                ForEach(colors, id: \.offset) { _, color in
                     Capsule(style: .continuous)
                         .fill(color.uiColor)
                         .frame(
@@ -77,6 +103,9 @@ struct DayCellView: View {
     }
 
     private var indicatorColorsKey: String {
-        indicatorColors.prefix(3).map(\.rawValue).joined(separator: "|")
+        let colors = indicatorColors.prefix(showsCompletedTasksIndicator ? 2 : 3)
+            .map(\.rawValue)
+            .joined(separator: "|")
+        return "\(showsCompletedTasksIndicator)|\(colors)"
     }
 }

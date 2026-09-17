@@ -11,11 +11,13 @@ nonisolated struct PlannerDayContent: Sendable {
     let taskRows: [PlannerTaskRowData]
     let mergedItems: [PlannerSelectedDayItemViewData]
     let indicatorColors: [TaskColor]
+    let showsCompletedTasksIndicator: Bool
 
     static let empty = PlannerDayContent(
         taskRows: [],
         mergedItems: [],
-        indicatorColors: []
+        indicatorColors: [],
+        showsCompletedTasksIndicator: false
     )
 }
 
@@ -74,7 +76,10 @@ nonisolated struct PlannerScreenSnapshotBuilder {
                     date: item.date,
                     dayNumber: item.dayNumber,
                     isInDisplayedMonth: item.isInDisplayedMonth,
-                    indicatorColors: dayContentByDay[calendar.startOfDay(for: item.date)]?.indicatorColors ?? []
+                    indicatorColors: dayContentByDay[calendar.startOfDay(for: item.date)]?.indicatorColors ?? [],
+                    showsCompletedTasksIndicator: dayContentByDay[
+                        calendar.startOfDay(for: item.date)
+                    ]?.showsCompletedTasksIndicator ?? false
                 )
             }
         )
@@ -183,10 +188,17 @@ nonisolated struct PlannerScreenSnapshotBuilder {
             }
         }
 
+        let taskCompletionStates = sortedTaskRows.map { row in
+            sortDoneOverride[row.occurrence.taskKey] ?? row.modelCompleted
+        }
+        let showsCompletedTasksIndicator = taskCompletionStates.isEmpty == false
+            && taskCompletionStates.allSatisfy { $0 }
+
         return PlannerDayContent(
             taskRows: sortedTaskRows,
             mergedItems: mergedItems,
-            indicatorColors: Array(indicatorColors.prefix(3))
+            indicatorColors: Array(indicatorColors.prefix(3)),
+            showsCompletedTasksIndicator: showsCompletedTasksIndicator
         )
     }
 

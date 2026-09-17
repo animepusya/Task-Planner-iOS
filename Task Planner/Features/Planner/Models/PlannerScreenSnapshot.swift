@@ -13,15 +13,18 @@ nonisolated struct PlannerMonthDaySnapshot: Identifiable, Hashable, Sendable {
     let dayNumber: Int
     let isInDisplayedMonth: Bool
     let indicatorColors: [TaskColor]
+    let showsCompletedTasksIndicator: Bool
 
-    func viewData(isSelected: Bool) -> PlannerMonthDayViewData {
+    func viewData(isSelected: Bool, isToday: Bool) -> PlannerMonthDayViewData {
         PlannerMonthDayViewData(
             id: id,
             date: date,
             dayNumber: dayNumber,
             isInDisplayedMonth: isInDisplayedMonth,
             isSelected: isSelected,
-            indicatorColors: indicatorColors
+            indicatorColors: indicatorColors,
+            showsCompletedTasksIndicator: showsCompletedTasksIndicator,
+            isToday: isToday
         )
     }
 }
@@ -33,6 +36,8 @@ nonisolated struct PlannerMonthDayViewData: Identifiable, Hashable, Sendable {
     let isInDisplayedMonth: Bool
     let isSelected: Bool
     let indicatorColors: [TaskColor]
+    let showsCompletedTasksIndicator: Bool
+    let isToday: Bool
 }
 
 nonisolated struct PlannerTaskRowData: Identifiable, Hashable, Sendable {
@@ -93,12 +98,17 @@ nonisolated struct PlannerMonthSnapshot: Hashable, Sendable {
 
     func viewDays(
         selectedDay: Date,
+        currentDay: Date,
         calendar: Calendar = .current
     ) -> [PlannerMonthDayViewData] {
         let normalizedSelectedDay = calendar.startOfDay(for: selectedDay)
+        let normalizedCurrentDay = calendar.startOfDay(for: currentDay)
 
         return days.map { day in
-            day.viewData(isSelected: calendar.isDate(day.date, inSameDayAs: normalizedSelectedDay))
+            day.viewData(
+                isSelected: calendar.isDate(day.date, inSameDayAs: normalizedSelectedDay),
+                isToday: calendar.isDate(day.date, inSameDayAs: normalizedCurrentDay)
+            )
         }
     }
 
