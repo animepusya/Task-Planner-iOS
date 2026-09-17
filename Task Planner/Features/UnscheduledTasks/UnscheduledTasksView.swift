@@ -65,7 +65,6 @@ struct UnscheduledTasksView: View {
                 viewModel.onViewDisappear()
             }
         }
-        .interactiveDismissDisabled()
     }
 
     private var emptyState: some View {
@@ -108,6 +107,7 @@ struct UnscheduledTasksView: View {
                     viewModel.delete(task: task)
                 } label: {
                     Label("Delete", systemImage: "trash")
+                        .labelStyle(.iconOnly)
                 }
             }
             .padding(.vertical, metrics.spacing(6))

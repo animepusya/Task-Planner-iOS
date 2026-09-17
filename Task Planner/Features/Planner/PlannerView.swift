@@ -463,6 +463,7 @@ struct PlannerView: View {
                         ? "arrow.uturn.backward.circle"
                         : "checkmark.circle.fill"
                     )
+                    .labelStyle(.iconOnly)
                 }
                 .tint(DS.ColorToken.purple)
 
@@ -493,6 +494,7 @@ struct PlannerView: View {
                         }
                     } label: {
                         Label("Delete", systemImage: "trash")
+                            .labelStyle(.iconOnly)
                     }
                     .tint(.red)
                 } else {
@@ -500,6 +502,7 @@ struct PlannerView: View {
                         viewModel.delete(taskKey: occurrence.taskKey)
                     } label: {
                         Label("Delete", systemImage: "trash")
+                            .labelStyle(.iconOnly)
                     }
                 }
             }

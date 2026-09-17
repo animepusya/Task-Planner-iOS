@@ -173,6 +173,7 @@ struct RecurringTasksView: View {
                     }
                 } label: {
                     Label("Delete", systemImage: "trash")
+                        .labelStyle(.iconOnly)
                 }
                 .tint(.red)
             }

@@ -34,6 +34,7 @@ struct CategoryListRow: View {
                     showDeleteConfirmation = true
                 } label: {
                     Label("Delete", systemImage: "trash")
+                        .labelStyle(.iconOnly)
                 }
             }
         }
