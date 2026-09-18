@@ -204,18 +204,7 @@ struct PlannerView: View {
             style: .planner
         ) {
             HStack(spacing: dsMetrics.spacing(10)) {
-                IconCircleButton(systemName: "tray.full") {
-                    viewModel.openUnscheduledTasks()
-                }
-                .accessibilityLabel("Unscheduled Tasks")
-                .opacity(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0)
-                .scaleEffect(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0.72)
-                .allowsHitTesting(viewModel.isUnscheduledTasksButtonVisible)
-                .accessibilityHidden(!viewModel.isUnscheduledTasksButtonVisible)
-                .animation(
-                    .spring(response: 0.42, dampingFraction: 0.76),
-                    value: viewModel.isUnscheduledTasksButtonVisible
-                )
+                unscheduledTasksHeaderButton
 
                 IconCircleButton(systemName: "square.stack.3d.up") {
                     viewModel.openRecurringBaseTasks()
@@ -228,6 +217,74 @@ struct PlannerView: View {
                 .accessibilityLabel("Notifications")
             }
         }
+    }
+
+    private var unscheduledTasksHeaderButton: some View {
+        IconCircleButton(systemName: "tray.full") {
+            viewModel.openUnscheduledTasks()
+        }
+        .accessibilityLabel("Unscheduled Tasks")
+        .accessibilityValue(
+            viewModel.unscheduledTaskCount > 0
+            ? "\(viewModel.unscheduledTaskCount)"
+            : ""
+        )
+        .overlay(alignment: .topTrailing) {
+            if viewModel.unscheduledTaskCount > 0 {
+                unscheduledTasksBadge(count: viewModel.unscheduledTaskCount)
+                    .transition(.scale(scale: 0.72).combined(with: .opacity))
+            }
+        }
+        .opacity(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0)
+        .scaleEffect(viewModel.isUnscheduledTasksButtonVisible ? 1 : 0.72)
+        .allowsHitTesting(viewModel.isUnscheduledTasksButtonVisible)
+        .accessibilityHidden(!viewModel.isUnscheduledTasksButtonVisible)
+        .animation(
+            .spring(response: 0.42, dampingFraction: 0.76),
+            value: viewModel.isUnscheduledTasksButtonVisible
+        )
+        .animation(
+            .easeInOut(duration: 0.2),
+            value: viewModel.unscheduledTaskCount
+        )
+    }
+
+    private func unscheduledTasksBadge(count: Int) -> some View {
+        let isOverflow = count > 9
+        let badgeText = isOverflow ? "∞" : "\(count)"
+        let badgeSide = dsMetrics.controlSize(18)
+
+        return Text(badgeText)
+            .font(
+                .system(
+                    size: dsMetrics.fontSize(10, category: .micro),
+                    weight: .bold,
+                    design: .rounded
+                )
+            )
+            .monospacedDigit()
+            .foregroundStyle(.white)
+            .minimumScaleFactor(0.8)
+            .lineLimit(1)
+            .frame(width: badgeSide, height: badgeSide)
+            .background(Circle().fill(DS.ColorToken.purple))
+            .overlay {
+                Circle()
+                    .stroke(DS.Surface.chrome, lineWidth: dsMetrics.strokeWidth(1.5))
+            }
+            .shadow(
+                color: DS.ColorToken.purple.opacity(0.28),
+                radius: dsMetrics.spacing(3),
+                x: 0,
+                y: dsMetrics.spacing(1)
+            )
+            .offset(
+                x: dsMetrics.spacing(3),
+                y: -dsMetrics.spacing(3)
+            )
+            .contentTransition(.numericText(value: Double(count)))
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     private func calendarSection(snapshot: PlannerMonthSnapshot) -> some View {

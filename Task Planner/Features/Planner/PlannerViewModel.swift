@@ -44,12 +44,11 @@ final class PlannerViewModel: ObservableObject {
     private var isViewActive = false
     private var needsStoreReloadOnActivate = false
     private var needsPreferenceReloadOnActivate = false
-    private var unscheduledTaskCount = 0
-
     @Published private(set) var visualDoneOverride: [String: Bool] = [:]
     @Published private(set) var snapshot: PlannerScreenSnapshot = .empty
     @Published private(set) var isMonthTransitionLocked = false
     @Published private(set) var isUnscheduledTasksButtonVisible = false
+    @Published private(set) var unscheduledTaskCount = 0
 
     private var pendingToggleTasks: [String: Task<Void, Never>] = [:]
     private var monthBuildTasks: [PlannerMonthBuildKey: Task<PlannerMonthBuildOutput, Never>] = [:]
